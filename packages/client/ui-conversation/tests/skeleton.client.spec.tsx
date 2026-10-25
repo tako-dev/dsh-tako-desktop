@@ -309,6 +309,8 @@ function mount(
         />
       )
     }
+    // An unoccupied hero title keeps the shipped headline fallback.
+    if (key === 'conversation.hero.brand.title') return <>{opts?.fallback}</>
     return <div data-testid={`view-${opts?.only ?? key}`} />
   }) as ConversationContentProps['renderSlot']
   const renderSlotChain = ((_key, _owner, opts) => (
@@ -387,11 +389,11 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<HeroShellProps['renderSlot']>(() => null)
+    const renderSlot = vi.fn<HeroShellProps['renderSlot']>((_key, _owner, options) => <>{options?.fallback}</>)
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
-    expect(renderSlot).toHaveBeenCalledOnce()
+    expect(renderSlot).toHaveBeenCalledTimes(2)
     expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
     const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
     if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner)) {
@@ -400,6 +402,18 @@ describe('Hero chrome', () => {
     expect(brandMarkOwner.size).toBe(34)
     expect(brandMarkOwner.className).toBeTypeOf('string')
     expect(renderSlot.mock.calls[0]?.[2]?.fallback).toBeTruthy()
+    expect(renderSlot.mock.calls[1]?.[0]).toBe('conversation.hero.brand.title')
+    expect(renderSlot.mock.calls[1]?.[2]?.fallback).toBeTruthy()
+  })
+
+  it('lets a brand occupant replace the headline and its preview badge', () => {
+    const renderSlot = vi.fn<HeroShellProps['renderSlot']>((key, _owner, options) => (
+      key === 'conversation.hero.brand.title' ? <span>Occupied headline</span> : <>{options?.fallback}</>
+    ))
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    expect(view.getByText('Occupied headline')).toBeTruthy()
+    expect(view.queryByText('Into the Unknown')).toBeNull()
+    expect(view.queryByText('Preview')).toBeNull()
   })
 })
 

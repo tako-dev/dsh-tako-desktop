@@ -31,6 +31,8 @@ Mount this plugin in the browser roster of a deployment whose identity is DeepSe
 
 `DSH_CLIENT_BUILD_PROFILE` selects which brand renders. An `official` build shows the official mark and name in the sidebar; any other value leaves the shell fallbacks — the fish mark and the local-build label — in place. The conversation hero shows the animated hero fish from `dsh-client-ui-conversation` regardless of profile, because that fallback is already the official mark. The plugin still loads and validates in both cases; only the registration is profile-gated.
 
+When the page carries the DSH Tako profile global (`__DSH_TAKO_PROFILE__`, set by the Tako bundle), the plugin registers the DSH Tako mark and name in the sidebar in any build profile, and also occupies `conversation.hero.brand.mark` and `conversation.hero.brand.title` so the blank-session hero shows the Tako mark and its own headline without the preview badge. Without that global the hero stays on its fallback.
+
 ### Replacing the brand
 
 A deployment with its own identity leaves this package out and composes another package that occupies the sidebar slots — and the hero slot, which this package leaves on its fallback. Occupying a slot is the only composition route; there is no brand configuration surface here.

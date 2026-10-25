@@ -1,5 +1,6 @@
 import { BrandWordmark, FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 
 /**
  * Render the official mark with the presentation requested by its host surface.
@@ -50,4 +51,16 @@ export function TakoBrandMark({ size }: SidebarBrandMarkOwnerProps) {
  */
 export function TakoBrandName() {
   return <span data-testid="tako-brand-name" style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>DSH Tako</span>
+}
+
+/** Hero headline props: the standard locale seat of the DSH Tako brand namespace. */
+export type TakoHeroTitleProps = PropsLocale<'brand.tako'>
+
+/**
+ * Render the DSH Tako blank-session headline in place of the official headline and preview badge.
+ * @param props - composed slot props.
+ * @returns the headline text.
+ */
+export function TakoHeroTitle({ t }: TakoHeroTitleProps) {
+  return <span data-testid="tako-hero-title">{t('heroHeadline')}</span>
 }

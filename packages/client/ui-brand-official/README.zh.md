@@ -31,6 +31,8 @@ kind: "package-reference"
 
 `DSH_CLIENT_BUILD_PROFILE` 决定渲染哪个品牌。`official` 构建在侧栏显示官方标志与名称；任何其他取值都让外壳回退——鱼形标志与本地构建标签——保持原样。会话首屏无论 profile 如何都显示来自 `dsh-client-ui-conversation` 的动画首屏鱼，因为这个回退本身就是官方标志。两种情况下插件都会照常加载并通过校验；只有注册受 profile 门控。
 
+页面带有 DSH Tako profile 全局变量（`__DSH_TAKO_PROFILE__`，由 Tako bundle 注入）时，插件在任何构建 profile 下都在侧栏注册 DSH Tako 标志与名称，并同时占用 `conversation.hero.brand.mark` 与 `conversation.hero.brand.title`，让空白会话首屏显示 Tako 标志和它自己的标题，不带预览版徽章。没有这个全局变量时首屏保持回退。
+
 ### 替换品牌
 
 自有身份的部署不组合本包，而是组合另一个占据侧栏 slot——以及本包留给回退的首屏 slot——的包。占据 slot 是唯一的组合路径；这里不存在任何品牌配置面。
