@@ -45,6 +45,7 @@ export class DesktopUpdateCoordinator {
    * @param updater - Process-owned Electron updater, replaceable at the network/platform test boundary.
    * @param enabled - Whether this process has a packaged update source.
    * @param currentVersion - Actual installed application version.
+   * @param channel - Installed package channel; omitted test/local callers retain nightly.
    * @param downloadResult - Once per completed download attempt, including platform preparation failures.
    * @param compatibilityGate - Optional fail-closed check for a Tako-compatible release manifest.
    */
@@ -55,6 +56,7 @@ export class DesktopUpdateCoordinator {
     private readonly enabled: () => boolean = () => app.isPackaged && existsSync(join(process.resourcesPath, 'app-update.yml')),
     private readonly currentVersion: () => string = () => app.getVersion(),
     private readonly downloadResult?: (success: boolean, reason?: string) => void,
+    private readonly channel: 'nightly' | 'latest' = 'nightly',
     private readonly compatibilityGate?: (candidateVersion: string) => Promise<void>,
   ) {
     if (updater === autoUpdater) {
@@ -68,8 +70,8 @@ export class DesktopUpdateCoordinator {
     }
     this.updater.autoDownload = false
     this.updater.autoInstallOnAppQuit = false
-    this.updater.channel = 'nightly'
-    this.updater.allowPrerelease = true
+    this.updater.channel = channel
+    this.updater.allowPrerelease = channel === 'nightly'
     // Selecting a channel can enable downgrade in electron-updater.
     this.updater.allowDowngrade = false
     this.updater.on('download-progress', this.onProgress)
@@ -189,6 +191,7 @@ export class DesktopUpdateCoordinator {
       if (result === null) throw new Error('desktop update: no check result was returned')
       const version = result.updateInfo.version
       if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
+      if (this.channel === 'latest' && version.includes('-')) throw new Error('desktop update: latest feed contains a prerelease')
       const candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
       this.candidate = undefined
       if (candidate !== undefined) await this.compatibilityGate?.(candidate)
