@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { startTakoBrowserLogin } from '../src/tako-login.ts'
+import { defaultTakoDeviceName, startTakoBrowserLogin, takoHostLabel } from '../src/tako-login.ts'
 
 function parseCallback(handle: Awaited<ReturnType<typeof startTakoBrowserLogin>>): URL {
   const authorize = new URL(handle.authorizeUrl)
@@ -96,5 +96,40 @@ describe('Tako browser login callback', () => {
     const verifier = payload.code_verifier
     if (verifier === undefined) throw new Error('missing code verifier')
     expect(challenge).toBe(createHash('sha256').update(verifier).digest('base64url'))
+  })
+})
+
+describe('Tako device name', () => {
+  it('names the machine by its first host label', () => {
+    expect(defaultTakoDeviceName('Studio.local', 'darwin')).toBe('DSH-Tako@Studio')
+    expect(defaultTakoDeviceName('build-01.corp.example.com', 'linux')).toBe('DSH-Tako@build-01')
+    expect(defaultTakoDeviceName('DESKTOP-AB12CD', 'win32')).toBe('DSH-Tako@DESKTOP-AB12CD')
+  })
+
+  it('replaces spaces and non-ASCII characters and trims edge punctuation', () => {
+    expect(takoHostLabel('  My  MacBook Pro  ')).toBe('My-MacBook-Pro')
+    expect(defaultTakoDeviceName('张三的 MacBook.local', 'darwin')).toBe('DSH-Tako@MacBook')
+    expect(defaultTakoDeviceName('--_host+_--', 'darwin')).toBe('DSH-Tako@host')
+  })
+
+  it('caps the name at 32 characters without trailing punctuation', () => {
+    const name = defaultTakoDeviceName('a-very-long-workstation-name-x-y-z-and-more', 'linux')
+    expect(name).toBe('DSH-Tako@a-very-long-workstation')
+    expect(name.length).toBeLessThanOrEqual(32)
+    expect(defaultTakoDeviceName('abcdefghijklmnopqrstuvw-xyz', 'linux')).toBe('DSH-Tako@abcdefghijklmnopqrstuvw')
+  })
+
+  it('falls back to the platform when the host name yields nothing', () => {
+    expect(defaultTakoDeviceName('', 'darwin')).toBe('DSH-Tako@darwin')
+    expect(defaultTakoDeviceName('电脑.local', 'win32')).toBe('DSH-Tako@win32')
+    expect(defaultTakoDeviceName('.local', 'linux')).toBe('DSH-Tako@linux')
+  })
+
+  it('sends the default device name when the caller supplies none', async () => {
+    const handle = await startTakoBrowserLogin({ websiteOrigin: 'https://tako.example.test', fetchImpl: vi.fn<typeof fetch>() })
+    try {
+      expect(new URL(handle.authorizeUrl).searchParams.get('device_name')).toBe(defaultTakoDeviceName())
+    } finally { handle.cancel() }
+    await handle.wait
   })
 })

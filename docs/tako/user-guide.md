@@ -34,6 +34,8 @@ The first launch shows a welcome screen with two ways to connect Tako:
 
 The API key is kept in DSH credential storage, never in settings files or chat history. You can replace it later under Settings → Models.
 
+A key created by browser sign-in uses `DSH-Tako@<host name>` as its device name (`DSH-Tako@<platform>` when no host name is available), shown on the Tako authorization page. Signing in again on the same machine replaces that machine's previous key, which stops working; different machines use different device names and do not affect each other.
+
 Arc and similar browsers may open the authorization page in a small popup window (for example Little Arc) instead of a normal tab. Finish signing in and approving in that window; if you missed the popup, switch to the browser and look for it. Then return to DSH Tako.
 
 ## Features

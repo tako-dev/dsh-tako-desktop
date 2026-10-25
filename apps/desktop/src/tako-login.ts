@@ -2,12 +2,42 @@
 
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { hostname as osHostname } from 'node:os'
 
 const MAX_BODY_BYTES = 8 * 1024
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 const API_KEY_PATTERN = /^[\x21-\x7e]{1,512}$/u
 const CLIENT_ID = 'dsh-desktop'
 const CALLBACK_PATH = '/tako/callback'
+const DEVICE_NAME_PREFIX = 'DSH-Tako@'
+/** Tako's limit for the `device_name` authorization parameter. */
+const MAX_DEVICE_NAME_LENGTH = 32
+const DEVICE_NAME_EDGE = /^[-._+]+|[-._+]+$/gu
+
+/**
+ * Reduce a host name to its first DNS label in the characters a Tako device name accepts.
+ * @param hostname - Host name as reported by the operating system, for example `Studio.local`.
+ * @returns The label with other characters replaced by `-`, repeated `-` merged, and edge punctuation removed; empty when nothing remains.
+ */
+export function takoHostLabel(hostname: string): string {
+  return (hostname.trim().split('.')[0] ?? '')
+    .replace(/[^A-Za-z0-9._+-]/gu, '-')
+    .replace(/-{2,}/gu, '-')
+    .replace(DEVICE_NAME_EDGE, '')
+}
+
+/**
+ * Default device name sent to the Tako authorization page. Tako revokes an older token with the same
+ * device name, so the host name keeps machines on one platform from replacing each other's key while a
+ * new sign-in on the same machine still replaces that machine's previous key.
+ * @param hostname - Host name; defaults to os.hostname().
+ * @param platform - Fallback label when the host name yields nothing; defaults to process.platform.
+ * @returns `DSH-Tako@<host label>` or `DSH-Tako@<platform>`, at most 32 characters and never ending in `.`, `-`, `_`, or `+`.
+ */
+export function defaultTakoDeviceName(hostname: string = osHostname(), platform: string = process.platform): string {
+  const label = takoHostLabel(hostname) || takoHostLabel(platform)
+  return `${DEVICE_NAME_PREFIX}${label}`.slice(0, MAX_DEVICE_NAME_LENGTH).replace(/[-._+]+$/u, '')
+}
 
 export type TakoBrowserLoginResult =
   | { readonly ok: true; readonly apiKey: string }
@@ -26,7 +56,7 @@ export interface TakoBrowserLoginOptions {
   readonly timeoutMs?: number
   /** Test-only fetch override. */
   readonly fetchImpl?: typeof fetch
-  /** Optional device label shown on the Tako authorization page. */
+  /** Device label shown on the Tako authorization page; defaults to {@link defaultTakoDeviceName}. */
   readonly deviceName?: string
 }
 
@@ -122,7 +152,7 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
   const codeVerifier = createCodeVerifier()
   const codeChallenge = createCodeChallenge(codeVerifier)
   const fetchImpl = options.fetchImpl ?? fetch
-  const deviceName = options.deviceName ?? `DSH@${process.platform}`
+  const deviceName = options.deviceName ?? defaultTakoDeviceName()
   const abortController = new AbortController()
   // Assigned once the listener is open; the callback handler and finish() read them later.
   const handles: { server?: Server; callbackURL?: string; timer?: NodeJS.Timeout } = {}
