@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-tako",
   "description": "Tako provider and billed media/search tools for DeepSeek Harness",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.1-rc.2",
   "publishConfig": {
     "access": "public"
   },
