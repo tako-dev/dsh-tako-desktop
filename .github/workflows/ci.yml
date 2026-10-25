@@ -71,5 +71,6 @@ jobs:
           packages/client/ui-conversation
           packages/client/ui-layout
           packages/boot/app-boot
+          scripts/tako-build-graph.spec.ts
           scripts/tako-removed-upstream-paths.spec.ts
           scripts/client-build-environment.client.spec.ts
