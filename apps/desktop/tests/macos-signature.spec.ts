@@ -107,6 +107,18 @@ describe('desktop macOS release signature', () => {
     expect(requested.extraMetadata.dshDesktopUpdateChannel).toBe('nightly')
   })
 
+  it('embeds the mandatory-update policy only when the release configures one', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const configured = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
+    expect(configured.extraMetadata).toHaveProperty('dshMandatoryUpdatePolicy.origin', 'https://policy.example.com')
+    const withoutPolicy = Object.fromEntries(Object.entries(RELEASE_ENVIRONMENT)
+      .filter(([name]) => !name.startsWith('DSH_DESKTOP_MANDATORY_UPDATE_')))
+    const signed = createElectronBuilderConfig(withoutPolicy, 'darwin', 'arm64')
+    expect(signed.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
+    expect(signed.mac).toMatchObject({ forceCodeSigning: true, notarize: true })
+    expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
+  })
+
   it('accepts LZMA DMGs through builder validation while rejecting unknown formats', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     for (const arch of ['arm64', 'x64']) {

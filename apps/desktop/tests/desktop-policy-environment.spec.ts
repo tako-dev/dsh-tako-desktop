@@ -9,6 +9,7 @@ const auth = { DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuth
 
 it.each(['test', 'production'] as const)('selects the %s policy and authentication together', (deployment) => {
   const policy = resolveDesktopPolicyEnvironment({ ...origins, ...(deployment === 'test' ? auth : {}), DSH_DESKTOP_AUTO_UPDATE_ENV: deployment })
+    ?? expect.unreachable('a configured policy resolves')
   const origin = deployment === 'test' ? origins.DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN : origins.DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN
   expect(policy).toEqual({ origin, allowedPageOrigins: [origin],
     ...(deployment === 'test' ? { allowedAuthOrigins: ['https://login.example.com'] } : {}),
@@ -47,14 +48,35 @@ it('rejects login origins in production', () => {
     .toThrow('must not configure allowedAuthOrigins')
 })
 
-it.each([{ unsigned: true }, { prepareOnly: true }, {}])('requires policy outside local macOS builds in %j', (options) => {
-  for (const platform of ['win32', 'darwin'] as const) {
-    if (platform === 'darwin' && options.unsigned) {
-      expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform, arch: 'x64' }, options) })
-        .not.toThrow()
-      continue
-    }
-    expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform, arch: 'x64' }, options) })
-      .toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
-  }
+it.each([{}, { DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: '  ' },
+  { DSH_DESKTOP_AUTO_UPDATE_ENV: 'production', DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://test.example.com' }])(
+  'embeds no policy when the selected deployment configures none: %j', (environment) => {
+    expect(resolveDesktopPolicyEnvironment(environment)).toBeUndefined()
+  })
+
+it('keeps validating a partially configured policy', () => {
+  expect(() => resolveDesktopPolicyEnvironment({ ...auth })).toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
+  expect(() => resolveDesktopPolicyEnvironment({ DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://test.example.com' }))
+    .toThrow('allowedAuthOrigins')
+  expect(() => resolveDesktopPolicyEnvironment({ DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'http://test.example.com' }))
+    .toThrow('HTTPS origin')
+})
+
+it.each([
+  ['win32', { unsigned: true }], ['win32', { prepareOnly: true }], ['darwin', { unsigned: true }],
+] as const)('accepts %s configuration without a policy in %j', (platform, options) => {
+  expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform, arch: 'x64' }, options) })
+    .not.toThrow()
+})
+
+it.each([{ unsigned: true }, { prepareOnly: true }])('rejects a partial Windows policy in %j', (options) => {
+  expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test', ...auth }, { platform: 'win32', arch: 'x64' }, options) })
+    .toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
+})
+
+it('reaches the signing inputs of a signed release that configures no policy', () => {
+  expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform: 'win32', arch: 'x64' }) })
+    .toThrow('DSH_DESKTOP_WINDOWS_CER_FILE')
+  expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform: 'darwin', arch: 'arm64' }) })
+    .toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
 })

@@ -140,10 +140,11 @@ describe('Desktop local packaging configuration', () => {
   })
 
   it('checks application and update configuration before Windows credentials while preserving unsigned and preparation modes', () => {
-    // The DSH Tako identifier is the default, so an empty environment stops at the update policy.
+    // The DSH Tako identifier is the default and the mandatory-update policy is optional,
+    // so an empty environment is a complete unsigned configuration.
     expect(() => {
       validateDesktopPackageEnvironment({}, WINDOWS, { unsigned: true })
-    }).toThrow(/DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN/u)
+    }).not.toThrow()
     expect(() => {
       validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'invalid' }, WINDOWS)
     }).toThrow(/reverse-DNS/u)
@@ -164,11 +165,11 @@ describe('Desktop local packaging configuration', () => {
     }).not.toThrow()
   })
 
-  it('accepts unsigned macOS configuration without Apple or update policy settings while keeping release validation', () => {
+  it('accepts unsigned macOS configuration without Apple settings while keeping release validation', () => {
     const local = localMacOSPackageEnvironment({})
     expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
     expect(() => { validateDesktopPackageEnvironment(local, MACOS) })
-      .toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
+      .toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
     expect(() => { validateDesktopPackageEnvironment(RELEASE, MACOS) }).toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
   })
 
