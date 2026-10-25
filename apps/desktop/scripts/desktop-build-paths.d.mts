@@ -82,5 +82,5 @@ export function developmentRuntimeDirectory(
  */
 export function desktopArtifactOutput(
   paths: Pick<DesktopTargetBuildPaths, 'artifacts' | 'unsignedArtifacts' | 'unnotarizedArtifacts'>,
-  mode: { unsigned: boolean, skipNotarization: boolean },
+  mode: { unsigned: boolean, skipNotarization: boolean, unsignedRelease?: boolean },
 ): { directory: string, suffix: string }

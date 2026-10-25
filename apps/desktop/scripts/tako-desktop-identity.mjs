@@ -37,6 +37,26 @@ export const TAKO_DESKTOP_VERSION = '0.1.0'
 /** Environment override for one build's application version, e.g. from a release tag. */
 export const TAKO_DESKTOP_VERSION_ENV = 'DSH_TAKO_DESKTOP_VERSION'
 
+/**
+ * Packaging environment flag ('1') for a DSH Tako Windows release without code signing: the build skips
+ * Authenticode like `--unsigned`, but embeds the GitHub Releases update feed and uses release artifact
+ * names without the `-unsigned` marker. electron-updater verifies no publisher for such a build.
+ * macOS never uses it, because Squirrel.Mac refuses to install updates into an application without a
+ * Developer ID signature.
+ */
+export const TAKO_UNSIGNED_RELEASE_ENV = 'DSH_TAKO_UNSIGNED_RELEASE'
+
+/**
+ * Whether a packaging environment selects the unsigned Windows release mode.
+ * @param {NodeJS.ProcessEnv} env - Packaging environment.
+ * @returns {boolean} True when {@link TAKO_UNSIGNED_RELEASE_ENV} is `1`.
+ */
+export function isTakoUnsignedRelease(env = process.env) {
+  const value = env[TAKO_UNSIGNED_RELEASE_ENV]
+  if (value !== undefined && value !== '0' && value !== '1') throw new Error(`desktop package: ${TAKO_UNSIGNED_RELEASE_ENV} must be 0 or 1`)
+  return value === '1'
+}
+
 /** GitHub Releases feed that electron-updater reads; never the official update origin. */
 export const TAKO_DESKTOP_GITHUB_PUBLISH = Object.freeze({ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop' })
 

@@ -103,6 +103,36 @@ it.each(['--unsigned', '--prepare-only'])('keeps %s hardware-free and creates no
   expect(stages.includes('exec tsx scripts/smoke-packaged-runtime.ts --unsigned')).toBe(mode === '--unsigned')
 })
 
+it('builds an unsigned Windows release without signing hardware while selecting the embedded update feed', async () => {
+  const { run, stages } = supervisor()
+  const invocation = parseDesktopPackageInvocation(['win-x64', '--unsigned-release'], 'win32', 'x64')
+  expect(invocation).toMatchObject({ unsigned: true, unsignedRelease: true })
+  await packageTarget(invocation, environment, run)
+  expect(stages).not.toContain('preflight:windows-signing')
+  expect(withWindowsSigningStage).not.toHaveBeenCalled()
+  const builder = run.run.mock.calls.find(call => call[0].startsWith('exec electron-builder'))
+  expect(builder?.[0]).toBe('exec electron-builder --config electron-builder.config.mjs --win --x64 --publish never')
+  expect(builder?.[3].env).toMatchObject({ DSH_DESKTOP_UNSIGNED: '1', DSH_TAKO_UNSIGNED_RELEASE: '1' })
+  expect(builder?.[3].env).not.toHaveProperty('DSH_DESKTOP_WINDOWS_TOKEN_PIN')
+  expect(stages.at(-1)).toBe('exec tsx scripts/smoke-packaged-runtime.ts --unsigned')
+  expect(writeFileSync).not.toHaveBeenCalled()
+})
+
+it.each([
+  [['mac-arm64', '--unsigned-release'], 'darwin', 'arm64'],
+  [['win-x64', '--unsigned-release', '--dir'], 'win32', 'x64'],
+  [['win-x64', '--unsigned-release', '--prepare-only'], 'win32', 'x64'],
+] as const)('limits --unsigned-release to complete Windows installers: %j', (argv, platform, arch) => {
+  expect(() => parseDesktopPackageInvocation(argv, platform, arch)).toThrow('--unsigned-release builds complete Windows x64 installers only')
+})
+
+it('marks other builds as outside the unsigned Windows release mode', async () => {
+  const { run } = supervisor()
+  await packageTarget(parseDesktopPackageInvocation(['win-x64', '--unsigned'], 'win32', 'x64'), environment, run)
+  const builder = run.run.mock.calls.find(call => call[0].startsWith('exec electron-builder'))
+  expect(builder?.[3].env).toHaveProperty('DSH_TAKO_UNSIGNED_RELEASE', '0')
+})
+
 it('checks the assembled macOS runtime before notarizing and recording the release', async () => {
   const { run, stages } = supervisor()
   vi.mocked(packageMacOSArtifacts).mockImplementationOnce(async () => {

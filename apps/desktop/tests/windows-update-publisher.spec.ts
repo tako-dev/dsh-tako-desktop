@@ -75,6 +75,24 @@ describe('Windows update publisher', () => {
     })
   })
 
+  it('embeds the GitHub update feed and release names in an unsigned Windows release', async () => {
+    const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
+    const base = { DSH_DESKTOP_APP_ID: 'com.example.publisher-test', DSH_DESKTOP_TARGET_PLATFORM: 'win32', DSH_DESKTOP_UNSIGNED: '1' }
+    const release = createElectronBuilderConfig({ ...base, DSH_TAKO_UNSIGNED_RELEASE: '1' }, 'win32', 'x64')
+    expect(release.win.forceCodeSigning).toBe(false)
+    expect(release.win.signtoolOptions.sign).toBeUndefined()
+    expect(release.win.signtoolOptions.publisherName).toBeUndefined()
+    expect(release.artifactName).toBe('DSH-Tako-${version}-${os}-${arch}.${ext}')
+    expect(release.directories.output.replaceAll('\\', '/')).toContain('/.desktop-build/targets/win-x64/unsigned-artifacts')
+    expect(release.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
+    expect(release.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
+    const local = createElectronBuilderConfig(base, 'win32', 'x64')
+    expect(local.artifactName).toBe('DSH-Tako-${version}-${os}-${arch}-unsigned.${ext}')
+    expect(local.publish).toBeNull()
+    expect(() => createElectronBuilderConfig({ ...base, DSH_DESKTOP_UNSIGNED: '0', DSH_TAKO_UNSIGNED_RELEASE: '1' }, 'win32', 'x64'))
+      .toThrow('DSH_TAKO_UNSIGNED_RELEASE requires an unsigned Windows build')
+  })
+
   it.each([true, false])('supplies publisher metadata with explicit Windows target = %s', async (explicitTarget) => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     await withCertificate({ CN: 'Publisher', O: 'Company', C: 'CN' }, async (file, signTool) => {

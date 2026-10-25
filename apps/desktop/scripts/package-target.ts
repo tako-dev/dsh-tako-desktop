@@ -25,6 +25,7 @@ import {
   TAKO_DESKTOP_ARTIFACT_PREFIX,
   TAKO_DESKTOP_GITHUB_PUBLISH,
   TAKO_DESKTOP_PRODUCT_NAME,
+  TAKO_UNSIGNED_RELEASE_ENV,
   resolveTakoDesktopUpdateChannel,
   resolveTakoDesktopVersion,
 } from './tako-desktop-identity.mjs'
@@ -202,6 +203,8 @@ interface DesktopPackageInvocation {
   readonly directory: boolean
   readonly prepareOnly: boolean
   readonly unsigned: boolean
+  /** Unsigned Windows build that embeds the DSH Tako update feed and release artifact names; implies `unsigned`. */
+  readonly unsignedRelease: boolean
   readonly skipNotarization: boolean
   readonly check: boolean
   /** Build identifier to publish under, when this build does not publish the product version. */
@@ -235,6 +238,7 @@ export function parseDesktopPackageInvocation(
       dir: { type: 'boolean', default: false },
       'prepare-only': { type: 'boolean', default: false },
       unsigned: { type: 'boolean', default: false },
+      'unsigned-release': { type: 'boolean', default: false },
       'skip-notarization': { type: 'boolean', default: false },
       check: { type: 'boolean', default: false },
       'build-version': { type: 'string' },
@@ -242,8 +246,12 @@ export function parseDesktopPackageInvocation(
   })
   if (positionals.length > 1) throw new Error('desktop package: expected at most one target')
   const name = positionals[0] ?? hostTargetName(hostPlatform, hostArch)
-  if (values.unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
-  if (values['skip-notarization'] && (name === 'win-x64' || values.unsigned || values['prepare-only'])) {
+  if (values['unsigned-release'] && (name !== 'win-x64' || values['prepare-only'] || values.dir)) {
+    throw new Error('desktop package: --unsigned-release builds complete Windows x64 installers only; macOS updates require a signed application')
+  }
+  const unsigned = values.unsigned || values['unsigned-release']
+  if (unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
+  if (values['skip-notarization'] && (name === 'win-x64' || unsigned || values['prepare-only'])) {
     throw new Error('desktop package: --skip-notarization requires a signed macOS build, without --prepare-only')
   }
   const requestedBuildVersion = values['build-version']?.trim()
@@ -254,7 +262,8 @@ export function parseDesktopPackageInvocation(
     target: resolveDesktopPackageTarget(name, hostPlatform, hostArch),
     directory: values.dir,
     prepareOnly: values['prepare-only'],
-    unsigned: values.unsigned,
+    unsigned,
+    unsignedRelease: values['unsigned-release'],
     skipNotarization: values['skip-notarization'],
     check: values.check,
     requestedBuildVersion,
@@ -443,6 +452,7 @@ export async function packageTarget(
     DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: invocation.skipNotarization ? '1' : '0',
     DSH_DESKTOP_TARGET_PLATFORM: target.platform,
     DSH_DESKTOP_TARGET_ARCH: target.arch,
+    [TAKO_UNSIGNED_RELEASE_ENV]: invocation.unsignedRelease ? '1' : '0',
   }
   const downloadEnv = macOSDownloadEnvironment(targetEnv, mac?.downloadProxy)
   const electronBuilderEnv = desktopElectronBuilderEnvironment(downloadEnv, invocation.unsigned)

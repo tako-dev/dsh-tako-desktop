@@ -16,6 +16,16 @@ export const TAKO_DESKTOP_PACKAGE_NAME: 'dsh-tako-desktop'
 export const TAKO_DESKTOP_VERSION: string
 /** Environment override for one build's application version. */
 export const TAKO_DESKTOP_VERSION_ENV: 'DSH_TAKO_DESKTOP_VERSION'
+/** Packaging environment flag ('1') for an unsigned Windows release that still embeds the GitHub update feed. */
+export const TAKO_UNSIGNED_RELEASE_ENV: 'DSH_TAKO_UNSIGNED_RELEASE'
+
+/**
+ * Whether a packaging environment selects the unsigned Windows release mode.
+ * @param env - Packaging environment.
+ * @returns True when DSH_TAKO_UNSIGNED_RELEASE is `1`; throws for values other than `0` and `1`.
+ */
+export function isTakoUnsignedRelease(env?: NodeJS.ProcessEnv): boolean
+
 /** GitHub Releases feed that electron-updater reads. */
 export const TAKO_DESKTOP_GITHUB_PUBLISH: Readonly<{ provider: 'github'; owner: 'tako-dev'; repo: 'dsh-tako-desktop' }>
 

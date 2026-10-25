@@ -119,6 +119,16 @@ describe('desktop macOS release signature', () => {
     expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
   })
 
+  it('refuses the unsigned Windows release mode for macOS builds', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    for (const unsigned of ['0', '1']) {
+      expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: unsigned, DSH_TAKO_UNSIGNED_RELEASE: '1' }, 'darwin', 'arm64'))
+        .toThrow('DSH_TAKO_UNSIGNED_RELEASE requires an unsigned Windows build')
+    }
+    expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_TAKO_UNSIGNED_RELEASE: 'yes' }, 'darwin', 'arm64'))
+      .toThrow('DSH_TAKO_UNSIGNED_RELEASE must be 0 or 1')
+  })
+
   it('accepts LZMA DMGs through builder validation while rejecting unknown formats', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     for (const arch of ['arm64', 'x64']) {

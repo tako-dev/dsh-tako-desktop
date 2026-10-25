@@ -25,6 +25,8 @@ import {
   TAKO_DESKTOP_PACKAGE_NAME,
   TAKO_DESKTOP_PRODUCT_NAME,
   TAKO_DESKTOP_PROTOCOL,
+  TAKO_UNSIGNED_RELEASE_ENV,
+  isTakoUnsignedRelease,
   resolveTakoDesktopUpdateChannel,
   resolveTakoDesktopVersion,
   takoDesktopPublish,
@@ -70,6 +72,10 @@ export function createElectronBuilderConfig(
     throw new Error('desktop package: DSH_DESKTOP_MACOS_SKIP_NOTARIZATION must be 0 or 1')
   }
   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
+  const unsignedRelease = isTakoUnsignedRelease(env)
+  if (unsignedRelease && (!unsigned || resolvedPlatform !== 'win32')) {
+    throw new Error(`desktop package: ${TAKO_UNSIGNED_RELEASE_ENV} requires an unsigned Windows build`)
+  }
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
   const packagesWindows = resolvedPlatform === 'win32'
   const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
@@ -77,7 +83,7 @@ export function createElectronBuilderConfig(
   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
   const buildPaths = desktopTargetBuildPaths(resolveDesktopBuildTarget(env, hostPlatform, hostArch))
-  const output = desktopArtifactOutput(buildPaths, { unsigned, skipNotarization })
+  const output = desktopArtifactOutput(buildPaths, { unsigned, skipNotarization, unsignedRelease })
   let primaryRuntimeDestination
   let dshDestination
   let windowsCode = []
@@ -102,11 +108,12 @@ export function createElectronBuilderConfig(
   if (windowsSigner !== undefined) {
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
-  // DSH Tako updates come from GitHub Releases only; unsigned builds embed no feed, like the official ones.
+  // DSH Tako updates come from GitHub Releases only; unsigned builds embed no feed, like the official ones,
+  // except the unsigned Windows release, whose installers are the published ones.
   // The packaged manifest always records the DSH Tako channel (`latest` unless DSH_DESKTOP_UPDATE_CHANNEL says
   // otherwise), even for unsigned builds without a feed, so it never falls back to the official `nightly`.
   const channel = resolveTakoDesktopUpdateChannel(env)
-  const update = unsigned ? undefined : { channel }
+  const update = unsigned && !unsignedRelease ? undefined : { channel }
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
   // electron-builder merges extraMetadata into the packaged manifest, so the DSH Tako version here reaches
   // the artifact names, the update feed, and the installed app.getVersion() the updater compares against.
