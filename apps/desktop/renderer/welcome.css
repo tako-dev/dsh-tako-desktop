@@ -105,17 +105,22 @@ body {
 .tagline {
   margin: 0;
   color: var(--dsw-alias-label-secondary);
+  width: min(100%, 720px);
+  max-width: 100%;
   font-size: 24px;
   font-weight: 300;
-  line-height: 40px;
+  line-height: 1.45;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .tagline h1,
 .tagline p {
   margin: 0;
   font: inherit;
+  overflow-wrap: anywhere;
 }
 
 .tagline em {
@@ -128,6 +133,20 @@ body {
 
 :lang(en) .tagline em {
   font-size: inherit;
+}
+
+@media (max-width: 720px) {
+  .welcome {
+    padding-inline: 24px;
+  }
+
+  .tagline {
+    font-size: 21px;
+  }
+
+  .tagline em {
+    font-size: 23px;
+  }
 }
 
 .actions {

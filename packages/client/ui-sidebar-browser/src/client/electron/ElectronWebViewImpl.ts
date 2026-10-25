@@ -39,7 +39,7 @@ export class ElectronWebViewImpl implements BrowserFrame {
    */
   constructor(private readonly options: BrowserPageOptions, private readonly bridge: DesktopBrowserBridge,
     private readonly workspace: (signal: AbortSignal) => Promise<string>,
-    private readonly presentation: ElectronWebviewPresentation) {
+    private readonly presentation: ElectronWebviewPresentation, private readonly sessionId: string) {
     this.checkpoint = currentBrowserTarget(options.initial)
     this.store = createSnapshotStore(emptyBrowserFrame())
   }
@@ -144,12 +144,16 @@ export class ElectronWebViewImpl implements BrowserFrame {
   private async createGuest(attachmentSignal: AbortSignal): Promise<void> {
     this.workspaceKey ??= await this.workspace(attachmentSignal)
     if (attachmentSignal.aborted) return
-    const reservation = await this.bridge.acquire(this.workspaceKey)
+    const reservation = await this.bridge.acquire(this.workspaceKey, this.sessionId)
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- The signal can abort while acquire is pending.
     if (attachmentSignal.aborted) { await this.release(reservation.lease); return }
     this.lease = reservation.lease
     this.guestLifetime = new AbortController()
     const signal = AbortSignal.any([attachmentSignal, this.guestLifetime.signal])
+    const stopSharing = this.bridge.onSharingChanged(reservation.lease, shared => {
+      if (!signal.aborted) this.store.set({ ...this.store.getSnapshot(), sharing: shared ? 'shared' : 'isolated' })
+    })
+    signal.addEventListener('abort', stopSharing, { once: true })
     const element = this.presentation.createElement(reservation)
     this.element = element
     const unsubscribeOpen = this.bridge.onOpenRequested(reservation.lease, (url) => {
@@ -158,6 +162,7 @@ export class ElectronWebViewImpl implements BrowserFrame {
     signal.addEventListener('abort', unsubscribeOpen, { once: true })
     element.addEventListener('dom-ready', () => {
       this.ready = true
+      this.store.set({ ...this.store.getSnapshot(), sharing: this.store.getSnapshot().sharing ?? 'isolated' })
       this.observe(this.store.getSnapshot().address !== 'requested')
       this.loadPending()
     }, { signal })
@@ -185,6 +190,23 @@ export class ElectronWebViewImpl implements BrowserFrame {
       element.addEventListener(name, () => { void this.dropGuest(); this.failed() }, { signal })
     }
     this.presentation.present(element)
+  }
+
+  /** @param shared - explicitly grant or revoke Agent access to this tab. */
+  async setShared(shared: boolean): Promise<void> {
+    const lease = this.lease
+    if (this.lifetime.signal.aborted || lease === undefined || this.store.getSnapshot().sharingPending) return
+    this.store.set({ ...this.store.getSnapshot(), sharingPending: true, sharingFailed: false })
+    try {
+      await this.bridge.setShared(lease, shared)
+    } catch (error) {
+      if (this.lease === lease) {
+        console.error('Desktop browser sharing failed', error)
+        this.store.set({ ...this.store.getSnapshot(), sharingFailed: true })
+      }
+    } finally {
+      if (this.lease === lease) this.store.set({ ...this.store.getSnapshot(), sharingPending: false })
+    }
   }
 
   private loadPending(): void {
@@ -258,6 +280,7 @@ export class ElectronWebViewImpl implements BrowserFrame {
     this.firstDocument = true
     const lease = this.lease
     this.lease = undefined
+    this.store.set({ ...this.store.getSnapshot(), sharing: undefined, sharingPending: false, sharingFailed: false })
     return lease === undefined ? Promise.resolve() : this.release(lease)
   }
 

@@ -1,0 +1,10 @@
+# The Tako bundle is a thin layer over dsh-base. It owns one provider route,
+# the billed capability tools, and the bundled skill. Account credentials stay
+# in dsh-credentials; this patch only carries the reference name.
+- insert:
+    - id: tako
+      name: '@deepseek-ai/dsh-tako'
+      config:
+        apiKeyEnv: TAKO_API_KEY
+        baseURL: !!js process.env.TAKO_BASE_URL || 'https://tako.shiroha.tech'
+

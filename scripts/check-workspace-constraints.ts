@@ -201,6 +201,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // The JSONL backend resolves its private verification Worker relative to
   // import.meta.url; it is shipped without a public package subpath.
   '@deepseek-ai/dsh-session-persistence-jsonl': ['lib/worker.cjs'],
+  // Tako's model-facing skill collection is shipped beside its runtime entry.
+  '@deepseek-ai/dsh-tako': ['skills'],
   // The argv-prefix runner entry ships beside the lib as its own bundle;
   // sandbox-local resolves it through the package's ./runner export. tsdown
   // also shares its generated FFI code through a hashed runtime chunk.

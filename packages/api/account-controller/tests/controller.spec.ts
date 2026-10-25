@@ -47,6 +47,22 @@ it('delegates account operations without coupling profile and balance queries', 
   await expect(controller.signOut(client)).rejects.toBe(failure)
 })
 
+it('returns a redacted Tako quota projection when the bundle is mounted', async () => {
+  const { ctx, controller } = fixture()
+  const quota = {
+    apiId: '42', source: 'user-quota' as const, fetchedAt: '2026-10-14T00:00:00.000Z',
+    plan: { dailyCostLimit: 10 }, usage: { dailyCost: 2 },
+  }
+  ctx.provide('takoClient', { quota: vi.fn(async () => quota) } as never)
+  await expect(controller.getTakoQuota()).resolves.toEqual({ status: 'ready', value: quota })
+})
+
+it('reports Tako quota failures without returning provider details', async () => {
+  const { ctx, controller } = fixture()
+  ctx.provide('takoClient', { quota: vi.fn(async () => { throw { code: 'AUTH', message: 'secret-key rejected' } }) } as never)
+  await expect(controller.getTakoQuota()).resolves.toEqual({ status: 'failed', code: 'AUTH' })
+})
+
 it('delegates bonus reads and acknowledgements without altering their values', async () => {
   const { provider, controller } = fixture()
   const accountId = 'account' as AccountUserId

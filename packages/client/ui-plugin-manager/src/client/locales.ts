@@ -7,9 +7,9 @@ export const INSTALL_PATH_EXAMPLE = '/Users/name/my-plugin'
 
 /** Simplified Chinese dictionary and key source of truth. */
 export const zh = {
-  panel: '插件',
-  title: '插件',
-  intro: '安装、启用和配置插件',
+  panel: '插件市场',
+  title: '插件市场',
+  intro: '发现、安装、启用和配置插件',
   infoLabel: '插件说明',
   infoDescription: '在这里配置官方插件，安装和管理其他插件。内置插件列表及运行状态可在「设置 → 内置插件」中查看',
   loading: '正在读取插件…',
@@ -26,6 +26,7 @@ export const zh = {
   restartNotice: '更改将在下次启动生效',
   overriddenNotice: '{name} 已保存，但被更高优先级的配置覆盖，当前未生效',
   bundlesTitle: '已安装插件',
+  takoCuratedTitle: 'Tako 优选',
   basicTitle: '内置插件配置',
   extensionsTitle: '实验性插件',
   moreTitle: '实验性插件',
@@ -223,9 +224,9 @@ export type PluginManagerLocaleKey = keyof typeof zh
 
 /** English dictionary checked against the Chinese key set. */
 export const en = {
-  panel: 'Plugins',
-  title: 'Plugins',
-  intro: 'Install, enable, and configure plugins',
+  panel: 'Plugin market',
+  title: 'Plugin market',
+  intro: 'Discover, install, enable, and configure plugins',
   infoLabel: 'About plugins',
   infoDescription: 'Configure official plugins and install or manage other plugins here. View the built-in plugin list and runtime status in Settings → Built-in plugins.',
   loading: 'Reading plugins…',
@@ -242,6 +243,7 @@ export const en = {
   restartNotice: 'The change takes effect at the next start',
   overriddenNotice: '{name} was saved, but a higher-priority configuration overrides it, so it is not in effect',
   bundlesTitle: 'Installed plugins',
+  takoCuratedTitle: 'Tako picks',
   basicTitle: 'Built-in plugin settings',
   extensionsTitle: 'Experimental plugins',
   moreTitle: 'Experimental plugins',

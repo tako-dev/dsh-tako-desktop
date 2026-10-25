@@ -87,8 +87,9 @@ export type {
   PiAiThinkingFormat,
   ResolvedPiAiProviderProfile,
 } from './config.ts'
-export { recordKeyFor } from './auth.ts'
-export { supportedProtocols } from './provider.ts'
+export { authContextFrom, credentialStoreFrom, recordKeyFor } from './auth.ts'
+export { buildProvider, supportedProtocols } from './provider.ts'
+export { resolveRouteModels } from './catalog.ts'
 
 export const name = 'llm-pi-ai'
 export const inject = ['llm']

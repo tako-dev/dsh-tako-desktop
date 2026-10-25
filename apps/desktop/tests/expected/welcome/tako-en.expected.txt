@@ -1,0 +1,6 @@
+Sign in to Tako
+DeepSeek Harness
+Welcome to Tako
+Connect Tako to use Tako models and tools in DSH.
+Paste Tako API key
+Sign in with Tako in browser

@@ -4,7 +4,9 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-agent'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { AccountView, SignInAttemptId } from './types.ts'
+import type { AccountView, SignInAttemptId, TakoQuotaView } from './types.ts'
+
+export type * from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
 export class AccountController extends TypertRemoteService {
@@ -34,6 +36,39 @@ export class AccountController extends TypertRemoteService {
   @Remote
   getBalance(client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
     return this.ctx.deepseekAccount.getBalance(client)
+  }
+  /**
+   * Read the current Tako API-key quota for the settings page.
+   *
+   * The method deliberately returns a redacted status projection. API keys
+   * and provider response bodies never cross the Remote boundary. Official
+   * DSH profiles without the Tako bundle report `null`.
+   * @returns A redacted quota result, or null when the Tako service is absent.
+   */
+  @Remote
+  async getTakoQuota(): Promise<TakoQuotaView | null> {
+    const client = this.ctx.get('takoClient') as { quota: () => Promise<NonNullable<TakoQuotaView['value']>> } | undefined
+    if (client === undefined) return null
+    try {
+      const value = await client.quota()
+      return {
+        status: 'ready',
+        value: {
+          ...value.apiId === undefined ? {} : { apiId: value.apiId },
+          source: value.source,
+          fetchedAt: value.fetchedAt,
+          ...value.plan === undefined ? {} : { plan: value.plan },
+          ...value.usage === undefined ? {} : { usage: value.usage },
+        },
+      }
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : 'UNAVAILABLE'
+      const allowed = ['MISSING_CREDENTIAL', 'AUTH', 'TRANSPORT', 'BILLING', 'RATE_LIMIT', 'SERVER'] as const
+      const safeCode: NonNullable<TakoQuotaView['code']> = (allowed as readonly string[]).includes(code)
+        ? code as NonNullable<TakoQuotaView['code']>
+        : 'UNAVAILABLE'
+      return { status: 'failed', code: safeCode }
+    }
   }
   /**
    * Query the granted bonuses Platform has not yet recorded as displayed.

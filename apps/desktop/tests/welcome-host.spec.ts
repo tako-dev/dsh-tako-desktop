@@ -2,9 +2,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
-function transport(preference?: string) {
+function transport(preference?: string, options: { tako?: boolean } = {}) {
   const keys = new Map<string, string>()
   const namespaces = [
+    ...(options.tako ? [{ ns: 'tako', value: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }] : []),
     { ns: 'llm-deepseek', value: { apiKeyEnv: 'CUSTOM_DEEPSEEK_KEY' } },
     { ns: 'llm-pi-ai', value: { profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } },
     { ns: 'locale', value: preference === undefined ? {} : { preference } },
@@ -91,6 +92,25 @@ describe('desktop welcome Web operations', () => {
     expect(await backend.save('sk-example')).toEqual({ ok: false })
     host.send.mockResolvedValueOnce(Response.json({ type: 'server-response', rpcId: 'other', result: { ok: true } }))
     await expect(backend.read()).rejects.toThrow('Web RPC failed')
+  })
+
+  it('validates a Tako key against its model endpoint before storing it', async () => {
+    const host = transport(undefined, { tako: true })
+    const providerFetch = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(
+      async () => new Response(null, { status: 401 }),
+    )
+    const backend = await connectDesktopWelcome(url, host.send, undefined, providerFetch)
+    expect(await backend.read()).toMatchObject({ hasApiKey: false, writable: true })
+    expect(backend.provider).toBe('tako')
+    expect(await backend.save('tako-invalid')).toEqual({ ok: false, reason: 'invalid' })
+    expect(host.keys.has('TAKO_API_KEY')).toBe(false)
+    expect(providerFetch).toHaveBeenCalledWith('https://tako.example/v1/models', expect.objectContaining({
+      headers: { accept: 'application/json', authorization: 'Bearer tako-invalid' },
+    }))
+
+    providerFetch.mockResolvedValueOnce(Response.json({ data: [] }))
+    expect(await backend.save('tako-valid')).toEqual({ ok: true })
+    expect(host.keys.get('TAKO_API_KEY')).toBe('tako-valid')
   })
 
 

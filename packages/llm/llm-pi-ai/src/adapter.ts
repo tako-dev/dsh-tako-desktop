@@ -26,6 +26,7 @@
  * @module dsh-llm-pi-ai/adapter
  */
 
+import { createHash } from 'node:crypto'
 import type {
   Api,
   AuthContext,
@@ -222,6 +223,15 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
   }
 }
 
+/** Match Tako's receipt lookup id for text requests (tool calls add their own id). */
+function dshCorrelationHeader(sessionId: string | undefined, turn: number | undefined): string | undefined {
+  const session = sessionId?.trim() ?? ''
+  const turnId = turn === undefined ? '' : String(turn)
+  if (session === '' && turnId === '') return undefined
+  const payload = `session=${session}\nturn=${turnId}\ntool=`
+  return `dsh-${createHash('sha256').update(payload, 'utf8').digest('hex')}`
+}
+
 /**
  * pi-ai-backed multi-provider adapter. Each operation reads the current
  * profiles, so a configuration change reaches the next request without a
@@ -399,6 +409,10 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade)
+      const correlationId = dshCorrelationHeader(
+        options.sessionId === undefined ? undefined : String(options.sessionId),
+        options.turn,
+      )
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
@@ -407,7 +421,12 @@ export class PiAiAdapter extends LlmAdapter {
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
+        headers: requestHeaders({
+          ...profile.headers,
+          ...options.sessionId === undefined ? {} : { 'x-dsh-session-id': String(options.sessionId) },
+          ...options.turn === undefined ? {} : { 'x-dsh-turn-id': String(options.turn) },
+          ...correlationId === undefined ? {} : { 'x-dsh-correlation-id': correlationId },
+        }),
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false

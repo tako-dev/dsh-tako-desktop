@@ -544,6 +544,8 @@ export interface GenerateOptions {
    * to separate cursors; adapters may map it to model-hidden transport metadata.
    */
   sessionId?: Branded<'SessionId'>
+  /** Current durable turn number stamped by the loop for provider correlation. */
+  turn?: number
   /**
    * Provider-neutral classification for an auxiliary model call. Adapters may
    * map the purpose to model-hidden transport metadata. Ordinary conversation

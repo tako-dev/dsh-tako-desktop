@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-14-tako-integration-bundle.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-14-tako-integration-bundle.md
+/agent-note-tako-integration-bundle-and-first-run-provider-setup:
+  en: 56a4835d96b89170
+  zh: 4e59b08ebfe8ca90
+/agent-note-tako-integration-bundle-and-first-run-provider-setup/problem:
+  en: b2f0933d799d01d9
+  zh: 47f84648448624a5
+/agent-note-tako-integration-bundle-and-first-run-provider-setup/decision:
+  en: a82036722eeb636d
+  zh: 89efa6fbcd240074
+/agent-note-tako-integration-bundle-and-first-run-provider-setup/package-topology:
+  en: d5eadcb2c455b56d
+  zh: 1c3b172e4631e2e5
+/agent-note-tako-integration-bundle-and-first-run-provider-setup/alternatives-considered:
+  en: 4ee33ebb452ec68a
+  zh: 8874b20eeb3926de
+/agent-note-tako-integration-bundle-and-first-run-provider-setup/consequences:
+  en: d11750bee8a94f74
+  zh: 265ec71d8f4b4ce0

@@ -450,6 +450,12 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 |---|---|---|
 | `@deepseek-ai/dsh-subprocess-local` | no | Local-subprocess implementation of the DeepSeek Harness subprocess seam |
 
+## tako
+
+| Package | Config | Description |
+|---|---|---|
+| `@deepseek-ai/dsh-tako` | yes | Tako provider and billed media/search tools for DeepSeek Harness |
+
 ## telemetry
 
 | Package | Config | Description |

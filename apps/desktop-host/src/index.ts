@@ -9,6 +9,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-deepseek-account'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import * as desktopOffice from './office.ts'
+import * as sharedBrowser from './shared-browser.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
@@ -90,6 +91,7 @@ async function main(): Promise<void> {
   })
   process.once('disconnect', () => { void stop() })
   const { ctx } = await application
+  await ctx.plugin(sharedBrowser)
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
   await ctx.plugin(desktopOffice, {

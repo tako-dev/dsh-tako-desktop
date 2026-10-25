@@ -1,0 +1,8 @@
+登录 Tako
+DeepSeek Harness
+连接 Tako 开始使用
+粘贴 Tako API Key，即可使用 Tako 模型和工具。你可以从 Tako 官网获取 key。
+输入 API 密钥 [password]
+保存并继续 [disabled]
+稍后配置
+返回登录

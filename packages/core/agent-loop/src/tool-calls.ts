@@ -73,6 +73,7 @@ export async function executeToolCalls(
     block,
     exec: {
       callId: block.id,
+      turn,
       name: block.name,
       arguments: parseArguments(block.arguments),
       agent,

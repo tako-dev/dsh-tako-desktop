@@ -550,6 +550,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         const input = {
           callId: subCallId,
           rootCallId: exec.rootCallId,
+          ...exec.turn === undefined ? {} : { turn: exec.turn },
           name,
           schema,
           arguments: normalized.dispatched,

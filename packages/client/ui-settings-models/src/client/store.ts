@@ -321,12 +321,25 @@ export type OnboardingReadiness =
   }
 
 /**
+ * Pick the provider the first-run dialog should configure. Tako owns the
+ * `tako` profile, so it takes precedence whenever that route is composed;
+ * ordinary DSH profiles retain the official DeepSeek fallback.
+ * @param state - the Models page join state.
+ * @returns the pathless provider candidate, or undefined when none is mounted.
+ */
+export function onboardingTarget(state: ModelsSettingsState): ProviderRow | undefined {
+  const pathless = state.rows.filter(row => row.entry.settingsPath.length === 0)
+  return pathless.find(row => row.entry.provider === 'tako' && row.entry.settingsNs === 'llm-tako')
+    ?? pathless.find(row => row.entry.provider === 'deepseek-official' && row.entry.settingsNs === 'llm-deepseek')
+}
+
+/**
  * Project first-run readiness from the provider/settings/credential join used
  * by the Models page. The step exists to leave the user with a model to talk
- * to, so ANY usable provider ends it; only when none exists does the official
- * DeepSeek route — the one route the prompt can offer a key field for — decide
- * whether prompting can help. A missing official configurable-provider
- * declaration means the adapter is not repairable by navigating to Models.
+ * to, so ANY usable provider ends it; only when none exists does the selected
+ * pathless Tako or official DeepSeek route decide whether prompting can help.
+ * A missing configurable-provider declaration means the adapter is not
+ * repairable by navigating to Models.
  * @param state - current shared Models join snapshot.
  * @returns the onboarding state without reading a parallel fact source.
  */
@@ -341,10 +354,7 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+  const row = onboardingTarget(state)
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {

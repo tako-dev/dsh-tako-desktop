@@ -37,6 +37,9 @@ export const remoteDefaultResponses: RemoteTable = {
     // ui-settings-account refreshes details after a stored-grant snapshot.
     'account/getProfile': ok(null),
     'account/getBalance': ok(null),
+    // ui-settings-account reads the optional Tako bundle projection independently
+    // of the DeepSeek account stream. Plain web profiles have no Tako bundle.
+    'account/getTakoQuota': ok(null),
     // ui-settings-account bonus notice read and acknowledgement at signing in.
     'account/getUnnotifiedBonuses': ok(null),
     'account/ackBonusNotified': ok(true),

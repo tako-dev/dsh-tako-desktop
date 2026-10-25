@@ -42,6 +42,8 @@ export interface PackageOperationOptions {
   outputBytes: number
   onOutput?: (text: string, stream: 'stdout' | 'stderr') => void
   activateNewBundles?: boolean
+  /** Allow lifecycle/build scripts for an explicitly approved install. */
+  allowBuildScripts?: boolean
   lockWaitMs?: number
   /**
    * Terminate the run once its captured output has been silent for this long, in
@@ -354,7 +356,10 @@ export async function runProfilePnpm(
   // run is killed: a lifecycle script outlives the pnpm process that started it.
   // The CLI keeps the caller's process group, so an interrupt still reaches it.
   const grouped = leadsOwnGroup(options.execution)
-  const child = execa(options.command ?? 'pnpm', [...options.args ?? [], ...args.map(arg => anchorPathSpec(arg, context.cwd))], {
+  const guardInstallScripts = args[0] === 'add' && options.allowBuildScripts !== true && !args.includes('--ignore-scripts')
+  const commandArgs = [...options.args ?? [], ...args.map(arg => anchorPathSpec(arg, context.cwd)),
+    ...guardInstallScripts ? ['--ignore-scripts'] : []]
+  const child = execa(options.command ?? 'pnpm', commandArgs, {
     cwd: dir, env: environment, extendEnv: false, reject: false,
     stdout: options.execution === 'cli' ? 'inherit' : 'pipe',
     stderr: options.execution === 'cli' ? 'inherit' : 'pipe',
@@ -464,6 +469,30 @@ export async function runProfilePnpm(
     // A terminated run's exit status says nothing about what it wrote, so it never reconciles the selection.
     if (exitCode === 0 && !control.stalled) {
       const after = readProfileManifest('dsh', dir)
+      const buildScripts: string[] = []
+      for (const [name, spec] of Object.entries(directDependencies(after))) {
+        const installed = optionalFile(join(dir, 'node_modules', name, 'package.json'))
+        const untouched = beforeDependencies[name] === spec && installedBefore.get(name) === installed
+        if (untouched || options.allowBuildScripts === true || installed === undefined) continue
+        try {
+          const manifest = readProfileManifest('dsh', join(dir, 'node_modules', name))
+          const scripts = (manifest as { scripts?: unknown }).scripts
+          if (scripts !== undefined && typeof scripts === 'object' && scripts !== null
+            && ['preinstall', 'install', 'postinstall'].some(key => typeof (scripts as Record<string, unknown>)[key] === 'string')) {
+            buildScripts.push(name)
+          }
+        } catch (error) { void error }
+      }
+      if (buildScripts.length > 0) {
+        await restore()
+        for (const name of buildScripts) await rm(join(dir, 'node_modules', name), { recursive: true, force: true })
+        const diagnostic = `ERR_PNPM_IGNORED_BUILDS\nIgnored build scripts: ${buildScripts.join(', ')}\n`
+        await log.write(diagnostic)
+        options.onOutput?.(diagnostic, 'stderr')
+        append(Buffer.from(diagnostic))
+        exitCode = 1
+        return { exitCode, output: output.toString('utf8'), truncated, logPath }
+      }
       const warnings: string[] = []
       for (const [name, spec] of Object.entries(directDependencies(after))) {
         const packageDir = join(dir, 'node_modules', name)

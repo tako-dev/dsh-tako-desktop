@@ -19,8 +19,12 @@ export interface BrowserMcpLaunchConfig {
   mode: 'launch'
   /** Whether Chromium runs without a visible window; defaults to true. */
   headless: boolean
+  /** Whether the Agent gets its own profile or an explicitly shared profile. */
+  profileMode?: 'isolated' | 'shared'
   /** Chromium executable; omission uses the upstream server's installation discovery. */
   executablePath?: string
+  /** Root directory for persistent per-Agent browser profiles. */
+  userDataDir?: string
   /** Per-call timeout override in milliseconds; omission uses the MCP client default. */
   toolCallTimeoutMs?: number
 }
@@ -43,7 +47,9 @@ export const BrowserMcpConfig: Schema<BrowserMcpAttachConfig | (Omit<BrowserMcpL
   Schema.object({
     mode: Schema.const('launch').required(),
     headless: Schema.boolean().default(true),
+    profileMode: Schema.union([Schema.const('isolated'), Schema.const('shared')]),
     executablePath: Schema.string().pattern(/\S/u),
+    userDataDir: Schema.string().pattern(/\S/u),
     toolCallTimeoutMs: Schema.number().min(1),
   }),
   Schema.object({
@@ -79,7 +85,7 @@ export interface SessionMcpOptions {
   /** Executable used to start the installed MCP server. */
   command: string
   /** Arguments passed directly without a shell. */
-  args: string[]
+  args: string[] | ((agent: Agent) => string[])
   /** Explicit overrides merged into the MCP client's scrubbed child environment. */
   env?: Record<string, string>
   /** Per-call timeout override; omission retains the MCP client default. */
@@ -149,7 +155,7 @@ export function mountSessionMcp(ctx: Context, options: SessionMcpOptions): void 
             transport: 'stdio',
             serverName: options.name,
             command: options.command,
-            args: options.args,
+            args: typeof options.args === 'function' ? options.args(agent) : options.args,
             ...options.env === undefined ? {} : { env: options.env },
             cwd: await workingDirectory.ensure(agent, signal),
             ...options.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: options.toolCallTimeoutMs },

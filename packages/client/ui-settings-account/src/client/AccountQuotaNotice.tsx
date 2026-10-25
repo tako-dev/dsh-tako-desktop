@@ -30,6 +30,7 @@ export function AccountQuotaNotice({ matched, openPlatformPage, useAccount, useP
   const { dismiss, keepOpen, message } = matched
   const accountStatus = useAccount(snapshot => snapshot.view?.status)
   const accountFailed = useAccount(snapshot => snapshot.failed)
+  const takoMode = useAccount(snapshot => snapshot.takoMode)
   const signedIn = accountStatus === 'credential-stored'
   const platformPage = usePlatformPage(current => current)
   const [opened, setOpened] = useState(false)
@@ -55,6 +56,7 @@ export function AccountQuotaNotice({ matched, openPlatformPage, useAccount, useP
     }
     previousSignedIn.current = signedIn
   }, [dismiss, signedIn])
+  if (takoMode === true) return null
   // Await the first account snapshot without letting a Toast timer discard the
   // notice before the native account action becomes available. A terminal stream
   // failure ends that wait and leaves the generic warning available.

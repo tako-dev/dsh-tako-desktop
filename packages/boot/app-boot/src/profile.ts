@@ -175,6 +175,19 @@ export function resolveProfileDir(name: string, home: string = resolveDshHome())
   return join(home, PROFILES_DIR, name)
 }
 
+/**
+ * Shipped Tako-first defaults. These are ordinary optional bundles: the signed
+ * release catalog may add or remove entries, while the profile stays usable if
+ * that catalog is unavailable.
+ */
+export const TAKO_DEFAULT_BUNDLES: readonly string[] = [
+  '@deepseek-ai/dsh-experimental-tako-browser-bundle',
+  '@deepseek-ai/dsh-experimental-session-search',
+  '@deepseek-ai/dsh-experimental-session-titles-bundle',
+  '@deepseek-ai/dsh-experimental-terminal-bundle',
+  '@deepseek-ai/dsh-experimental-voice-input-bundle',
+]
+
 /** The shipped profile templates auto-initialized on first use, by name. */
 export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   acp: {
@@ -182,6 +195,9 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   },
   web: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+  },
+  tako: {
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-tako', ...TAKO_DEFAULT_BUNDLES],
   },
   headless: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
@@ -232,6 +248,7 @@ export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-experimental-auto-review',
   '@deepseek-ai/dsh-experimental-inspector-profile',
   '@deepseek-ai/dsh-experimental-tool-worktree',
+  '@deepseek-ai/dsh-experimental-tako-browser-bundle',
 ]
 
 const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:

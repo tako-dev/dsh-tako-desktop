@@ -68,6 +68,7 @@ export {
   loadProfileDirectory,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
+  TAKO_DEFAULT_BUNDLES,
   PROFILES_DIR,
   readProfileManifest,
   reportSkippedBundles,

@@ -6,12 +6,16 @@ import { Welcome } from '../src/client/WelcomePage.tsx'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
+import type { WelcomeApi, WelcomeProviderLoginResult, WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
 
 const html = readFileSync(join(import.meta.dirname, '../renderer/welcome.html'), 'utf8')
 afterEach(cleanup)
 
-function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotice | undefined>>().mockResolvedValue(undefined)) {
+function mount(
+  language = 'zh-CN',
+  takeNotice = vi.fn<() => Promise<WelcomeNotice | undefined>>().mockResolvedValue(undefined),
+  provider: WelcomeApi['provider'] = 'deepseek',
+) {
   cleanup()
   const stopAccount = vi.fn()
   const api = {
@@ -22,6 +26,9 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
     startSignIn: vi.fn(async (): Promise<AccountView> => ({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null })),
     cancelSignIn: vi.fn(async (): Promise<AccountView> => ({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null })),
     copySignInLink: vi.fn(async () => undefined),
+    openProviderSite: vi.fn<() => Promise<WelcomeProviderLoginResult>>().mockResolvedValue({ ok: true }),
+    cancelProviderLogin: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    provider,
     ...resolveDesktopLocale(language),
     saveApiKey: vi.fn<(value: string) => Promise<WelcomeSaveResult>>().mockResolvedValue({ ok: true }),
     skip: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -57,6 +64,53 @@ describe('desktop welcome presentation', () => {
     expect(view.document.activeElement).toBe(view.input)
     expect(view.input.type).toBe('password')
     await expect(view.copy()).toMatchFileSnapshot(`./expected/welcome/${language}-api-key.expected.txt`)
+  })
+
+  it.each(['zh-CN', 'en'])('offers Tako key entry first and browser sign-in: %s', async (language) => {
+    const view = mount(language, undefined, 'tako')
+    expect(view.document.querySelector('#welcome-description')!.textContent).toBe(view.api.messages.takoWelcomeDescription)
+    expect(view.document.querySelector('#entry-actions button')?.id).toBe('api-key')
+    await expect(view.copy()).toMatchFileSnapshot(`./expected/welcome/tako-${language}.expected.txt`)
+    fireEvent.click(view.button('#api-key'))
+    expect(view.document.querySelector('#key-title')!.textContent).toBe(view.api.messages.takoWelcomeKeyTitle)
+    expect(view.document.querySelector('#key-description')!.textContent).toBe(view.api.messages.takoWelcomeKeyDescription)
+    await expect(view.copy()).toMatchFileSnapshot(`./expected/welcome/tako-${language}-api-key.expected.txt`)
+    fireEvent.click(view.button('#back-to-login'))
+    await act(async () => { fireEvent.click(view.button('#sign-in')) })
+    expect(view.api.openProviderSite).toHaveBeenCalledOnce()
+    expect(view.api.startSignIn).not.toHaveBeenCalled()
+  })
+
+  it.each(['invalid', 'network'] as const)('keeps Tako key entry open with an actionable %s error', async (reason) => {
+    const view = mount('zh-CN', undefined, 'tako')
+    view.api.saveApiKey.mockResolvedValueOnce({ ok: false, reason })
+    fireEvent.click(view.button('#api-key'))
+    view.enterKey('test-key')
+    await act(async () => { view.submit() })
+    expect(screen.getByRole('alert').textContent).toBe(reason === 'invalid' ? view.api.messages.takoWelcomeKeyInvalid : view.api.messages.takoWelcomeKeyNetwork)
+    expect(view.input.value).toBe('test-key')
+    expect(view.button('#save-key').disabled).toBe(false)
+  })
+
+  it('does not replace Tako onboarding with unrelated DeepSeek account events', () => {
+    const view = mount('en', undefined, 'tako')
+    act(() => { view.api.onAccountState.mock.calls[0]![0]({ status: 'signed-out',
+      links: { usageUrl: 'https://example.test', topUpUrl: 'https://example.test' },
+      attempt: { id: 'other-login' as NonNullable<AccountView['attempt']>['id'], phase: 'initializing' } }) })
+    expect(view.button('#api-key').closest('[hidden]')).toBeNull()
+  })
+
+  it('shows the Tako browser handoff state and reports a cancelled callback', async () => {
+    const view = mount('en', undefined, 'tako')
+    const login = Promise.withResolvers<Awaited<ReturnType<NonNullable<WelcomeApi['openProviderSite']>>>>()
+    view.api.openProviderSite.mockReturnValueOnce(login.promise)
+    fireEvent.click(view.button('#sign-in'))
+    expect(view.button('#sign-in').disabled).toBe(true)
+    expect(view.document.querySelector<HTMLElement>('#tako-login-status')!.hidden).toBe(false)
+    fireEvent.click(view.button('#cancel-tako-login'))
+    expect(view.api.cancelProviderLogin).toHaveBeenCalledOnce()
+    login.resolve({ ok: false, reason: 'cancelled' })
+    await vi.waitFor(() => { expect(view.document.querySelector('#tako-login-error')!.textContent).toBe(view.api.messages.takoWelcomeLoginCancelled) })
   })
 
   it('sends one trimmed key, prevents competing actions, and clears it after saving', async () => {

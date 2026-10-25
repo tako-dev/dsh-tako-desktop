@@ -622,6 +622,7 @@ export class ReactLoopAgent implements Agent {
     signal: AbortSignal,
   ): GenerateOptions {
     const { session } = this
+    const { turn } = position
     const surfaceGeneration = session.surface.contentGeneration
     const header = canonicalHeader({
       config,
@@ -698,6 +699,7 @@ export class ReactLoopAgent implements Agent {
       toolHistory: session.toolHistory(),
       ...header.tools !== undefined ? { tools: header.tools } : {},
       sessionId: this.session.id,
+      turn,
       signal,
     }))
     return request

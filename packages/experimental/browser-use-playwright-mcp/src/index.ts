@@ -1,5 +1,6 @@
 /** Chromium browser tools from the pinned Playwright MCP server. @module */
 
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
@@ -36,15 +37,21 @@ export function apply(ctx: Context, config: Config): void {
   if (config.mode === 'attach') {
     args.push('--cdp-endpoint', config.endpoint)
   } else {
-    args.push('--isolated')
+    const profileRoot = config.userDataDir ?? join(homedir(), '.dsh', 'tako', 'agent-browser')
     if (config.headless) args.push('--headless')
     if (config.executablePath !== undefined) args.push('--executable-path', config.executablePath)
+    // The MCP server accepts a persistent profile directory. Isolated mode
+    // derives one from the Agent id; shared mode is explicit and keeps the
+    // configured root unchanged for a user-selected shared profile.
+    args.push('--user-data-dir', profileRoot)
   }
   mountSessionMcp(ctx, {
     name: 'playwright-mcp',
     exclusive: config.mode === 'attach',
     command: process.execPath,
-    args,
+    args: config.mode === 'launch'
+      ? agent => config.profileMode === 'shared' ? args : [...args.slice(0, -1), join(args.at(-1)!, String(agent.id))]
+      : args,
     env,
     ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },
   })

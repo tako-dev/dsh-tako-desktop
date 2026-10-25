@@ -10,9 +10,12 @@ let sequence = 0
 /** @returns one isolated, explicitly mounted page with native operations replaced by spies. */
 export function electronFixture(initial?: BrowserTabState) {
   const opens = new Set<(url: string) => void>()
+  const sharing = new Set<(shared: boolean) => void>()
   const reservation: DesktopBrowserReservation = { lease: `lease-${++sequence}` as DesktopBrowserLeaseId, partition: 'partition' }
   const bridge = {
     acquire: vi.fn(async (_workspace: string) => reservation),
+    setShared: vi.fn(async (_lease: DesktopBrowserLeaseId, shared: boolean) => { for (const listener of sharing) listener(shared) }),
+    onSharingChanged: vi.fn((_lease: DesktopBrowserLeaseId, listener: (shared: boolean) => void) => { sharing.add(listener); return () => { sharing.delete(listener) } }),
     release: vi.fn(async (_lease: DesktopBrowserLeaseId) => {}),
     onOpenRequested: vi.fn((_lease: DesktopBrowserLeaseId, listener: (url: string) => void) => {
       opens.add(listener)
@@ -22,7 +25,7 @@ export function electronFixture(initial?: BrowserTabState) {
   const workspace = vi.fn(async (_signal: AbortSignal) => 'cwd:/workspace')
   const persist = vi.fn()
   const openRequested = vi.fn()
-  const page = createElectronPage({ initial, persist, openRequested }, bridge, workspace)
+  const page = createElectronPage({ initial, persist, openRequested }, bridge, workspace, 'session')
   const presentation = page.presentation
   if (!(presentation instanceof ElectronWebviewPresentation)) throw new Error('expected the Electron presentation')
   const create = presentation.createElement.bind(presentation)
@@ -48,7 +51,7 @@ export function electronFixture(initial?: BrowserTabState) {
   host.id = `electron-fixture-${sequence}`
   document.body.append(host)
   return {
-    ...page, presentation, bridge, workspace, persist, openRequested, opens, guests, host, reservation,
+    ...page, presentation, bridge, workspace, persist, openRequested, opens, sharing, guests, host, reservation,
     mount: () => presentation.mount(host.id),
     async guest() {
       await vi.waitFor(() => { expectGuest() })

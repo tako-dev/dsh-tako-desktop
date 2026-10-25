@@ -18,6 +18,12 @@ export interface BrowserFrameState {
   readonly error: BrowserLoadError | undefined
   /** Undefined when this provider does not expose a sandbox control. */
   readonly sandboxEnabled: boolean | undefined
+  /** Whether the user tab is available to the Agent through explicit sharing. */
+  readonly sharing: 'isolated' | 'shared' | undefined
+  /** UI reports failed sharing without changing the previous committed grant. */
+  readonly sharingFailed?: boolean
+  /** Prevent overlapping share commands. */
+  readonly sharingPending?: boolean
 }
 
 /** Optional iframe policy control, not an Electron process-sandbox switch. */
@@ -37,6 +43,8 @@ export interface BrowserFrame extends HostObservable<BrowserFrameState> {
   goForward(): void
   /** Reload the current address without creating a new history entry. */
   reload(): void
+  /** @param shared - explicitly grant or revoke Agent access to this tab. */
+  setShared?(shared: boolean): Promise<void>
   /** @returns after the page, listeners and pending initialization have been released; repeated calls join disposal. */
   dispose(): Promise<void>
 }
@@ -47,5 +55,5 @@ export interface BrowserFrame extends HostObservable<BrowserFrameState> {
  */
 export function emptyBrowserFrame(): BrowserFrameState {
   return { target: undefined, address: 'empty', loading: false, canGoBack: false, canGoForward: false,
-    error: undefined, sandboxEnabled: undefined }
+    error: undefined, sandboxEnabled: undefined, sharing: undefined }
 }

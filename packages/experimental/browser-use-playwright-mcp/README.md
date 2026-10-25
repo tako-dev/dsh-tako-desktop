@@ -41,11 +41,12 @@ Use `mode: attach` and set `endpoint` to an HTTP(S) debugging URL or WS(S) brows
 |---|---|---|
 | `mode` | required | `launch` or `attach`, fixed for this provider activation |
 | `headless` | `true` | Launch without a visible window |
+| `profileMode` | `isolated` | Give each Agent its own persistent profile, or explicitly use the configured shared root |
 | `executablePath` | upstream discovery | Chromium executable for launch |
 | `endpoint` | required for attach | Existing browser debugging endpoint |
 | `toolCallTimeoutMs` | MCP client default | Per-call timeout in milliseconds |
 
-The [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-browser-use-playwright-mcp) lists accepted fields. The profile or preset selects the browser mode. The child process clears inherited `PLAYWRIGHT_MCP_*` options so they cannot replace that configuration.
+The [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-browser-use-playwright-mcp) lists accepted fields. The profile or preset selects the browser mode. `profileMode: shared` is an explicit opt-in for a configured `userDataDir`; the default keeps cookies and storage isolated per Agent. The child process clears inherited `PLAYWRIGHT_MCP_*` options so they cannot replace that configuration.
 
 When configuring the system prompt's `toolOrder` for the whole process, leave browser tools under `<unlisted-tools>`. Explicitly listing browser tool names can make prompt assembly fail for Sessions without a browser connection.
 

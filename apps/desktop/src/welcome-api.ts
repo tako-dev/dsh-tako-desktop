@@ -13,12 +13,24 @@ export const WELCOME_IPC = {
   start: 'dsh-welcome:start',
   cancel: 'dsh-welcome:cancel',
   copyLink: 'dsh-welcome:copy-link',
+  openProviderSite: 'dsh-welcome:open-provider-site',
+  cancelProviderLogin: 'dsh-welcome:cancel-provider-login',
   state: 'dsh-welcome:state',
   takeNotice: 'dsh-welcome:take-notice',
 } as const
 
+/** Provider family selected by the installed Desktop profile. */
+export type WelcomeProvider = 'deepseek' | 'tako'
+
 /** Credential writes return a safe outcome without exposing Host diagnostics. */
-export type WelcomeSaveResult = { readonly ok: true } | { readonly ok: false }
+export type WelcomeSaveResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason?: 'invalid' | 'network' }
+
+/** Safe browser-login outcome exposed to the welcome renderer; the API key stays in the host. */
+export type WelcomeProviderLoginResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'cancelled' | 'expired' | 'failed' }
 
 /** One-time notification retained by the main process until Welcome receives it. */
 export type WelcomeNotice = 'session-expired'
@@ -27,6 +39,8 @@ type WelcomeEventName = 'auth_page_view' | 'auth_page_click' | 'api_key_save_cli
 
 /** Host-owned operations used by the welcome window. */
 export interface WelcomeOperations {
+  /** Provider family whose credential the native page writes. */
+  provider?: WelcomeProvider
   /** @param eventName - allowed welcome event. @param attributes - approved fields without credentials. */
   analytics?<K extends WelcomeEventName>(eventName: K, attributes: ProductEventMap[K]): Promise<void>
   /** @returns the Host's current effective collection policy. */
@@ -39,6 +53,10 @@ export interface WelcomeOperations {
   cancelSignIn(id: SignInAttemptId): Promise<AccountView>
   /** @param id - current waiting attempt whose authorization URL is copied to the system clipboard. */
   copySignInLink(id: SignInAttemptId): Promise<void>
+  /** Open the provider's official account page when native OAuth is unavailable. */
+  openProviderSite?(): Promise<WelcomeProviderLoginResult>
+  /** Cancel a pending provider-owned browser callback. */
+  cancelProviderLogin?(): Promise<void>
 
   /**
    * Store the official provider's key before entering the workspace.

@@ -3,6 +3,7 @@ import type { ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/typ
 
 import { randomUUID } from 'node:crypto'
 import { desktopAccountBackend, type DesktopAccountBackend } from './account-backend.ts'
+import type { WelcomeProvider } from './welcome-api.ts'
 
 /** Metadata needed before the native entry or workspace becomes visible. */
 export interface WelcomeState {
@@ -14,6 +15,8 @@ export interface WelcomeState {
 
 /** Narrow operations available to the native welcome flow. */
 export interface DesktopWelcomeBackend {
+  /** Provider family selected by the loaded profile. */
+  readonly provider: WelcomeProvider
   /** @returns the current Host policy; every read observes live configuration. */
   analyticsEnabled(): Promise<boolean>
   readonly account: DesktopAccountBackend
@@ -27,7 +30,7 @@ export interface DesktopWelcomeBackend {
    * @param apiKey - User-entered official provider key.
    * @returns A safe write outcome without provider diagnostics.
    */
-  save(apiKey: string): Promise<{ ok: boolean }>
+  save(apiKey: string): Promise<{ ok: true } | { ok: false; reason?: 'invalid' | 'network' }>
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -44,6 +47,7 @@ export async function connectDesktopWelcome(
   authenticatedUrl: string,
   send: (input: string, init?: RequestInit) => Promise<Response>,
   cookies: () => Promise<string> = () => Promise.resolve(''),
+  providerFetch: (input: string, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<DesktopWelcomeBackend> {
   const origin = new URL(authenticatedUrl).origin
   const authenticated = await send(authenticatedUrl, { credentials: 'include' })
@@ -69,15 +73,32 @@ export async function connectDesktopWelcome(
     return envelope.result.value
   }
   const account = desktopAccountBackend(origin, invoke, cookies)
-  const settingsAndReference = async () => {
+  let selectedProvider: WelcomeProvider = 'deepseek'
+  const settingsAndReference = async (): Promise<{
+    settings: { namespaces: unknown[] }
+    ref: string | undefined
+    provider: WelcomeProvider
+    baseURL: string | undefined
+  }> => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
+    const tako: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'tako')
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: undefined }
-    if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
-      throw new Error('desktop welcome: missing official DeepSeek credential reference')
+    const selected = tako ?? official
+    if (selected === undefined) {
+      selectedProvider = 'deepseek'
+      return { settings: { namespaces: settings.namespaces }, ref: undefined, provider: selectedProvider, baseURL: undefined }
     }
-    return { settings: { namespaces: settings.namespaces }, ref: official.value.apiKeyEnv }
+    if (!record(selected) || !record(selected.value) || typeof selected.value.apiKeyEnv !== 'string') {
+      throw new Error(`desktop welcome: missing ${selected === tako ? 'Tako' : 'official DeepSeek'} credential reference`)
+    }
+    selectedProvider = selected === tako ? 'tako' : 'deepseek'
+    return {
+      settings: { namespaces: settings.namespaces },
+      ref: selected.value.apiKeyEnv,
+      provider: selectedProvider,
+      baseURL: typeof selected.value.baseURL === 'string' ? selected.value.baseURL : undefined,
+    }
   }
   const localePreference = (namespaces: unknown[]): string | null => {
     const locale: unknown = namespaces.find((item: unknown) => record(item) && item.ns === 'locale')
@@ -88,7 +109,7 @@ export async function connectDesktopWelcome(
     return locale.value.preference ?? null
   }
   const read = async (): Promise<WelcomeState> => {
-    const { settings, ref } = await settingsAndReference()
+    const { settings, ref, provider } = await settingsAndReference()
     const providers = await invoke({ namespace: 'llm', method: 'listConfigurableProviders', args: {} })
     if (!Array.isArray(providers)) throw new Error('desktop welcome: invalid provider directory')
     const namespaces = settings.namespaces
@@ -114,13 +135,19 @@ export async function connectDesktopWelcome(
     }
     if (ref !== undefined && !record(states[ref])) throw new Error('desktop welcome: missing credential metadata')
     return {
-      loggedIn: (await account.state()).status === 'credential-stored',
-      hasApiKey: Object.values(states).some(value => record(value) && value.configured === true),
+      // The native account flow belongs to DeepSeek. A configured DeepSeek
+      // account must not suppress Tako onboarding when the Tako profile is
+      // mounted, so only the selected provider can satisfy the key step.
+      loggedIn: provider === 'deepseek' && (await account.state()).status === 'credential-stored',
+      hasApiKey: selectedProvider === 'tako' && ref !== undefined
+        ? record(states[ref]) && states[ref].configured === true
+        : Object.values(states).some(value => record(value) && value.configured === true),
       writable: ref !== undefined && record(states[ref]) && states[ref].writable === true,
       localePreference: localePreference(namespaces),
     }
   }
   return {
+    get provider() { return selectedProvider },
     account,
     read,
     async analyticsEnabled() {
@@ -137,8 +164,32 @@ export async function connectDesktopWelcome(
     async save(apiKey) {
       if (!/^[\x21-\x7e]+$/.test(apiKey)) return { ok: false }
       try {
-        const { ref } = await settingsAndReference()
+        const { ref, provider, baseURL } = await settingsAndReference()
         if (ref === undefined) return { ok: false }
+        if (provider === 'tako') {
+          if (baseURL === undefined) return { ok: false, reason: 'network' }
+          let origin: string
+          try {
+            const url = new URL(baseURL)
+            if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, reason: 'network' }
+            origin = url.origin
+          } catch {
+            return { ok: false, reason: 'network' }
+          }
+          let response: Response
+          try {
+            response = await providerFetch(`${origin}/v1/models`, {
+              method: 'GET',
+              headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` },
+              signal: AbortSignal.timeout(8_000),
+            })
+          } catch {
+            return { ok: false, reason: 'network' }
+          }
+          if (response.status === 401 || response.status === 403) return { ok: false, reason: 'invalid' }
+          if (!response.ok) return { ok: false, reason: 'network' }
+          await response.body?.cancel()
+        }
         await invoke({ namespace: 'credentials', method: 'set', args: { ref, value: apiKey } })
         return { ok: true }
       } catch {

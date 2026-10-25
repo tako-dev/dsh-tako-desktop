@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CredentialInfo } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ModelsSettingsState, ProviderRow } from '../src/client/store.ts'
-import { onboardingReadiness, providerUsable } from '../src/client/store.ts'
+import { onboardingReadiness, onboardingTarget, providerUsable } from '../src/client/store.ts'
 
 const missingCredential: CredentialInfo = { configured: false, writable: true }
 
@@ -67,6 +67,17 @@ describe('providerUsable', () => {
 })
 
 describe('onboardingReadiness', () => {
+  it('prefers the Tako route when the Tako profile composes it', () => {
+    const tako = row({
+      entry: {
+        provider: 'tako', displayName: 'Tako', settingsNs: 'llm-tako', settingsPath: [], active: true,
+      },
+      apiKeyEnv: 'TAKO_API_KEY',
+    })
+    expect(onboardingTarget(state({ rows: [row(), tako] }))).toBe(tako)
+    expect(onboardingReadiness(state({ rows: [row(), tako] }))).toEqual({ kind: 'credential-missing' })
+  })
+
   it('waits for the first join and skips onboarding when the adapter directory entry is absent', () => {
     expect(onboardingReadiness(state({ status: 'idle', rows: [] }))).toEqual({ kind: 'loading' })
     expect(onboardingReadiness(state({ status: 'loading', rows: [] }))).toEqual({ kind: 'loading' })

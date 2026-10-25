@@ -115,12 +115,12 @@ importers:
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
-      '@types/semver':
-        specifier: ^7.8.0
-        version: 7.8.0
       '@types/papaparse':
         specifier: ^5.5.2
         version: 5.5.2
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@types/spdx-expression-parse':
         specifier: ^4.0.0
         version: 4.0.0
@@ -310,6 +310,9 @@ importers:
       '@deepseek-ai/dsh-experimental-session-titles-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/session-titles-bundle
+      '@deepseek-ai/dsh-experimental-tako-browser-bundle':
+        specifier: workspace:*
+        version: link:../../packages/experimental/tako-browser-bundle
       '@deepseek-ai/dsh-experimental-terminal-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/terminal-bundle
@@ -391,6 +394,9 @@ importers:
       '@deepseek-ai/dsh-skill-office':
         specifier: workspace:*
         version: link:../../packages/skill/skill-office
+      '@deepseek-ai/dsh-tako':
+        specifier: workspace:*
+        version: link:../../packages/tako/tako
       '@deepseek-ai/dsh-terminal':
         specifier: workspace:*
         version: link:../../packages/terminal/terminal
@@ -653,6 +659,9 @@ importers:
       '@deepseek-ai/dsh-api-gateway':
         specifier: workspace:*
         version: link:../../packages/api/gateway
+      '@deepseek-ai/dsh-tako':
+        specifier: workspace:*
+        version: link:../../packages/tako/tako
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9(supports-color@9.4.0)
@@ -774,9 +783,15 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:*
         version: link:../../packages/boot/app-boot
+      '@deepseek-ai/dsh-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:*
         version: link:../../packages/client/connection
+      '@deepseek-ai/dsh-client-ui-sidebar-browser':
+        specifier: workspace:*
+        version: link:../../packages/client/ui-sidebar-browser
       '@deepseek-ai/dsh-deepseek-account':
         specifier: workspace:*
         version: link:../../packages/credentials/deepseek-account
@@ -789,6 +804,9 @@ importers:
       '@deepseek-ai/dsh-jobs':
         specifier: workspace:*
         version: link:../../packages/jobs/jobs
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
       '@deepseek-ai/dsh-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/schedule
@@ -798,6 +816,9 @@ importers:
       '@deepseek-ai/dsh-tool-workspace-dependencies':
         specifier: workspace:*
         version: link:../../packages/skill/tool-workspace-dependencies
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
       '@deepseek-ai/dsh-workspace':
         specifier: workspace:*
         version: link:../../packages/workspace/workspace
@@ -4896,6 +4917,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: workspace:*
         version: link:../ui-settings-models
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: workspace:*
+        version: link:../ui-sidebar
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
@@ -8761,6 +8785,19 @@ importers:
       tsx:
         specifier: ^4.23.13
         version: 4.23.13
+
+  packages/experimental/tako-browser-bundle:
+    dependencies:
+      '@deepseek-ai/dsh-browser-use':
+        specifier: workspace:*
+        version: link:../../browser-use/browser-use
+      '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp':
+        specifier: workspace:*
+        version: link:../browser-use-playwright-mcp
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
 
   packages/experimental/terminal-bundle:
     dependencies:
@@ -14041,6 +14078,55 @@ importers:
         specifier: workspace:~
         version: link:../../../vendor/cordis
 
+  packages/tako/tako:
+    dependencies:
+      '@deepseek-ai/cosmokit':
+        specifier: link:../../../vendor/cosmokit
+        version: link:../../../vendor/cosmokit
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: workspace:*
+        version: link:../../host/webserver
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-anonymous-user-id':
+        specifier: workspace:*
+        version: link:../../identity/anonymous-user-id
+      '@deepseek-ai/dsh-attachment':
+        specifier: workspace:*
+        version: link:../../attachment/attachment
+      '@deepseek-ai/dsh-credentials':
+        specifier: workspace:*
+        version: link:../../credentials/credentials
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../../llm/llm-pi-ai
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:*
+        version: link:../../settings/settings
+      '@deepseek-ai/dsh-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+
   packages/telemetry/otel:
     dependencies:
       '@opentelemetry/api':
@@ -15640,10 +15726,6 @@ importers:
         version: 3.5.42(typescript@6.0.3)
 
 packages:
-
-  papaparse@5.5.3:
-    resolution: {integrity: sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==}
-
 
   '@agentclientprotocol/sdk@1.4.0':
     resolution: {integrity: sha512-/eufudw+aFY1LKLolT6yFE6UMmYRl7fMJ/DEONSIyR6wI3slHWITBsANRGqXEY8FRzqUxwh7QEaGiZHcJPVThg==}
@@ -21701,6 +21783,9 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
 
+  papaparse@5.5.3:
+    resolution: {integrity: sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==}
+
   papaparse@5.7.0:
     resolution: {integrity: sha512-qBGxg/7Q3Kl9Wfhrz2Z74UnvnHTXLNG6jmKJFeBvP2+y4lV7So+7SR62+Zd47JvdrCkX+nDcnr0ObPzek/+6RA==}
 
@@ -23226,9 +23311,6 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
-
-  papaparse@5.5.3: {}
-
 
   '@agentclientprotocol/sdk@1.4.0(zod@4.4.3)':
     dependencies:
@@ -29442,6 +29524,8 @@ snapshots:
   pako@0.2.9: {}
 
   pako@1.0.11: {}
+
+  papaparse@5.5.3: {}
 
   papaparse@5.7.0: {}
 

@@ -19,6 +19,8 @@ export const DESKTOP_IPC = {
   bootFailed: 'dsh-desktop:boot-failed',
   browserAcquire: 'dsh-desktop:browser-acquire',
   browserRelease: 'dsh-desktop:browser-release',
+  browserSetShared: 'dsh-desktop:browser-set-shared',
+  browserSharingChanged: 'dsh-desktop:browser-sharing-changed',
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
   directoryPick: 'dsh-desktop:directory-pick',
   deviceInfo: 'dsh-desktop:device-info',

@@ -23,12 +23,19 @@ const themeOf = (colorScheme: 'light' | 'dark'): ThemeSnapshot => ({
   active: { id: colorScheme, colorScheme, tokens: {} }, themes: [], revision: 0,
 })
 
-function operationsOf(state: Omit<AccountView, 'links'>, details?: Partial<AccountDetails>, pages?: PlatformPages): AccountSectionInjected {
+function operationsOf(
+  state: Omit<AccountView, 'links'>,
+  details?: Partial<AccountDetails>,
+  pages?: PlatformPages,
+  takoQuota?: AccountSnapshot['takoQuota'],
+  takoMode = false,
+): AccountSectionInjected {
   return {
     ...pages === undefined ? {} : { openPlatformPage: pages.open },
     hooks: {
       account: {
-        getSnapshot: () => ({ view: { ...state, links: { usageUrl: 'http://localhost:8081/usage', topUpUrl: 'http://localhost:8081/top_up' } }, details, failed: false }),
+        getSnapshot: () => ({ view: { ...state, links: { usageUrl: 'http://localhost:8081/usage', topUpUrl: 'http://localhost:8081/top_up' } }, details, failed: false,
+          ...takoQuota === undefined ? {} : { takoQuota }, ...takoMode ? { takoMode: true } : {} }),
         subscribe: () => () => {},
       },
       theme: { getSnapshot: () => themeOf('light'), subscribe: () => () => {} },
@@ -41,9 +48,10 @@ function operationsOf(state: Omit<AccountView, 'links'>, details?: Partial<Accou
   }
 }
 
-function mount(state: Omit<AccountView, 'links'>, copy: typeof en | typeof zh = en, details?: Partial<AccountDetails>, platform?: PlatformBridge) {
+function mount(state: Omit<AccountView, 'links'>, copy: typeof en | typeof zh = en, details?: Partial<AccountDetails>, platform?: PlatformBridge,
+  takoQuota?: AccountSnapshot['takoQuota'], takoMode = false) {
   const pages = platform === undefined ? undefined : createPlatformPages()
-  const operations = operationsOf(state, details, pages)
+  const operations = operationsOf(state, details, pages, takoQuota, takoMode)
   // AccountSection consumes no global hooks; the slot supplies them in the application.
   const globals = {} as GlobalStandardProps
   render(<>
@@ -106,6 +114,43 @@ it.each([en, zh])('renders account cards without inventing profile or balance da
   expect(screen.queryByRole('button', { name: copy.signOut })).toBeNull()
   expect(document.body.textContent).not.toContain('209.00')
   await expect(`${screen.getByRole('region').textContent}\n`).toMatchFileSnapshot(`./expected/account-${copy === en ? 'en' : 'zh'}.txt`)
+})
+
+it('renders the redacted Tako quota card and official account action', () => {
+  mount({ status: 'credential-stored', attempt: null }, en, undefined, undefined, {
+    status: 'ready', value: { account: { balance: 20, plans: [{ title: 'Tako Pro' }] }, usage: { dailyCost: 2, weeklyCost: 5, monthlyCost: 8 }, plan: { dailyCostLimit: 10, weeklyCostLimit: 30, monthlyCostLimit: 100 } },
+  })
+  expect(screen.getByTestId('tako-account-card').textContent).toContain('Daily usage 2 / 10')
+  expect(screen.getByTestId('tako-usage-breakdown').textContent).toContain('Weekly usage 5 / 30')
+  expect(screen.getByTestId('tako-account-breakdown').textContent).toContain('Balance 20')
+  expect(screen.getByTestId('tako-account-breakdown').textContent).toContain('Plan Tako Pro')
+  expect(screen.getByRole('link', { name: en.takoManage }).getAttribute('href')).toBe('https://tako.shiroha.tech/wallet')
+})
+
+it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (copy) => {
+  const operations = operationsOf({ status: 'signed-out', attempt: null }, undefined, undefined, undefined, true)
+  const openSettings = vi.fn()
+  const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
+  render(<AccountMenu {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
+    useAccount={selector => selector(operations.hooks.account.getSnapshot())}
+    useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
+    t={key => key in copy ? copy[key as AccountKey] : key} />)
+  expect(screen.getByRole('button', { name: copy.menu }).textContent).toContain(copy.takoBrand)
+  expect(screen.getByTestId('tako-logo')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: copy.menu }))
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.contactUs])
+  fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))
+  expect(openSettings).toHaveBeenCalledOnce()
+})
+
+it('shows usage when Tako does not return a topped-up balance', () => {
+  mount({ status: 'credential-stored', attempt: null }, en, undefined, undefined, {
+    status: 'ready', value: { usage: { dailyCost: 84.133808, weeklyCost: 420.845118 }, plan: { dailyCostLimit: 0, weeklyCostLimit: 930 } },
+  })
+  const card = screen.getByTestId('tako-account-card')
+  expect(card.textContent).toContain('Daily usage 84.133808')
+  expect(card.textContent).toContain('Weekly usage 420.845118 / 930')
+  expect(card.textContent).not.toContain('/ 0')
 })
 
 it('starts sign-in and disables cancellation during persistence', async () => {

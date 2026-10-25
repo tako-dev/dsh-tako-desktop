@@ -917,6 +917,23 @@ describe('PluginManagerPage', () => {
       expect(screen.getByRole('heading', { name: en.basicTitle })).toBeTruthy()
     })
 
+    it('puts the Tako curated bundles first only when the Tako profile is active', () => {
+      const curated = '@deepseek-ai/dsh-experimental-session-search'
+      const browser = '@deepseek-ai/dsh-experimental-tako-browser-bundle'
+      renderTab({ packages: [
+        pkg({ name: '@deepseek-ai/dsh-tako', official: false }),
+        pkg({ name: curated, official: true }),
+        pkg({ name: browser, official: true }),
+        pkg({ name: '@deepseek-ai/dsh-experimental-agent-team-profile', official: true }),
+      ] })
+      expect([...document.querySelectorAll('[data-plugin-group]')].map(group => group.getAttribute('data-plugin-group')))
+        .toEqual(['curated', 'extensions', 'bundles'])
+      const group = document.querySelector('[data-plugin-group="curated"]') as HTMLElement
+      expect(within(group).getByRole('heading', { name: en.takoCuratedTitle })).toBeTruthy()
+      expect(within(group).getAllByRole('listitem').map(item => item.getAttribute('data-plugin-package')))
+        .toEqual([browser, curated])
+    })
+
     it('returns from package details to the secondary page and retains it across React remounts', () => {
       const name = '@deepseek-ai/dsh-experimental-terminal-bundle'
       const b = renderTab({ packages: [pkg({ name, official: true })] })

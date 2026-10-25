@@ -331,6 +331,8 @@ export interface ToolExecutionInput {
    * a root execution; nested dispatchers propagate the enclosing value.
    */
   readonly rootCallId?: ToolCallId
+  /** Durable turn number that owns this execution, for provider correlation. */
+  readonly turn?: number
   readonly name: string
   /** Binding-time tool schema for a PTC inner call; frozen by its producer and never logged. */
   readonly schema?: ToolSchema
@@ -1399,6 +1401,7 @@ export class ToolRuntime extends Service {
     const token = createExecutionToken()
     const callId = exec.callId
     const rootCallId = exec.rootCallId ?? callId
+    const turn = exec.turn
     const name = exec.name
     const agent = exec.agent
     const parent = exec.parent
@@ -1417,6 +1420,7 @@ export class ToolRuntime extends Service {
       token,
       callId,
       rootCallId,
+      ...turn === undefined ? {} : { turn },
       name,
       signal,
       ...agent !== undefined ? { agent } : {},

@@ -1,0 +1,61 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/tako/tako/README.md
+/:
+  en: 7ddf2b07b42da5fd
+  zh: dd906538a9d311b3
+/deepseek-ai-dsh-tako:
+  en: 5f56fbfb6c9746cc
+  zh: 7d793b6104426351
+/deepseek-ai-dsh-tako/summary:
+  en: 9a3c8a0baca8e201
+  zh: 69dac17e88b0ee3c
+/deepseek-ai-dsh-tako/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: ffab54373e9e61f0
+/deepseek-ai-dsh-tako/use-this-package:
+  en: bbff250eba0f1b89
+  zh: bbff250eba0f1b89
+/deepseek-ai-dsh-tako/use-this-package/install-into-a-profile:
+  en: a8dc45e0bf6049a6
+  zh: e2b45799bd61c4f2
+/deepseek-ai-dsh-tako/use-this-package/what-you-get:
+  en: 71a62102b3096640
+  zh: d0aa9be7abf8e878
+/deepseek-ai-dsh-tako/understand-the-implementation:
+  en: 4b23610afac7d964
+  zh: d4dcfe9bf2b9b0b6
+/deepseek-ai-dsh-tako/further-exploration:
+  en: 8e06ef66016e39ad
+  zh: c117d1391e15bd75
+/deepseek-ai-dsh-tako/model-experience:
+  en: 215e7ba838619b7b
+  zh: 215e7ba838619b7b
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle:
+  en: 28f893c796caf071
+  zh: 28f893c796caf071
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/what-the-model-sees:
+  en: 68b20a81944a2e53
+  zh: 2a7d29b4af49a59b
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/what-the-model-sees/capability-surface:
+  en: 08b5c4e4aa4f0a89
+  zh: 08b5c4e4aa4f0a89
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/token-effect:
+  en: 1725785d4576c92e
+  zh: 17a27dbdf783c95f
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/token-effect/prompt-and-result:
+  en: fd4b0d52fdaa65e1
+  zh: fd4b0d52fdaa65e1
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/kv-cache-effect:
+  en: 5a1546f060d97816
+  zh: dd4be849a2710afb
+/deepseek-ai-dsh-tako/model-experience/tako-capability-bundle/kv-cache-effect/cache-boundary:
+  en: ea246aa1bbb2984e
+  zh: ea246aa1bbb2984e
+/deepseek-ai-dsh-tako/known-limitations-and-deferred-work:
+  en: f861540059a8b1e3
+  zh: a50feac8a5382fe9
+/deepseek-ai-dsh-tako/known-limitations-and-deferred-work/dev-note:
+  en: 757229bd92057799
+  zh: ccab7e1996dfb59b

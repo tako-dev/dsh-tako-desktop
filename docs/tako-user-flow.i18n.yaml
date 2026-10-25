@@ -1,0 +1,52 @@
+# Bilingual-pair consistency record for tako-user-flow.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/tako-user-flow.md
+/tako-desktop-user-flow:
+  en: 039d048d1b05697e
+  zh: 3e127f8cc02d0d6f
+/tako-desktop-user-flow/main-user-journey:
+  en: c5802bd709c5b8ef
+  zh: f035f771d77e299c
+/tako-desktop-user-flow/proposed-screens-and-transitions:
+  en: e279116d4b20e896
+  zh: 1ab9dffa4209d060
+/tako-desktop-user-flow/first-task-walkthrough-for-review:
+  en: 0c39548ef0754991
+  zh: 6b55b4dd7e9f81fa
+/tako-desktop-user-flow/failure-and-return-paths:
+  en: 5ee90801951525ea
+  zh: 04a774f7308d7772
+/tako-desktop-user-flow/host-integration-questions:
+  en: dff310969d944ff1
+  zh: e8ff1c2b90349007
+/tako-desktop-user-flow/checks-against-the-official-code:
+  en: 05ef17bf7a38d9b8
+  zh: 281a5b80af47a637
+/tako-desktop-user-flow/backend-contract-check:
+  en: d7932358cc7b7a95
+  zh: f136b1634b87cf39
+/tako-desktop-user-flow/first-launch:
+  en: ab0e5b0644f757cc
+  zh: c6c5b7b4ae7f0e0e
+/tako-desktop-user-flow/workbench-entry:
+  en: c2630efdd3641d6d
+  zh: d9a59cef3978e82a
+/tako-desktop-user-flow/model-selection:
+  en: bbb6a1efa521ee37
+  zh: 0426364cfac24936
+/tako-desktop-user-flow/agent-capabilities:
+  en: 2a85fd72c2056c3d
+  zh: 396a35f6b194b9ea
+/tako-desktop-user-flow/account-and-payment:
+  en: 6d7159f5906389ec
+  zh: fca37683f8165baa
+/tako-desktop-user-flow/plugins-and-browser:
+  en: ad589339a6f50752
+  zh: c10de59cc90c0d45
+/tako-desktop-user-flow/update-and-recovery:
+  en: aee31a78f565ea05
+  zh: 4b0bac15d9487317
+/tako-desktop-user-flow/acceptance-checks:
+  en: 0f97769859e2fc14
+  zh: 7cd7e3e8c855a75e

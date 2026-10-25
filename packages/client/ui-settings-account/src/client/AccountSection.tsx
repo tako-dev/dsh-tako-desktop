@@ -12,6 +12,22 @@ import { authorizeUrlWithTheme } from './authorize-url.ts'
 import type { BonusNotice } from './bonus-notices.ts'
 import css from './AccountSection.module.css'
 
+/** Redacted Tako quota projection received through the account Remote. */
+export interface TakoQuotaView {
+  status: 'ready' | 'failed'
+  value?: {
+    account?: {
+      balance?: number | null
+      used?: number | null
+      currency?: string
+      plans?: readonly { id?: number; title?: string; expiresAt?: number }[]
+    }
+    usage?: { dailyCost?: number | null; weeklyCost?: number | null; monthlyCost?: number | null }
+    plan?: { dailyCostLimit?: number | null; weeklyCostLimit?: number | null; monthlyCostLimit?: number | null }
+  }
+  code?: string
+}
+
 /** Safe account snapshot shared by the settings page and launcher. */
 export interface AccountSnapshot {
   /** Server-authored bonus notice awaiting display, absent when none is available. */
@@ -29,6 +45,10 @@ export interface AccountSnapshot {
   loginFailed?: boolean
   /** Mounted onboarding owns the dialog while active. */
   onboarding?: boolean
+  /** Latest read-only Tako quota, independent of the DeepSeek account session. */
+  takoQuota?: TakoQuotaView | null
+  /** Whether this Desktop profile is Tako-backed; undefined while settings are loading. */
+  takoMode?: boolean
 }
 
 /** Host operations injected into the Cordis-free account component. */
@@ -82,7 +102,7 @@ export type AccountSectionProps =
   PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 /** @param props - localized actions, account subscription, and the shared Platform page channel. @returns account settings UI. */
 export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage }: AccountSectionProps) {
-  const { view: state, details, failed: streamFailed } = useAccount(value => value)
+  const { view: state, details, failed: streamFailed, takoQuota, takoMode } = useAccount(value => value)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
   // The shared host owns the native view; this page holds only its own request,
   // and only while it is the latest owner.
@@ -133,12 +153,61 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
     <a className={className} href={state?.links.usageUrl} aria-disabled={state === undefined}
       target="_blank" rel="noreferrer" onClick={openUsage}>{label}</a>
   )
+  const takoLink = 'https://tako.shiroha.tech/wallet'
+  const takoUsage = takoQuota?.status === 'ready' ? takoQuota.value?.usage : undefined
+  const takoPlan = takoQuota?.status === 'ready' ? takoQuota.value?.plan : undefined
+  const takoAccount = takoQuota?.status === 'ready' ? takoQuota.value?.account : undefined
+  const takoQuotaText = takoQuota === undefined
+    ? t('loading')
+    : takoQuota === null || takoQuota.status === 'failed'
+      ? t('takoQuotaUnavailable')
+      : takoUsage?.dailyCost === undefined
+        ? t('takoQuotaNoData')
+        : `${t('takoDailyUsage')} ${takoUsage.dailyCost}${takoPlan?.dailyCostLimit == null || takoPlan.dailyCostLimit === 0 ? '' : ` / ${takoPlan.dailyCostLimit}`}`
+  const quotaLine = (label: string, value: number | null | undefined, limit: number | null | undefined): string => {
+    if (value === undefined || value === null) return t('takoQuotaNoData')
+    return `${label} ${value}${limit == null || limit === 0 ? '' : ` / ${limit}`}`
+  }
+  const takoCard = takoQuota !== undefined && (
+    <div className={css.balanceCard} data-testid="tako-account-card">
+      <div className={css.row}>
+        <span>{t('takoQuota')}</span>
+        <span className={takoQuota?.status === 'ready' ? css.amount : css.unavailable}>{takoQuotaText}</span>
+      </div>
+      {takoQuota?.status === 'ready' ? (
+        <div className={css.row} data-testid="tako-usage-breakdown">
+          <span className={css.secondary}>{quotaLine(t('takoDailyUsage'), takoUsage?.dailyCost, takoPlan?.dailyCostLimit)}</span>
+          <span className={css.secondary}>{quotaLine(t('takoWeeklyUsage'), takoUsage?.weeklyCost, takoPlan?.weeklyCostLimit)}</span>
+          <span className={css.secondary}>{quotaLine(t('takoMonthlyUsage'), takoUsage?.monthlyCost, takoPlan?.monthlyCostLimit)}</span>
+        </div>
+      ) : null}
+      {takoAccount !== undefined && (takoAccount.balance !== undefined || (takoAccount.plans?.length ?? 0) > 0) ? (
+        <div className={css.row} data-testid="tako-account-breakdown">
+          <span className={css.secondary}>{t('takoBalance')} {takoAccount.balance == null ? t('takoQuotaNoData') : takoAccount.balance}</span>
+          <span className={css.secondary}>{t('takoPlan')} {(takoAccount.plans ?? []).map(plan => plan.title).filter((title): title is string => title !== undefined).join(', ') || t('takoQuotaNoData')}</span>
+        </div>
+      ) : null}
+      <div className={css.row}>
+        <span className={css.secondary}>{t('takoAccountHint')}</span>
+        <a className={`${css.linkButton} ${css.primary}`} href={takoLink} target="_blank" rel="noreferrer">
+          {t('takoManage')}
+        </a>
+      </div>
+    </div>
+  )
+  if (takoMode === true) return (
+    <section className={css.section} aria-label={t('nav')}>
+      {takoCard}
+    </section>
+  )
   const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
     : attempt?.phase === 'expired' ? t('expired')
       : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
         : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t('signInDescription')
   if (!signedIn && !active) return (
-    <section className={css.signedOut} aria-label={t('nav')}>
+    <section className={css.section} aria-label={t('nav')}>
+      {takoCard}
+      <div className={css.signedOut}>
       <div className={css.signedOutContent}>
         <div className={css.signedOutCopy}>
           <span className={css.signedOutTitle}>{t('settingsSignedOutTitle')}</span>
@@ -148,6 +217,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         </div>
         <Button variant="primary" className={css.signInButton} disabled={busy || state === undefined}
           onClick={() => { void run(start) }}>{t('signIn')}</Button>
+      </div>
       </div>
     </section>
   )
@@ -210,6 +280,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
           </div>
         </div>
       </div>
+      {takoCard}
     </section>
   )
 }

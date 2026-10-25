@@ -1,0 +1,12 @@
+# The browser is an internal layer of the Tako profile. It is shipped with the
+# Tako installation, but remains a separate experimental bundle so the core
+# provider does not require Playwright for every DSH profile.
+- insert:
+    - id: tako-agent-browser-use
+      name: '@deepseek-ai/dsh-browser-use'
+
+    - id: tako-agent-browser
+      name: '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp'
+      config:
+        mode: launch
+        headless: true

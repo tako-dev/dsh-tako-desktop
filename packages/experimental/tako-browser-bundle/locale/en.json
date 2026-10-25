@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Tako Agent browser",
+    "description": "Preinstalled browser tools for Tako Agents with an isolated Chromium profile."
+  }
+}

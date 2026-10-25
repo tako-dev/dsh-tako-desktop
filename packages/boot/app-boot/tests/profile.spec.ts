@@ -22,6 +22,7 @@ import {
   PROFILE_COMPATIBILITY_FILENAME,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
+  TAKO_DEFAULT_BUNDLES,
   readProfileManifest,
   readProfilePatches,
   removeLinkProjections,
@@ -342,6 +343,9 @@ describe('loadProfile', () => {
     expect(() => loadProfile('t', 'custom', anchor, home))
       .toThrow('profile "custom" does not exist')
     expect(PROFILE_TEMPLATES.web?.bundles).toContain('@deepseek-ai/dsh-base')
+    expect(PROFILE_TEMPLATES.tako?.bundles).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-tako', ...TAKO_DEFAULT_BUNDLES,
+    ])
     expect(PROFILE_TEMPLATES.acp).toEqual({
       bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
     })

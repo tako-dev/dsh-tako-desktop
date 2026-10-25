@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Tako Agent 浏览器",
+    "description": "为 Tako Agent 预装浏览器工具，并使用隔离的 Chromium profile。"
+  }
+}

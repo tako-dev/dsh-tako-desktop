@@ -46,6 +46,7 @@ export class DesktopUpdateCoordinator {
    * @param enabled - Whether this process has a packaged update source.
    * @param currentVersion - Actual installed application version.
    * @param downloadResult - Once per completed download attempt, including platform preparation failures.
+   * @param compatibilityGate - Optional fail-closed check for a Tako-compatible release manifest.
    */
   constructor(
     private readonly publish: (state: DesktopUpdateState) => DesktopUpdateState,
@@ -54,6 +55,7 @@ export class DesktopUpdateCoordinator {
     private readonly enabled: () => boolean = () => app.isPackaged && existsSync(join(process.resourcesPath, 'app-update.yml')),
     private readonly currentVersion: () => string = () => app.getVersion(),
     private readonly downloadResult?: (success: boolean, reason?: string) => void,
+    private readonly compatibilityGate?: (candidateVersion: string) => Promise<void>,
   ) {
     if (updater === autoUpdater) {
       // electron-updater omits this internal transport property from its public declarations.
@@ -187,7 +189,10 @@ export class DesktopUpdateCoordinator {
       if (result === null) throw new Error('desktop update: no check result was returned')
       const version = result.updateInfo.version
       if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
-      this.candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
+      const candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
+      this.candidate = undefined
+      if (candidate !== undefined) await this.compatibilityGate?.(candidate)
+      this.candidate = candidate
       return this.setState(this.candidate === undefined ? { phase: 'idle' } : { phase: 'available', version })
     } catch (error) {
       return this.failure(error, 'check')

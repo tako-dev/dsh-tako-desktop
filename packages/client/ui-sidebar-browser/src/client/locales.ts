@@ -1,5 +1,10 @@
 /** Locale-owned Browser tab copy. */
 export const zh = {
+  'sharing.active': '此会话的 Agent 正在共享当前页面和登录态',
+  'sharing.isolated': '用户浏览器 · 与 Agent 隔离',
+  'sharing.start': '与 Agent 共享',
+  'sharing.stop': '停止共享',
+  'sharing.failed': '未能更改共享状态。请确认页面已打开后重试；当前状态保持不变。',
   'type.label': '浏览器',
   'guide.title': '浏览器',
   'guide.description': '浏览网页',
@@ -33,6 +38,11 @@ export type SidebarBrowserKey = keyof typeof zh
 
 /** English dictionary with the same keys. */
 export const en = {
+  'sharing.active': 'This chat’s Agent shares this page and its login state',
+  'sharing.isolated': 'User browser · isolated from Agent',
+  'sharing.start': 'Share with Agent',
+  'sharing.stop': 'Stop sharing',
+  'sharing.failed': 'Could not change sharing. Check that the page is open and retry; the current state is unchanged.',
   'type.label': 'Browser',
   'guide.title': 'Browser',
   'guide.description': 'Browse web pages',

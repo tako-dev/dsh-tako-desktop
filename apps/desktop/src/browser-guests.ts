@@ -1,12 +1,14 @@
 /** Main-process ownership and fixed isolation policy for Sidebar webview guests. */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { app, session, type BrowserWindow, type Session, type WebContents } from 'electron'
 import type { DesktopBrowserLeaseId, DesktopBrowserOpenRequest, DesktopBrowserReservation } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 import { DESKTOP_IPC } from './ipc.ts'
+import { DesktopBrowserSharing } from './browser-sharing.ts'
 
 interface GuestLease {
   readonly owner: WebContents
   readonly partition: string
+  readonly sessionId: string
   attached: boolean
   guest?: WebContents
   releaseInput?: () => void
@@ -16,28 +18,41 @@ interface GuestLease {
 export class DesktopBrowserGuests {
   private readonly partitions = new Map<string, string>()
   private readonly leases = new Map<DesktopBrowserLeaseId, GuestLease>()
+  /** Private Host access to explicitly shared tabs. */
+  readonly sharing = new DesktopBrowserSharing((lease, shared) => {
+    const owner = this.leases.get(lease)?.owner
+    if (owner !== undefined && !owner.isDestroyed()) owner.send(DESKTOP_IPC.browserSharingChanged, { lease, shared })
+  }, url => this.allowedNavigation(url))
 
   /** @param hostUrl - current authenticated DSH Host, which guests cannot request. */
   constructor(private readonly hostUrl: () => string | undefined) {}
 
   /**
-   * Reserve one guest in a workspace's process-lifetime partition.
+   * Reserve one guest in a workspace's persistent partition.
    * @param owner - authenticated primary application WebContents.
    * @param workspace - workspace identity received over IPC.
+   * @param sessionId - owning chat, fixed for this tab's lifetime.
    * @returns opaque lease and the partition approved for it.
    */
-  acquire(owner: WebContents, workspace: unknown): DesktopBrowserReservation {
+  acquire(owner: WebContents, workspace: unknown, sessionId: unknown): DesktopBrowserReservation {
+    if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 256) {
+      throw new Error('desktop browser: a chat identity is required')
+    }
     if (typeof workspace !== 'string' || workspace.length === 0 || workspace.length > 4096) {
       throw new Error('desktop browser: a workspace storage identity is required')
     }
     let partition = this.partitions.get(workspace)
     if (partition === undefined) {
-      partition = `dsh-sidebar-browser-${randomUUID()}`
+      // Electron only persists storage when the partition carries the
+      // `persist:` prefix. Hash the workspace identity so paths and account
+      // names never become visible in the partition label.
+      const digest = createHash('sha256').update(workspace, 'utf8').digest('hex')
+      partition = `persist:dsh-sidebar-browser-${digest}`
       this.configureSession(session.fromPartition(partition))
       this.partitions.set(workspace, partition)
     }
     const lease = randomUUID() as DesktopBrowserLeaseId
-    this.leases.set(lease, { owner, partition, attached: false })
+    this.leases.set(lease, { owner, partition, sessionId, attached: false })
     return { lease, partition }
   }
 
@@ -52,6 +67,7 @@ export class DesktopBrowserGuests {
     const lease = this.leases.get(key)
     if (lease === undefined) return
     if (lease.owner !== owner) throw new Error('desktop browser: guest belongs to another window')
+    this.sharing.revoke(key)
     lease.releaseInput?.()
     this.leases.delete(key)
     const guest = lease.guest
@@ -60,6 +76,18 @@ export class DesktopBrowserGuests {
       guest.close({ waitForBeforeUnload: false })
       await destroyed
     }
+  }
+
+  /** @param owner - authenticated renderer. @param id - its tab lease. @param shared - explicit user choice. */
+  setShared(owner: WebContents, id: unknown, shared: unknown): void {
+    if (typeof id !== 'string' || typeof shared !== 'boolean') throw new Error('desktop browser: invalid sharing request')
+    const key = id as DesktopBrowserLeaseId
+    const lease = this.leases.get(key)
+    if (lease?.owner !== owner || lease.guest === undefined || lease.guest.isDestroyed()) {
+      throw new Error('desktop browser: the tab is no longer available')
+    }
+    if (shared) this.sharing.share(key, lease.sessionId, lease.guest)
+    else this.sharing.revoke(key)
   }
 
   /**
@@ -106,7 +134,7 @@ export class DesktopBrowserGuests {
         lease.guest = guest
         attachedLease = id
         lease.releaseInput = attachInput(guest, id)
-        guest.once('destroyed', () => { lease.releaseInput?.(); this.leases.delete(id) })
+        guest.once('destroyed', () => { this.sharing.revoke(id); lease.releaseInput?.(); this.leases.delete(id) })
       })
       guest.setWindowOpenHandler(({ url, postBody }) => {
         const lease = attachedLease === undefined ? undefined : this.leases.get(attachedLease)

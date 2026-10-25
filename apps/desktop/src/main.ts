@@ -60,6 +60,8 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { startTakoBrowserLogin, type TakoBrowserLoginHandle } from './tako-login.ts'
+import { createTakoDesktopUpdateCompatibilityGate, takoDesktopUpdateManifestUrl } from './tako-update-gate.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -329,7 +331,8 @@ async function main(): Promise<void> {
   // Dock and Finder launches inherit only launchd's environment; every Host shares one login-shell read.
   const loginShellRead = new AbortController()
   // The probe runs in its own process group, which outlives Desktop unless the read is aborted.
-  app.on('will-quit', () => { loginShellRead.abort() })
+  let takoLogin: TakoBrowserLoginHandle | undefined
+  app.on('will-quit', () => { loginShellRead.abort(); takoLogin?.cancel() })
   const loginShell = readDesktopLoginShellEnvironment(process.env, resolveDesktopLoginShellConfig(process.env), {
     signal: loginShellRead.signal,
   }).then((result) => {
@@ -446,7 +449,7 @@ async function main(): Promise<void> {
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
       hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
-      resources, (next) => { platformView.setSession(next) })
+      resources, (next) => { platformView.setSession(next) }, browserGuests.sharing)
     return {
       start: async () => {
         const ready = await host.start()
@@ -454,7 +457,12 @@ async function main(): Promise<void> {
         hostUrl = ready.url
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
         injections = ready.injections
-        welcomeBackend = await connectDesktopWelcome(ready.url, (input, init) => net.fetch(input, init), async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; '))
+        welcomeBackend = await connectDesktopWelcome(
+          ready.url,
+          (input, init) => net.fetch(input, init),
+          async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; '),
+          (input, init) => net.fetch(input, init),
+        )
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
         stopAccount?.()
@@ -636,7 +644,16 @@ async function main(): Promise<void> {
     },
     undefined, undefined, undefined,
     (success, reason) => { void track('desktop_upgrade_download_result', { is_success: success, ...reason === undefined ? {} : { error_reason: reason } }) },
-
+    createTakoDesktopUpdateCompatibilityGate({
+      manifestUrl: takoDesktopUpdateManifestUrl(),
+      bundleVersion: () => {
+        try {
+          return readDesktopRuntime(resources.dsh).sharedPackages.find(entry => entry.name === '@deepseek-ai/dsh-tako')?.version
+        } catch {
+          return undefined
+        }
+      },
+    }),
   )
 
   const updateSchedule = new DesktopUpdateSchedule(updates, resolveDesktopUpdateScheduleConfig(process.env))
@@ -700,13 +717,18 @@ async function main(): Promise<void> {
     reportFatal(new Error(message), 'web-boot')
   })
 
-  ipcMain.handle(DESKTOP_IPC.browserAcquire, (event, workspace: unknown) => {
+  ipcMain.handle(DESKTOP_IPC.browserAcquire, (event, workspace: unknown, sessionId: unknown) => {
     assertProductSender(event)
-    return browserGuests.acquire(event.sender, workspace)
+    return browserGuests.acquire(event.sender, workspace, sessionId)
   })
   ipcMain.handle(DESKTOP_IPC.browserRelease, (event, lease: unknown) => {
     assertProductSender(event)
     return browserGuests.release(event.sender, lease)
+  })
+  ipcMain.handle(DESKTOP_IPC.browserSetShared, (event, lease: unknown, shared: unknown) => {
+    assertProductSender(event)
+    if (backend.host === undefined) throw new Error('Desktop Host is unavailable')
+    browserGuests.setShared(event.sender, lease, shared)
   })
 
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['ws://127.0.0.1/*', 'wss://127.0.0.1/*'] }, (details, callback) => {
@@ -1147,6 +1169,7 @@ async function main(): Promise<void> {
     }
     openingWelcome ??= (async () => {
       welcomeWindow = await openWelcomeWindow(locale, {
+        provider: welcomeBackend?.provider ?? 'deepseek',
         analytics: track,
         analyticsEnabled: () => Promise.resolve(analyticsEnabled),
         takeNotice: () => {
@@ -1169,6 +1192,33 @@ async function main(): Promise<void> {
           }
           await clipboard.writeText(platformLoginUrl(state.attempt.authorizeUrl))
         },
+        openProviderSite: async () => {
+          if (welcomeBackend?.provider !== 'tako') {
+            await shell.openExternal('https://tako.shiroha.tech')
+            return { ok: true }
+          }
+          if (takoLogin !== undefined) return { ok: false, reason: 'failed' }
+          const login = await startTakoBrowserLogin()
+          takoLogin = login
+          try {
+            await shell.openExternal(login.authorizeUrl)
+            const result = await login.wait
+            if (!result.ok) return result
+            if (backend.host === undefined || welcomeBackend === undefined) return { ok: false, reason: 'failed' }
+            const saved = await welcomeBackend.save(result.apiKey)
+            if (!saved.ok) return { ok: false, reason: 'failed' }
+            await enterWorkspace()
+            return { ok: true }
+          } catch {
+            login.cancel()
+            return { ok: false, reason: 'failed' }
+          } finally {
+            if (takoLogin === login) takoLogin = undefined
+          }
+        },
+        cancelProviderLogin: async () => {
+          takoLogin?.cancel()
+        },
         saveApiKey: async (apiKey) => {
           if (backend.host === undefined || welcomeBackend === undefined) return { ok: false }
           const saved = await welcomeBackend.save(apiKey)
@@ -1180,6 +1230,7 @@ async function main(): Promise<void> {
       })
       const window = welcomeWindow
       window.once('closed', () => {
+        takoLogin?.cancel()
         void welcomeBackend?.account.state().then((state) => {
           if (state.attempt !== null && !enteredWorkspace) return welcomeBackend?.account.cancel(state.attempt.id)
           return undefined

@@ -134,6 +134,15 @@ export class BrowserController implements HostObservable<BrowserControllerState>
   }
 
   /**
+   * Grant or revoke the current chat's access to this live tab.
+   * @param shared - explicitly grant or revoke Agent access to this tab.
+   */
+  setShared(shared: boolean): void {
+    if (this.disposed) return
+    void this.page.frame.setShared?.(shared)
+  }
+
+  /**
    * Redirect future checkpoint writes to a replacement Session binding.
    * @param actions - replacement persistence writer.
    */
@@ -202,6 +211,8 @@ export interface BrowserInjected {
   reload(tabId: TabId): void
   /** @param tabId - owning tab. @param enabled - provider's optional sandbox control. */
   setSandbox(tabId: TabId, enabled: boolean): void
+  /** @param tabId - owning tab. @param shared - explicitly grant or revoke Agent access. */
+  setShared(tabId: TabId, shared: boolean): void
 }
 
 /**
@@ -263,5 +274,6 @@ export function createBrowserControllers(actions: BoundActions<BrowserStore>, cr
     goForward: (id) => { controller(id)?.goForward() },
     reload: (id) => { controller(id)?.reload() },
     setSandbox: (id, enabled) => { controller(id)?.setSandbox(enabled) },
+    setShared: (id, shared) => { controller(id)?.setShared(shared) },
   }
 }

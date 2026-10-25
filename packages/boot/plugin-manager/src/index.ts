@@ -66,6 +66,10 @@ export interface Config {
 const REGISTRY_URL = /^https?:\/\/\S+$/
 
 const protectedModules = new Set([
+  // The Tako profile is the product's core bundle; its optional market and
+  // companion plugins may be removed, but the provider/skill bundle itself
+  // must remain recoverable through the installation.
+  '@deepseek-ai/dsh-tako',
   '@deepseek-ai/dsh-plugin-manager', '@deepseek-ai/cordis-plugin-loader',
   '@deepseek-ai/cordis-plugin-include', '@deepseek-ai/dsh-api-gateway',
   '@deepseek-ai/dsh-host-webserver', '@deepseek-ai/dsh-client-modules',
@@ -539,7 +543,12 @@ export class PluginManager extends TypertRemoteService {
           if (stopped()) throw new InstallCancelledError()
           result.registries.push(registry)
           announce('installing', { registry, index: index + 1, total: plan.length })
-          run = await this.runPnpm(['add', spec, ...options?.saveExact === true ? ['--save-exact'] : [], ...registryArguments(registry)], control.abort.signal, requestId)
+          run = await this.runPnpm(
+            ['add', spec, ...options?.saveExact === true ? ['--save-exact'] : [], ...registryArguments(registry)],
+            control.abort.signal,
+            requestId,
+            options?.approvedBuilds !== undefined && options.approvedBuilds.length > 0,
+          )
           result.packageResult = run
           if (stopped()) throw new InstallCancelledError()
           // A compatibility refusal is the package's own answer, so no other registry is asked.
@@ -707,7 +716,7 @@ export class PluginManager extends TypertRemoteService {
 
   /** Run one pnpm command in the profile, streaming its output as install-log chunks. */
   private async runPnpm(
-    args: readonly string[], signal?: AbortSignal, requestId?: PluginInstallRequestId,
+    args: readonly string[], signal?: AbortSignal, requestId?: PluginInstallRequestId, allowBuildScripts = false,
   ): Promise<PackageResult> {
     const jobId = randomUUID()
     const argv = ['pnpm', ...args]
@@ -717,6 +726,7 @@ export class PluginManager extends TypertRemoteService {
       execution: 'service', ...this.profile.packageManager ?? { command: this.pnpmCommand },
       signal: signal === undefined ? this.abort.signal : AbortSignal.any([this.abort.signal, signal]),
       outputBytes: this.outputBytes, activateNewBundles: false, idleTimeoutMs: this.idleTimeoutMs,
+      allowBuildScripts,
       lookupTimeoutMs: this.inspectTimeoutMs,
       onOutput: (text, stream) => {
         this.ownerContext.emit('plugin-manager/install-log', { ...identity, jobId, argv, cwd, stream, text })

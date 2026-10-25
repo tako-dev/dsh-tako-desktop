@@ -30,6 +30,7 @@ describe('desktop package-set selection', () => {
       ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host', {
         dependencies: { '@deepseek-ai/dsh': '^1.0.0' },
       })],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
       ['@deepseek-ai/dsh-base', packed('@deepseek-ai/dsh-base', {
         peerDependencies: { '@deepseek-ai/cordis': '^1.0.0' },
       })],
@@ -42,6 +43,7 @@ describe('desktop package-set selection', () => {
       '@deepseek-ai/dsh',
       '@deepseek-ai/dsh-base',
       '@deepseek-ai/dsh-desktop-host',
+      '@deepseek-ai/dsh-tako',
       '@deepseek-ai/platform-package',
     ])
   })
@@ -56,6 +58,7 @@ describe('desktop package-set selection', () => {
       ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host', {
         dependencies: { '@deepseek-ai/dsh': '^1.0.0' },
       })],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
     ])
     expect(() => selectDesktopPackageClosure(available)).toThrow(/unpacked package/u)
     expect(() => selectDesktopPackageClosure(new Map([
@@ -72,9 +75,10 @@ describe('desktop package-set selection', () => {
         },
       })],
       ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
     ])
     expect(selectDesktopPackageClosure(available).map(entry => entry.manifest.name)).toEqual([
-      '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host',
+      '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-tako',
     ])
   })
 

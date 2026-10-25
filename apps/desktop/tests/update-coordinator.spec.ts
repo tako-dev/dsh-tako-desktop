@@ -47,7 +47,7 @@ describe('desktop release metadata', () => {
 const coordinators: InstanceType<typeof DesktopUpdateCoordinator>[] = []
 afterEach(() => { for (const item of coordinators.splice(0)) item.dispose() })
 
-function fixture() {
+function fixture(compatibilityGate?: (candidateVersion: string) => Promise<void>) {
   const events = new EventEmitter()
   const checkForUpdates = vi.fn(async () => ({
     isUpdateAvailable: true,
@@ -66,7 +66,7 @@ function fixture() {
   const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
-    beforeRestart, updater, () => true, () => '1.1.0-alpha.1', downloadResult,
+    beforeRestart, updater, () => true, () => '1.1.0-alpha.1', downloadResult, compatibilityGate,
   )
   coordinators.push(coordinator)
   return { coordinator, updater, events, states, checkForUpdates, downloadUpdate, quitAndInstall, beforeRestart, downloadResult }
@@ -181,6 +181,15 @@ describe('desktop update coordinator', () => {
     const f = fixture()
     f.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version } })
     await f.coordinator.check()
+    await expect(f.coordinator.download('1.1.0-rc.2')).rejects.toThrow(/no checked update/u)
+    expect(f.downloadUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not present a DSH update until the Tako compatibility gate accepts it', async () => {
+    const gate = vi.fn(async () => { throw new Error('Tako bundle is not published for this DSH version') })
+    const f = fixture(gate)
+    expect(await f.coordinator.check()).toMatchObject({ phase: 'error', failedOperation: 'check' })
+    expect(gate).toHaveBeenCalledExactlyOnceWith('1.1.0-rc.2')
     await expect(f.coordinator.download('1.1.0-rc.2')).rejects.toThrow(/no checked update/u)
     expect(f.downloadUpdate).not.toHaveBeenCalled()
   })

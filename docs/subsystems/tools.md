@@ -199,6 +199,8 @@ interface ToolExecutionInput {
    * a root execution; nested dispatchers propagate the enclosing value.
    */
   readonly rootCallId?: ToolCallId
+  /** Durable turn number that owns this execution, for provider correlation. */
+  readonly turn?: number
   readonly name: string
   /** Binding-time tool schema for a PTC inner call; frozen by its producer and never logged. */
   readonly schema?: ToolSchema

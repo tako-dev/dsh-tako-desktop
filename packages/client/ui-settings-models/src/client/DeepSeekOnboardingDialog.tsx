@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
-import { onboardingReadiness } from './store.ts'
+import { onboardingReadiness, onboardingTarget } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
@@ -50,8 +50,8 @@ function assertNever(_value: never): never {
 }
 
 /**
- * Prompt a first-run user for the official DeepSeek credential while no
- * provider can serve requests and that credential is writable.
+ * Prompt a first-run user for the selected profile's primary credential while
+ * no provider can serve requests and that credential is writable.
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
@@ -91,13 +91,11 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       return assertNever(readiness)
   }
 
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
-  const namespace = state.namespaces.get('llm-deepseek')
+  const row = onboardingTarget(state)
+  const namespace = row === undefined ? undefined : state.namespaces.get(row.entry.settingsNs)
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
+  const tako = row.entry.provider === 'tako'
 
   const finishCredential = (changed: boolean): void => {
     if (!changed) {
@@ -108,8 +106,8 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
   }
 
   const editor = (
-    <OnboardingModal title={t('onboardingTitle')}>
-      <p className={styles.description}>{t('onboardingDescription')}</p>
+    <OnboardingModal title={t(tako ? 'takoOnboardingTitle' : 'onboardingTitle')}>
+      <p className={styles.description}>{t(tako ? 'takoOnboardingDescription' : 'onboardingDescription')}</p>
       <div className={styles.editor}>
         <ProviderEditor
           provider={row.entry.provider}

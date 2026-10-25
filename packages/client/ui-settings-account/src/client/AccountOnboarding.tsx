@@ -10,9 +10,15 @@ export function AccountOnboarding({ complete, useApiKey, useAccount, useTheme, s
   PropsRuntime<'settings.models.sign-in'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>) {
   const account = useAccount(value => value)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
-  useEffect(() => { setOnboarding(true); return () => { setOnboarding(false) } }, [setOnboarding])
-  useEffect(() => { if (account.view?.status === 'credential-stored') complete() }, [account.view?.status, complete])
-  if (!account.view || account.view.status === 'credential-stored') return null
+  useEffect(() => {
+    if (account.takoMode === true) return
+    setOnboarding(true)
+    return () => { setOnboarding(false) }
+  }, [account.takoMode, setOnboarding])
+  useEffect(() => {
+    if (account.takoMode !== true && account.view?.status === 'credential-stored') complete()
+  }, [account.takoMode, account.view?.status, complete])
+  if (account.takoMode === true || !account.view || account.view.status === 'credential-stored') return null
   return <SignInDialog account={account} colorScheme={colorScheme} start={start} cancel={cancel} t={t}
     close={() => { showLogin(false); complete() }} useApiKey={() => { showLogin(false); useApiKey() }} />
 }

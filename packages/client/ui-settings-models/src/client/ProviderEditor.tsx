@@ -41,7 +41,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
-type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
+type EditorLayout = 'deepseek' | 'pi-ai' | 'tako' | 'unknown'
 
 
 
@@ -141,6 +141,7 @@ export function pathOps(
 function layoutOf(ns: string): EditorLayout {
   if (ns === 'llm-deepseek') return 'deepseek'
   if (ns === 'llm-pi-ai') return 'pi-ai'
+  if (ns === 'llm-tako') return 'tako'
   return 'unknown'
 }
 
@@ -346,7 +347,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
    * narrowed so the per-family branches below are total: an unknown namespace
    * renders the hint instead and never reaches this body.
    */
-  const curatedFields = (family: 'deepseek' | 'pi-ai'): ReactNode => {
+  const curatedFields = (family: 'deepseek' | 'pi-ai' | 'tako'): ReactNode => {
     // What a hand-declared route names for itself and nothing else can supply.
     // A whole-section `llm-deepseek` profile is a composition fact with no
     // per-route identity for its schema to carry, hence the family test.
@@ -433,6 +434,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 value={stringAt(draft, 'baseURL') ?? ''}
                 placeholder={family === 'deepseek'
                   ? t('deepSeekBaseUrl')
+                  : family === 'tako'
+                    ? t('takoBaseUrl')
                   : stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
                 aria-describedby={family === 'deepseek' ? `${props.provider}-endpoint-hint` : undefined}
                 aria-label={t('baseUrl')}
@@ -441,7 +444,9 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                   setField('baseURL', event.target.value === '' ? undefined : event.target.value)
                 }}
               />
-              {family === 'deepseek' ? <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>{t('deepSeekEndpointHint')}</span> : null}
+            {family === 'deepseek' ? <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>{t('deepSeekEndpointHint')}</span>
+              : family === 'tako' ? <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>{t('takoCatalogHint')}</span>
+                : null}
             </div>
             {/* The protocol sits beside the endpoint it describes, as it does
                 on the create card. */}

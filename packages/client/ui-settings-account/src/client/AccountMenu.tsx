@@ -11,6 +11,7 @@ import { LogoutIcon } from './LogoutIcon.tsx'
 import { AccountAvatar } from './AccountAvatar.tsx'
 import { AccountNoticeCard } from './AccountNotice.tsx'
 import css from './AccountMenu.module.css'
+import { TakoLogo } from './TakoLogo.tsx'
 
 /** Account launcher composed by the settings shell. */
 export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
@@ -34,6 +35,7 @@ export function AccountMenu({
   }, [refreshAccount, settingsOpen])
   const account = useAccount(state => state)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
+  const takoMode = account.takoMode === true
   const signedIn = account.view?.status === 'credential-stored'
   const [signInNotice, setSignInNotice] = useState(0)
   useEffect(() => subscribeModelSignInRequired?.(() => { setSignInNotice(value => value + 1) }), [subscribeModelSignInRequired])
@@ -54,6 +56,12 @@ export function AccountMenu({
   }
   // The plugin's start publishes `loginFailed` before it rejects, so the dialog owns the report.
   const beginSignIn = (): void => { setOpen(false); void start().catch(() => undefined) }
+  const menuItems = [
+    { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} /> },
+    { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
+    ...(takoMode ? [] : signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
+      : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+  ]
   return <div ref={anchor} className={css.root}>
     {signInNotice > 0 && <Toast key={signInNotice} text={t('modelSignInRequired')} onDone={() => { setSignInNotice(0) }} />}
     {expiryNotice && <Toast text={t('sessionExpired')} onDone={() => { setExpiryNotice(false) }} />}
@@ -65,16 +73,11 @@ export function AccountMenu({
         aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
         {signedIn
           ? <span className={css.avatar}><AccountAvatar url={profile?.status === 'ready' ? profile.value.avatarUrl : null} /></span>
+          : takoMode ? <span className={css.avatar}><TakoLogo size={20} /></span>
           : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
+        {wide && <span className={css.label}>{takoMode ? t('takoBrand') : signedIn ? label : t('more')}</span>}
       </button>}
-      items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
-        { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
-        ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
-          : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
-      ]}
+      items={menuItems.map(item => item.id === 'settings' && settingsShortcut !== undefined ? { ...item, shortcut: settingsShortcut } : item)}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
         if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }

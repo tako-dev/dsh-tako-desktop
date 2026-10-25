@@ -18,10 +18,29 @@ export interface DesktopBrowserOpenRequest {
 
 /** Origin-scoped operations; no Electron objects or arbitrary IPC cross this interface. */
 export interface DesktopBrowserBridge {
-  /** @param workspace - resolved storage account. @returns one approved guest reservation. */
-  acquire(workspace: string): Promise<DesktopBrowserReservation>
+  /** @param workspace - resolved storage account. @param sessionId - owning DSH chat. @returns one approved guest reservation. */
+  acquire(workspace: string, sessionId: string): Promise<DesktopBrowserReservation>
   /** @param lease - the caller's reservation. @returns after its guest has been destroyed. */
   release(lease: DesktopBrowserLeaseId): Promise<void>
   /** @param lease - originating guest. @param listener - approved URL consumer. @returns unsubscribe callback. */
   onOpenRequested(lease: DesktopBrowserLeaseId, listener: (url: string) => void): () => void
+  /** @param lease - caller-owned tab. @param shared - grant or revoke access for its owning chat. */
+  setShared(lease: DesktopBrowserLeaseId, shared: boolean): Promise<void>
+  /** @param lease - caller-owned tab. @param listener - committed sharing state. @returns unsubscribe callback. */
+  onSharingChanged(lease: DesktopBrowserLeaseId, listener: (shared: boolean) => void): () => void
+}
+
+/** Page operations carried privately between the Desktop Host and Electron. */
+export interface DesktopBrowserAction {
+  readonly action: 'status' | 'snapshot' | 'evaluate' | 'navigate' | 'click' | 'type' | 'press' | 'scroll' | 'screenshot'
+  readonly value?: string
+  readonly x?: number
+  readonly y?: number
+}
+
+/** Bounded result from the selected live tab; screenshots become durable Host attachments. */
+export interface DesktopBrowserResult {
+  readonly shared: boolean
+  readonly text: string
+  readonly image?: string
 }

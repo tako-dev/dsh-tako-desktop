@@ -63,8 +63,18 @@ function deepSeekNamespace(apiKeyEnv: string | null): SettingsNamespaceView {
   }
 }
 
+function takoNamespace(apiKeyEnv: string | null): SettingsNamespaceView {
+  return {
+    ...deepSeekNamespace(apiKeyEnv),
+    ns: 'llm-tako',
+    value: apiKeyEnv === null ? {} : { apiKeyEnv, baseURL: 'https://tako.example' },
+    base: apiKeyEnv === null ? {} : { apiKeyEnv, baseURL: 'https://tako.example' },
+  }
+}
+
 function harness(options: {
   provider?: boolean
+  providerKind?: 'deepseek' | 'tako'
   providerSettingsNs?: string
   providerActive?: boolean
   settingsNamespace?: boolean
@@ -84,7 +94,11 @@ function harness(options: {
   let fileConfigured = false
   const configured = options.configured ?? (() => fileConfigured)
   const apiKeyEnv = options.apiKeyEnv === undefined ? 'DEEPSEEK_API_KEY' : options.apiKeyEnv
-  const mutate = vi.fn(() => Promise.resolve(remoteOk(deepSeekNamespace(apiKeyEnv))))
+  const providerKind = options.providerKind ?? 'deepseek'
+  const providerId = providerKind === 'tako' ? 'tako' : 'deepseek-official'
+  const namespace = providerKind === 'tako' ? takoNamespace(apiKeyEnv) : deepSeekNamespace(apiKeyEnv)
+  const credentialRef = providerKind === 'tako' ? 'TAKO_API_KEY' : 'DEEPSEEK_API_KEY'
+  const mutate = vi.fn(() => Promise.resolve(remoteOk(namespace)))
   const set = vi.fn((_ref: string, _value: string) => {
     if (options.setFailure !== undefined) return Promise.resolve(remoteFail(options.setFailure))
     fileConfigured = true
@@ -97,16 +111,16 @@ function harness(options: {
         return Promise.resolve(remoteOk(
           options.provider === false || options.providerActive === false
             ? []
-            : [{ id: 'deepseek-official', name: 'DeepSeek' }],
+            : [{ id: providerId, name: providerKind === 'tako' ? 'Tako' : 'DeepSeek' }],
         ))
       },
       listConfigurableProviders: () => Promise.resolve(remoteOk(
         options.provider === false
           ? []
           : [{
-            provider: 'deepseek-official',
-            displayName: 'DeepSeek',
-            settingsNs: options.providerSettingsNs ?? 'llm-deepseek',
+            provider: providerId,
+            displayName: providerKind === 'tako' ? 'Tako' : 'DeepSeek',
+            settingsNs: options.providerSettingsNs ?? namespace.ns,
             settingsPath: [],
           }],
       )),
@@ -116,14 +130,14 @@ function harness(options: {
       describe: () => Promise.resolve(remoteOk({
         writable: options.settingsWritable ?? true,
         hasDocument: false,
-        namespaces: options.settingsNamespace === false ? [] : [deepSeekNamespace(apiKeyEnv)],
+        namespaces: options.settingsNamespace === false ? [] : [namespace],
       })),
       mutate,
     },
     credentials: {
       describe: () => options.describeFailure === undefined
         ? Promise.resolve(remoteOk({
-          DEEPSEEK_API_KEY: {
+          [credentialRef]: {
             configured: configured(),
             ...configured() && options.credential?.source !== undefined
               ? { source: options.credential.source }
@@ -170,6 +184,13 @@ describe('DeepSeekOnboardingDialog', () => {
     document.getElementById('root')!.remove()
     render(<DeepSeekOnboardingDialog {...h.props} />)
     expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
+  })
+
+  it('uses the Tako onboarding target and copy when the Tako route is mounted', async () => {
+    const h = harness({ providerKind: 'tako', apiKeyEnv: 'TAKO_API_KEY' })
+    render(<DeepSeekOnboardingDialog {...h.props} />)
+    expect(await screen.findByRole('dialog', { name: en.takoOnboardingTitle })).toBeTruthy()
+    expect(screen.getByText(en.takoOnboardingDescription)).toBeTruthy()
   })
 
   it('loads a credential-only modal, inerts the product, and focuses the key', async () => {

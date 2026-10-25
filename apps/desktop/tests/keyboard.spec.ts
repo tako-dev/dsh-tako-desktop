@@ -58,7 +58,7 @@ const installFixture = installDesktopShortcuts as (
   overlayInput: (window: WindowFixture) => { readonly revision: number; readonly blocked: boolean },
 ) => KeyboardFixture
 type GuestsFixture = {
-  acquire(owner: ContentsFixture, workspace: unknown): DesktopBrowserReservation
+  acquire(owner: ContentsFixture, workspace: unknown, sessionId: string): DesktopBrowserReservation
   release(owner: ContentsFixture, id: unknown): Promise<void>
   bind(window: WindowFixture, attachInput: (guest: ContentsFixture, name: DesktopBrowserLeaseId) => () => void): void
 }
@@ -117,6 +117,21 @@ function updateOverlayFixture(f: Awaited<ReturnType<typeof fixture>>) {
     return overlay
   }
 }
+
+it('uses one-way persistent browser storage per workspace', async () => {
+  const f = await fixture()
+  const guests = new DesktopBrowserGuests(() => undefined) as GuestsFixture
+  const first = guests.acquire(f.contents, 'cwd:/Users/example/project', 'session')
+  const second = guests.acquire(f.contents, 'cwd:/Users/example/project', 'session')
+  const other = guests.acquire(f.contents, 'cwd:/Users/example/other', 'other')
+  expect(first.partition).toMatch(/^persist:dsh-sidebar-browser-[a-f0-9]{64}$/)
+  expect(second.partition).toBe(first.partition)
+  expect(other.partition).not.toBe(first.partition)
+  expect(first.partition).not.toContain('example')
+  await guests.release(f.contents, first.lease)
+  await guests.release(f.contents, second.lease)
+  await guests.release(f.contents, other.lease)
+})
 
 it('mirrors only successful bindings, suppresses recording menus, and invalidates pre-navigation drafts', async () => {
   const f = await fixture()
@@ -200,7 +215,7 @@ it.each([false, true])('blocks approved browser guest input across update overla
   ])
   const guests = new DesktopBrowserGuests(() => undefined) as GuestsFixture
   guests.bind(f.window, (guest, name) => f.keyboard.attachGuest(f.window, guest, name))
-  const reservation = guests.acquire(f.contents, 'session:test')
+  const reservation = guests.acquire(f.contents, 'session:test', 'test')
   const { frame, guest } = browserGuest(reservation)
   const attach = () => {
     const event = { preventDefault: vi.fn() }
@@ -714,7 +729,7 @@ it.each(['macos', 'windows', 'linux'] as const)('routes approved %s browser gues
   const guests = new DesktopBrowserGuests(() => undefined) as GuestsFixture
   const attach = vi.fn((guest: ContentsFixture, name: DesktopBrowserLeaseId) => f.keyboard.attachGuest(f.window, guest, name))
   guests.bind(f.window, attach)
-  const reservation = guests.acquire(f.contents, 'session:test')
+  const reservation = guests.acquire(f.contents, 'session:test', 'test')
   const { frame, guest } = browserGuest(reservation)
   const rejected = { preventDefault: vi.fn() }
   f.contents.emit('will-attach-webview', rejected, {}, { src: 'about:blank#unknown', partition: reservation.partition })

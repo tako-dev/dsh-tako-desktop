@@ -110,6 +110,14 @@ const EXTENSION_BUNDLES = [
   '@deepseek-ai/dsh-experimental-auto-review',
   '@deepseek-ai/dsh-experimental-inspector-profile',
 ]
+/** Bundles shown first for the Tako profile; the full community/plugin list remains available below. */
+const TAKO_CURATED_BUNDLES = [
+  '@deepseek-ai/dsh-experimental-tako-browser-bundle',
+  '@deepseek-ai/dsh-experimental-session-search',
+  '@deepseek-ai/dsh-experimental-session-titles-bundle',
+  '@deepseek-ai/dsh-experimental-terminal-bundle',
+  '@deepseek-ai/dsh-experimental-voice-input-bundle',
+]
 const MORE_BUNDLES = [
   '@deepseek-ai/dsh-experimental-tool-worktree',
   '@deepseek-ai/dsh-experimental-cot-translation-bundle',
@@ -1422,7 +1430,11 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     && (pkg.installed || pkg.official || pkg.error !== undefined))
   const mine = listed.filter(pkg => !pkg.official)
   const official = listed.filter(pkg => pkg.official)
-  const extensions = orderPackages(official.filter(pkg => !MORE_BUNDLES.includes(pkg.name)), EXTENSION_BUNDLES)
+  const takoProfile = listed.some(pkg => pkg.name === '@deepseek-ai/dsh-tako' && pkg.enabled)
+  const curated = takoProfile
+    ? orderPackages(official.filter(pkg => TAKO_CURATED_BUNDLES.includes(pkg.name)), TAKO_CURATED_BUNDLES)
+    : []
+  const extensions = orderPackages(official.filter(pkg => !MORE_BUNDLES.includes(pkg.name) && !TAKO_CURATED_BUNDLES.includes(pkg.name)), EXTENSION_BUNDLES)
   const more = [...extensions, ...orderPackages(official.filter(pkg => MORE_BUNDLES.includes(pkg.name)), MORE_BUNDLES)]
   const loaded = state.status === 'ready' || state.status === 'error'
   const refreshing = state.refreshStatus === 'refreshing'
@@ -1461,7 +1473,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const basicCards = ledger.items.map(item => (
     <ItemCard key={`item:${item.id}`} item={item} t={t} renderSlot={renderSlot} onOpen={() => { setView({ kind: 'item', id: item.id }) }} />
   ))
-  const renderGroup = (id: 'basic' | 'extensions' | 'bundles', heading: string, cards: readonly ReactNode[]): ReactNode => {
+  const renderGroup = (id: 'basic' | 'curated' | 'extensions' | 'bundles', heading: string, cards: readonly ReactNode[]): ReactNode => {
     const offersMore = id === 'extensions' && more.length > 0
     if (cards.length === 0 && !offersMore) return null
     return (
@@ -1595,6 +1607,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
               ) : (
                 <>
                   {renderGroup('basic', t('basicTitle'), basicCards)}
+                  {renderGroup('curated', t('takoCuratedTitle'), curated.map(packageCard))}
                   {renderGroup('extensions', t('extensionsTitle'), extensions.map(packageCard))}
                   {renderGroup('bundles', t('bundlesTitle'), mine.map(packageCard))}
                 </>

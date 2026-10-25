@@ -39,6 +39,7 @@ export type {
 export type {} from '@deepseek-ai/dsh-plugin-manager/remote'
 export type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/remote'
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
+export type { TakoQuotaView } from '@deepseek-ai/dsh-api-account-controller/types'
 export type {} from '@deepseek-ai/dsh-agent-preset-registry/remote'
 export type {} from '@deepseek-ai/dsh-user-questions/remote'
 export type {} from '@deepseek-ai/dsh-commands/remote'

@@ -1,0 +1,13 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/experimental/tako-browser-bundle/README.md
+/:
+  en: d3b3cf43ce175e6e
+  zh: 4d4e3c938293b845
+/deepseek-ai-dsh-experimental-tako-browser-bundle:
+  en: dd1f9f617570bfc9
+  zh: 210b1561801e505b
+/deepseek-ai-dsh-experimental-tako-browser-bundle/summary:
+  en: e8617ecbb3baa12a
+  zh: 4aba2d0d8828ca61

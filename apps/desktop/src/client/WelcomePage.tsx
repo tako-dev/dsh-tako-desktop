@@ -16,6 +16,7 @@ type Page = 'entry' | 'key' | 'account'
  */
 export function Welcome({ api }: { api: WelcomeApi }) {
   const { messages: m } = api
+  const tako = api.provider === 'tako'
   const [expiryNotice, setExpiryNotice] = useState(false)
   const [page, setPage] = useState<Page>('entry')
   const pageRef = useRef<Page>('entry')
@@ -29,6 +30,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [providerLogin, setProviderLogin] = useState<'idle' | 'waiting'>('idle')
   const busyRef = useRef(false)
   const mounted = useRef(true)
   const revision = useRef(0)
@@ -52,7 +54,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   useEffect(() => {
     mounted.current = true
     document.documentElement.lang = api.id
-    document.title = m.welcomeTitle
+    document.title = tako ? m.takoWelcomeTitle : m.welcomeTitle
     const takeNotice = (): void => {
       void api.takeNotice().then((notice) => {
         if (mounted.current && notice === 'session-expired') setExpiryNotice(true)
@@ -62,12 +64,13 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     }
     takeNotice()
     const stop = api.onAccountState((state) => {
+      if (tako) return
       revision.current++
       takeNotice()
       showAccount(state)
     })
     return () => { mounted.current = false; stop() }
-  }, [api, m.welcomeTitle])
+  }, [api, m.welcomeTitle, m.takoWelcomeTitle, tako])
 
   useEffect(() => {
     if (page === 'entry' && visiblePage.current !== 'entry') void api.analytics?.('auth_page_view', {})
@@ -103,7 +106,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       const result = await api.saveApiKey(value)
       if (!mounted.current) return
       if (result.ok) setDraft('')
-      else setError(m.welcomeKeyFailed)
+      else setError(tako && result.reason === 'invalid' ? m.takoWelcomeKeyInvalid
+        : tako && result.reason === 'network' ? m.takoWelcomeKeyNetwork : m.welcomeKeyFailed)
     } catch {
       if (mounted.current) setError(m.welcomeKeyFailed)
     } finally {
@@ -138,6 +142,39 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       if (mounted.current && revision.current === current) setStarting(false)
     }
   }
+  async function openProviderSite() {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusy(true)
+    setProviderLogin('waiting')
+    setError('')
+    try {
+      const result = await api.openProviderSite?.()
+      if (mounted.current && result !== undefined && !result.ok) {
+        setProviderLogin('idle')
+        setError(result.reason === 'cancelled' ? m.takoWelcomeLoginCancelled : result.reason === 'expired' ? m.takoWelcomeLoginExpired : m.takoWelcomeLoginFailed)
+      }
+    } catch {
+      if (mounted.current) {
+        setProviderLogin('idle')
+        setError(m.takoWelcomeLoginFailed)
+      }
+    } finally {
+      busyRef.current = false
+      if (mounted.current) {
+        setBusy(false)
+        setProviderLogin('idle')
+      }
+    }
+  }
+  async function cancelProviderLogin() {
+    if (providerLogin !== 'waiting') return
+    try {
+      await api.cancelProviderLogin?.()
+    } catch {
+      // Keep the browser handoff visible so the user can retry cancellation.
+    }
+  }
   async function cancel() {
     if (cancelling || attemptRef.current === null) return
     setCancelling(true)
@@ -170,6 +207,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
       : phase === 'failed' ? m.welcomeAuthFailed : m.welcomeAuthExchanging
   const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : 'auth-status'
+  const apiKeyButton = <button ref={keyButton} id="api-key" className={tako ? 'primary' : 'secondary'} type="button" disabled={tako && busy}
+    onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{tako ? m.takoWelcomeApiKey : m.welcomeApiKey}</button>
 
   return <>
     {expiryNotice && <Toast text={m.welcomeSessionExpired} onDone={() => { setExpiryNotice(false) }} />}
@@ -177,11 +216,13 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     <main className="welcome" aria-labelledby={heading}>
       <img className="brand" src="assets/welcome-brand.svg" alt={m.welcomeBrand} width="472" height="40" />
       <div id="tagline" className="tagline" hidden={page !== 'entry'}>
-        <h1 id="welcome-heading"><span>{m.welcomeTaglineBefore}</span><em>{m.welcomeTaglineBrand}</em><span>{m.welcomeTaglineAfter}</span></h1>
-        <p id="welcome-description">{m.welcomeDescription}</p>
+        <h1 id="welcome-heading"><span>{m.welcomeTaglineBefore}</span><em>{tako ? m.takoWelcomeBrand : m.welcomeTaglineBrand}</em><span>{m.welcomeTaglineAfter}</span></h1>
+        <p id="welcome-description">{tako ? m.takoWelcomeDescription : m.welcomeDescription}</p>
+        {tako && <p id="tako-login-status" className="key-error" role="status" hidden={providerLogin !== 'waiting'}>{m.takoWelcomeLoginWaiting}</p>}
+        {tako && <p id="tako-login-error" className="key-error" role="alert" hidden={error === ''}>{error}</p>}
       </div>
       <form id="key-form" className="key-form" hidden={page !== 'key'} noValidate onSubmit={(event) => { void saveKey(event) }} aria-busy={busy}>
-        <header className="key-heading"><h1 id="key-title">{m.welcomeKeyTitle}</h1><p id="key-description">{m.welcomeKeyDescription}</p></header>
+        <header className="key-heading"><h1 id="key-title">{tako ? m.takoWelcomeKeyTitle : m.welcomeKeyTitle}</h1><p id="key-description">{tako ? m.takoWelcomeKeyDescription : m.welcomeKeyDescription}</p></header>
         <div className="key-field">
           <label className="visually-hidden" htmlFor="key-input">{m.welcomeKeyPlaceholder}</label>
           <input ref={input} id="key-input" type="password" autoComplete="new-password" autoCapitalize="off" spellCheck={false} required
@@ -209,8 +250,12 @@ export function Welcome({ api }: { api: WelcomeApi }) {
           onClick={() => { void cancel() }}>{m.welcomeAuthCancel}</button>
       </div>
       <div id="entry-actions" className="actions" hidden={page !== 'entry'}>
-        <button id="sign-in" className="primary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>
-        <button ref={keyButton} id="api-key" className="secondary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{m.welcomeApiKey}</button>
+        {tako && apiKeyButton}
+        {tako
+          ? <button id="sign-in" className="secondary" type="button" disabled={busy} onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void openProviderSite() }}>{m.takoWelcomeSite}</button>
+          : <button id="sign-in" className="primary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>}
+        {tako && <button id="cancel-tako-login" className="secondary" type="button" hidden={providerLogin !== 'waiting'} onClick={() => { void cancelProviderLogin() }}>{m.welcomeAuthCancel}</button>}
+        {!tako && apiKeyButton}
       </div>
       <div id="key-actions" className="actions" hidden={page !== 'key'}>
         <button id="save-key" className="primary" type="submit" form="key-form" disabled={busy || draft.trim() === ''}>{m.welcomeKeySave}</button>

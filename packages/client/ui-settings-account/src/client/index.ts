@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { OnboardingChange } from './onboarding-contract.ts'
@@ -19,6 +20,7 @@ import { AccountPlatformHost, type AccountPlatformHostInjected } from './Account
 import { AccountMenu } from './AccountMenu.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
+import { TakoQuotaAction } from './TakoQuotaAction.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
 import { accountClientMetadata } from './client-metadata.ts'
 import { en, zh, type AccountKey } from './locales.ts'
@@ -28,6 +30,8 @@ import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
+
+const TAKO_PROFILE_GLOBAL = '__DSH_TAKO_PROFILE__'
 export type { AccountSectionInjected, AccountSectionProps } from './AccountSection.tsx'
 export type { AccountMenuProps } from './AccountMenu.tsx'
 export type { AccountSnapshot } from './AccountSection.tsx'
@@ -44,9 +48,10 @@ export function apply(ctx: Context): void {
   if (!('dshDesktop' in globalThis)) return
   ctx.effect(() => ctx.locale.register('settings.account', { en, zh }), 'account: dictionaries')
   const t = ctx.locale.bind('settings.account')
-  const page = globalThis as Partial<Record<typeof CONTACT_CONFIG_GLOBAL, unknown>>
+  const page = globalThis as Partial<Record<typeof CONTACT_CONFIG_GLOBAL | typeof TAKO_PROFILE_GLOBAL, unknown>>
   const config = ContactConfig(page[CONTACT_CONFIG_GLOBAL] ?? {})
-  let snapshot: AccountSnapshot = { view: undefined, details: undefined, failed: false, loginVisible: false }
+  const takoMode = page[TAKO_PROFILE_GLOBAL] === true
+  let snapshot: AccountSnapshot = { view: undefined, details: undefined, failed: false, loginVisible: false, takoMode }
   const listeners = new Set<() => void>()
   const publish = (value: AccountSnapshot) => { snapshot = value; for (const listener of listeners) listener() }
   /** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
@@ -78,6 +83,7 @@ export function apply(ctx: Context): void {
   let revision = 0
   let refreshing: Promise<void> | undefined
   const refresh = (): Promise<void> => {
+    if (snapshot.takoMode === true) return Promise.resolve()
     if (snapshot.view?.status !== 'credential-stored') return Promise.resolve()
     if (refreshing !== undefined) return refreshing
     const generation = revision
@@ -104,16 +110,43 @@ export function apply(ctx: Context): void {
     void request.finally(() => { if (refreshing === request) refreshing = undefined })
     return request
   }
+  /** Read Tako's API-key quota independently of the DeepSeek account session. */
+  const refreshTakoQuota = async (): Promise<void> => {
+    if (snapshot.takoMode !== true) return
+    try {
+      const result = await ctx.remote.account.getTakoQuota()
+      if (result.ok) publish({ ...snapshot, takoQuota: result.value })
+      else publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+    } catch {
+      publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+    }
+  }
+  // The Tako profile has no DeepSeek account stream to trigger the normal
+  // account refresh path. Start the independent quota read as soon as the
+  // profile is mounted so the sidebar never remains in its loading state.
+  if (takoMode) void refreshTakoQuota()
+  ctx.effect(() => {
+    const refresh = () => { if (snapshot.takoMode === true) void refreshTakoQuota() }
+    const disposers = [
+      ctx.remote.$on('credentials/reference-updated', refresh),
+      ctx.remote.$on('llm/adapters-updated', refresh),
+    ]
+    return () => { for (const dispose of disposers) dispose() }
+  }, 'account: Tako quota refresh')
   ctx.effect(() => () => { revision++ }, 'account: details request lifetime')
-  const stream = ctx.remote.$stream<AccountView>({
+  // A Tako profile has its own credential and quota path. Do not even open
+  // the official DeepSeek account stream in that profile; it is unrelated to
+  // the active provider and would keep the old login state alive in memory.
+  const stream = takoMode ? undefined : ctx.remote.$stream<AccountView>({
     name: 'account', open: signal => ctx.remote.account.watch(signal), ended: () => new Error('account stream ended'),
   })
   let disposed = false
-  ctx.effect(() => () => { disposed = true; return stream.dispose() }, 'account: state stream')
-  void (async () => {
+  ctx.effect(() => () => { disposed = true; return stream?.dispose() }, 'account: state stream')
+  if (stream !== undefined) void (async () => {
     for await (const frame of stream) {
       revision++
       refreshing = undefined
+      if (snapshot.takoMode === true) { frame.accept(); continue }
       const initialize = frame.value.status === 'credential-stored' && frame.value.attempt?.phase === 'succeeded'
         && snapshot.view?.attempt?.phase !== 'succeeded'
       const { notice, ...previous } = snapshot
@@ -124,7 +157,9 @@ export function apply(ctx: Context): void {
       else notices.end()
       if (initialize) void (async () => {
         try {
-          const initialized = await ctx.remote.session.initializeDefaultModel()
+          const initialized = await (ctx.remote as unknown as {
+            session: { initializeDefaultModel: () => Promise<{ ok: boolean }> }
+          }).session.initializeDefaultModel()
           if (!initialized.ok) console.info('[deepseek-account] default model initialization failed', { reason: 'refused' })
         } catch (_error) {
           console.info('[deepseek-account] default model initialization failed', { reason: 'disconnected' })
@@ -142,7 +177,9 @@ export function apply(ctx: Context): void {
   // One account refresh: the recharge/bonus wallet and the unnotified-bonus read,
   // whichever surface asks — a Settings entry, or returning from top-up. Both
   // reads are independent, and a concurrent refresh shares the in-flight request.
-  const refreshAccount = async (): Promise<void> => { await Promise.all([refresh(), notices.refresh()]) }
+  const refreshAccount = async (): Promise<void> => {
+    await Promise.all([refresh(), notices.refresh(), snapshot.takoMode === true ? refreshTakoQuota() : Promise.resolve()])
+  }
   /**
    * Narrow the shared channel to one surface's post-return read: only a viewer
    * returning from top-up re-reads, so a superseded page or a plugin teardown
@@ -230,7 +267,7 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
-  if ('dshDesktop' in globalThis) {
+  if ('dshDesktop' in globalThis && takoMode !== true) {
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),
@@ -285,10 +322,14 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu))
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action', id: 'tako-quota', locale: 'settings.account', inject: () => operations,
+  }, TakoQuotaAction))
   ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {
-      if (snapshot.view?.status === 'credential-stored') {
+      if ((snapshot.takoMode === true && snapshot.takoQuota !== undefined)
+        || (snapshot.takoMode !== true && snapshot.view?.status === 'credential-stored')) {
         unregister ??= ctx.slots.register({
           name: 'settings.section', id: 'account', order: -10, label: () => t('nav'),
           locale: 'settings.account', inject: () => operations,
