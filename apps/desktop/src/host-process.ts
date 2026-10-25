@@ -260,7 +260,7 @@ export class DesktopHostProcess {
     const sessionId = message.sessionId
     this.browserRequests.set(requestId, controller)
     const send = (response: object): void => {
-      if (child.connected && !this.stopping) child.send({ type: 'browser-result', requestId, ...response }, error => {
+      if (child.connected && !this.stopping) child.send({ type: 'browser-result', requestId, ...response }, (error) => {
         if (error !== null) this.fail(error)
       })
     }

@@ -61,7 +61,7 @@ describe('TakoClient', () => {
       'x-dsh-turn-id': 'turn-2',
       'x-dsh-tool-call-id': 'call-3',
     }))
-    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ query: 'q' })
+    expect(JSON.parse(requests[0]?.init?.body as string)).toEqual({ query: 'q' })
   })
 
   it('fails before transport when the credential is missing', async () => {
@@ -187,9 +187,9 @@ describe('TakoClient', () => {
     expect(requests).toHaveLength(2)
     expect(requests[0]?.input).toBe('https://tako.example/apiStats/api/get-key-id')
     expect(requests[0]?.init?.headers).not.toHaveProperty('authorization')
-    expect(String(requests[0]?.init?.body)).toContain('secret-key')
+    expect(requests[0]?.init?.body as string).toContain('secret-key')
     expect(requests[1]?.init?.body).toBe(JSON.stringify({ apiId: '42' }))
-    expect(String(requests[1]?.init?.headers)).not.toContain('secret-key')
+    expect(JSON.stringify(requests[1]?.init?.headers)).not.toContain('secret-key')
   })
 
   it('accepts the current top-level user-quota response shape', async () => {
@@ -258,7 +258,7 @@ describe('TakoClient', () => {
     })) as TakoFetch
     const client = new TakoClient({ baseURL: 'https://tako.example', resolveApiKey: async () => 'key', fetchImpl })
 
-    const error = await client.requestJson('/search', { query: 'q' }, undefined).catch(value => value)
+    const error = await client.requestJson('/search', { query: 'q' }, undefined).catch((value: unknown) => value)
     expect(error).toBeInstanceOf(TakoApiError)
     expect(error).toMatchObject({ code: 'BILLING', status: 402, requestId: 'req-1' })
     expect(String(error)).not.toContain('key')

@@ -45,7 +45,7 @@ async function readBody(request: IncomingMessage): Promise<string | undefined> {
   const chunks: Buffer[] = []
   let length = 0
   for await (const chunk of request) {
-    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    const bytes: Buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string)
     length += bytes.byteLength
     if (length > MAX_BODY_BYTES) return undefined
     chunks.push(bytes)
@@ -124,9 +124,8 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
   const fetchImpl = options.fetchImpl ?? fetch
   const deviceName = options.deviceName ?? `DSH@${process.platform}`
   const abortController = new AbortController()
-  let server: Server | undefined
-  let callbackURL: string | undefined
-  let timer: NodeJS.Timeout | undefined
+  // Assigned once the listener is open; the callback handler and finish() read them later.
+  const handles: { server?: Server; callbackURL?: string; timer?: NodeJS.Timeout } = {}
   let settled = false
   let callbackInFlight = false
   let resolveResult!: (result: TakoBrowserLoginResult) => void
@@ -134,13 +133,13 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
   const finish = (result: TakoBrowserLoginResult): void => {
     if (settled) return
     settled = true
-    if (timer !== undefined) clearTimeout(timer)
+    if (handles.timer !== undefined) clearTimeout(handles.timer)
     abortController.abort()
-    closeServer(server)
+    closeServer(handles.server)
     resolveResult(result)
   }
 
-  server = createServer(async (request, response) => {
+  const handleCallback = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
     if (url.pathname !== CALLBACK_PATH) {
       textResponse(response, 404, 'Not found')
@@ -177,6 +176,7 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
       callbackInFlight = false
       return
     }
+    const callbackURL = handles.callbackURL
     if (callbackURL === undefined) {
       textResponse(response, 503, 'Login callback is not ready')
       callbackInFlight = false
@@ -190,24 +190,32 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
     }
     textResponse(response, 200, 'Tako login completed. Return to the DSH window.')
     finish({ ok: true, apiKey })
+  }
+  const server = createServer((request, response) => {
+    void handleCallback(request, response).catch(() => {
+      callbackInFlight = false
+      if (!response.headersSent) textResponse(response, 500, 'Login callback failed')
+    })
   })
+  handles.server = server
   await new Promise<void>((resolve, reject) => {
-    const onError = (error: Error): void => { server?.off('listening', onListening); reject(error) }
-    const onListening = (): void => { server?.off('error', onError); resolve() }
-    server?.once('error', onError)
-    server?.once('listening', onListening)
-    server?.listen(0, '127.0.0.1')
+    const onError = (error: Error): void => { server.off('listening', onListening); reject(error) }
+    const onListening = (): void => { server.off('error', onError); resolve() }
+    server.once('error', onError)
+    server.once('listening', onListening)
+    server.listen(0, '127.0.0.1')
   }).catch((error: unknown) => {
-    closeServer(server)
+    closeServer(handles.server)
     throw new Error(`tako login: could not open callback listener (${error instanceof Error ? error.message : 'unknown error'})`)
   })
   const address = server.address()
   if (address === null || typeof address === 'string') {
-    closeServer(server)
+    closeServer(handles.server)
     throw new Error('tako login: callback listener did not expose a port')
   }
-  timer = setTimeout(() => { finish({ ok: false, reason: 'expired' }) }, timeoutMs)
-  callbackURL = `http://127.0.0.1:${String(address.port)}${CALLBACK_PATH}`
+  handles.timer = setTimeout(() => { finish({ ok: false, reason: 'expired' }) }, timeoutMs)
+  const callbackURL = `http://127.0.0.1:${String(address.port)}${CALLBACK_PATH}`
+  handles.callbackURL = callbackURL
   const authorize = new URL('/app/authorize', parsedOrigin)
   authorize.searchParams.set('client_id', CLIENT_ID)
   authorize.searchParams.set('response_type', 'code')

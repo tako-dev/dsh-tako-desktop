@@ -47,3 +47,9 @@ worktrees/
 .agents/worktrees/
 .typert-*/
 native/system/test/bin/
+# Stray build output: the Electron main bundle belongs under apps/desktop/lib,
+# and tsc emit must never land beside package sources.
+/main.js
+packages/*/*/src/**/*.js
+packages/*/*/src/**/*.js.map
+packages/*/*/src/**/*.d.ts.map

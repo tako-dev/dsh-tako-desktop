@@ -121,7 +121,10 @@ async function attachImage(ctx: Context, image: { b64_json?: string; mimeType?: 
   }
 }
 
-function imageContent(value: { images?: Array<{ url?: string; b64_json?: string; revised_prompt?: string; attachment?: ImageAttachmentRef }> }): ContentBlock[] {
+/** One generated image as the Tako API returns it, optionally already persisted as an attachment. */
+type TakoGeneratedImage = { url?: string; b64_json?: string; revised_prompt?: string; attachment?: ImageAttachmentRef }
+
+function imageContent(value: { images?: TakoGeneratedImage[] }): ContentBlock[] {
   const blocks: ContentBlock[] = []
   for (const [index, image] of (value.images ?? []).entries()) {
     if (image.attachment !== undefined) {
@@ -220,12 +223,23 @@ function present(kind: ToolCallKind, title: string): GenericCallView {
 
 /** Narrow transport consumed by model-facing tools; the full client also owns model discovery. */
 export interface TakoToolClient {
-  /** @param path - API path. @param body - JSON body. @param signal - cancellation. @param correlation - DSH identity. @returns decoded response. */
-  requestJson<T>(path: string, body: unknown | undefined, signal: AbortSignal | undefined, correlation: TakoCorrelation): Promise<T>
+  /**
+   * @param path - API path. @param body - JSON body. @param signal - cancellation.
+   * @param correlation - DSH identity. @returns decoded response.
+   */
+  requestJson<T>(
+    path: string, body: unknown, signal: AbortSignal | undefined, correlation: TakoCorrelation,
+  ): Promise<T>
   /** @param input - audio request. @param signal - cancellation. @param correlation - DSH identity. @returns transcription. */
-  transcribe(input: { audioBase64: string; filename: string; mimeType: string; model?: string; language?: string }, signal: AbortSignal | undefined, correlation: TakoCorrelation): Promise<TakoTranscriptionResponse>
+  transcribe(
+    input: { audioBase64: string; filename: string; mimeType: string; model?: string; language?: string },
+    signal: AbortSignal | undefined, correlation: TakoCorrelation,
+  ): Promise<TakoTranscriptionResponse>
   /** @param input - speech request. @param signal - cancellation. @param correlation - DSH identity. @returns audio response. */
-  speech(input: { model: string; text: string; voice: string; format: string }, signal: AbortSignal | undefined, correlation: TakoCorrelation): Promise<TakoAudioResponse>
+  speech(
+    input: { model: string; text: string; voice: string; format: string },
+    signal: AbortSignal | undefined, correlation: TakoCorrelation,
+  ): Promise<TakoAudioResponse>
   /** @param signal - cancellation. @param correlation - DSH identity. @returns read-only quota. */
   quota(signal?: AbortSignal, correlation?: TakoCorrelation): Promise<TakoQuotaSnapshot>
   /** @param correlation - DSH identity. @param signal - cancellation. @returns optional ledger receipt. */

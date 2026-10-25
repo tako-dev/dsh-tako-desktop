@@ -286,7 +286,7 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
-  if (desktop && takoMode !== true) {
+  if (desktop && !takoMode) {
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),

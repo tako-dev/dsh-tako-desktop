@@ -60,7 +60,7 @@ describe('Tako release manifest', () => {
   it('probes the preferred CDN and falls back without geolocation', async () => {
     const parsed = parseTakoReleaseManifest(manifest())
     const seen: string[] = []
-    await expect(selectTakoInstallArtifact(parsed, 'windows-x64', async url => {
+    await expect(selectTakoInstallArtifact(parsed, 'windows-x64', async (url) => {
       seen.push(url)
       return url.includes('us-win')
     }, 'domestic')).resolves.toMatchObject({ channel: 'overseas' })
@@ -87,8 +87,8 @@ describe('Tako release manifest', () => {
 
   it('enforces host compatibility and semver prerelease ordering', () => {
     const parsed = parseTakoReleaseManifest(manifest())
-    expect(() => assertTakoCompatibility(parsed, '0.1.9')).toThrow('older than required')
-    expect(() => assertTakoCompatibility(parsed, '0.2.1-alpha.2')).not.toThrow()
+    expect(() => { assertTakoCompatibility(parsed, '0.1.9') }).toThrow('older than required')
+    expect(() => { assertTakoCompatibility(parsed, '0.2.1-alpha.2') }).not.toThrow()
     expect(compareTakoVersions('0.2.1-alpha.2', '0.2.1')).toBeLessThan(0)
     expect(compareTakoVersions('0.2.1', '0.2.1')).toBe(0)
   })
@@ -153,8 +153,8 @@ describe('Tako release manifest', () => {
     const signature = sign(null, Buffer.from(payload), privateKey).toString('base64')
     expect(verifyTakoSignature(payload, signature, publicKey.export({ type: 'spki', format: 'pem' }).toString())).toBe(true)
     expect(verifyTakoSignature(`${payload} `, signature, publicKey.export({ type: 'spki', format: 'pem' }).toString())).toBe(false)
-    expect(() => verifyTakoSha256(new TextEncoder().encode('bundle'), digest('other'))).toThrow('SHA-256 mismatch')
-    expect(() => verifyTakoSha256(new TextEncoder().encode('bundle'), digest('bundle'))).not.toThrow()
+    expect(() => { verifyTakoSha256(new TextEncoder().encode('bundle'), digest('other')) }).toThrow('SHA-256 mismatch')
+    expect(() => { verifyTakoSha256(new TextEncoder().encode('bundle'), digest('bundle')) }).not.toThrow()
   })
 
   it('validates manifests before downloading and verifies downloaded bytes', async () => {
@@ -244,7 +244,7 @@ describe('Tako release manifest', () => {
         version: 'remote', signature: Buffer.from('bad').toString('base64'), keyId: 'missing',
       },
       () => undefined,
-      { read: async () => cached, write: async value => { writes.push(value) } },
+      { read: async () => cached, write: async (value) => { writes.push(value) } },
     )
     expect(result).toMatchObject({ source: 'cache', stale: true, catalog: { version: 'cached' } })
     expect(writes).toEqual([])

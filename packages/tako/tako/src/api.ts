@@ -292,7 +292,7 @@ export class TakoClient {
    */
   async requestJson<T>(
     path: string,
-    body: unknown | undefined,
+    body: unknown,
     signal: AbortSignal | undefined,
     correlation: TakoCorrelation = {},
     method: 'GET' | 'POST' = body === undefined ? 'GET' : 'POST',
@@ -317,7 +317,7 @@ export class TakoClient {
       'GET',
       '/api/usage/token/',
     )
-    if (isRecord(value) && isRecord(value.data)) return value.data as TakoUsageResponse
+    if (isRecord(value) && isRecord(value.data)) return value.data
     return value as TakoUsageResponse
   }
 
@@ -553,7 +553,7 @@ export class TakoClient {
 
   private async requestAbsoluteJson<T>(
     url: string,
-    body: unknown | undefined,
+    body: unknown,
     signal: AbortSignal | undefined,
     correlation: TakoCorrelation,
     method: 'GET' | 'POST',

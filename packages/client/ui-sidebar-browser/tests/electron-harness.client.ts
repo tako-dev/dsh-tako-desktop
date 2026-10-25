@@ -15,7 +15,10 @@ export function electronFixture(initial?: BrowserTabState) {
   const bridge = {
     acquire: vi.fn(async (_workspace: string) => reservation),
     setShared: vi.fn(async (_lease: DesktopBrowserLeaseId, shared: boolean) => { for (const listener of sharing) listener(shared) }),
-    onSharingChanged: vi.fn((_lease: DesktopBrowserLeaseId, listener: (shared: boolean) => void) => { sharing.add(listener); return () => { sharing.delete(listener) } }),
+    onSharingChanged: vi.fn((_lease: DesktopBrowserLeaseId, listener: (shared: boolean) => void) => {
+      sharing.add(listener)
+      return () => { sharing.delete(listener) }
+    }),
     release: vi.fn(async (_lease: DesktopBrowserLeaseId) => {}),
     onOpenRequested: vi.fn((_lease: DesktopBrowserLeaseId, listener: (url: string) => void) => {
       opens.add(listener)

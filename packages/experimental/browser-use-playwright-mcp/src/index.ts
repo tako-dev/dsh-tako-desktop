@@ -50,7 +50,7 @@ export function apply(ctx: Context, config: Config): void {
     exclusive: config.mode === 'attach',
     command: process.execPath,
     args: config.mode === 'launch'
-      ? agent => config.profileMode === 'shared' ? args : [...args.slice(0, -1), join(args.at(-1)!, String(agent.id))]
+      ? agent => config.profileMode === 'shared' ? args : [...args.slice(0, -1), join(args.at(-1) ?? '', String(agent.id))]
       : args,
     env,
     ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },

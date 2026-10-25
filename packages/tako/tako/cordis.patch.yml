@@ -7,4 +7,3 @@
       config:
         apiKeyEnv: TAKO_API_KEY
         baseURL: !!js process.env.TAKO_BASE_URL || 'https://tako.shiroha.tech'
-

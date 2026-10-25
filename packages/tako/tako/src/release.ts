@@ -52,7 +52,7 @@ export interface TakoCuratedCatalog {
 /** Persistence seam for the last verified curated catalog. */
 export interface TakoCuratedCatalogStore {
   /** Read a previously verified or serialized catalog value. */
-  readonly read: () => Promise<unknown | undefined>
+  readonly read: () => Promise<unknown>
   /** Persist a catalog only after signature, digest, and schema validation. */
   readonly write: (catalog: TakoCuratedCatalog) => Promise<void>
 }
@@ -160,7 +160,7 @@ function stringField(value: Record<string, unknown>, key: string): string {
 
 function booleanField(value: Record<string, unknown>, key: string): boolean {
   if (typeof value[key] !== 'boolean') throw new Error(`tako curated: ${key} must be a boolean`)
-  return value[key] as boolean
+  return value[key]
 }
 
 function stringList(value: unknown, key: string): string[] | undefined {
@@ -168,7 +168,7 @@ function stringList(value: unknown, key: string): string[] | undefined {
   if (!Array.isArray(value) || !value.every(item => typeof item === 'string' && item.length > 0)) {
     throw new Error(`tako curated: ${key} must be a list of non-empty strings`)
   }
-  return [...value] as string[]
+  return value.map(item => String(item))
 }
 
 function httpsURL(value: string, key: string): string {
@@ -495,10 +495,11 @@ export async function executeTakoInstallPlan(
     ])
   })
   // `downloadTakoArtifact` performs the digest and size checks before return.
-  await run('verify', async () => {
+  await run('verify', () => {
     if (desktopArtifact === undefined || bundleArtifact === undefined) {
-      throw new Error('tako release: verified artifacts are unavailable')
+      return Promise.reject(new Error('tako release: verified artifacts are unavailable'))
     }
+    return Promise.resolve()
   })
   await run('configure', async () => {
     if (desktopArtifact === undefined || bundleArtifact === undefined) {
@@ -532,7 +533,9 @@ export function compareTakoVersions(left: string, right: string): number {
   const a = parse(left)
   const b = parse(right)
   for (let index = 0; index < 3; index += 1) {
-    if (a.numbers[index] !== b.numbers[index]) return a.numbers[index]! < b.numbers[index]! ? -1 : 1
+    const x = a.numbers[index] ?? 0
+    const y = b.numbers[index] ?? 0
+    if (x !== y) return x < y ? -1 : 1
   }
   if (a.pre.length === 0 && b.pre.length > 0) return 1
   if (a.pre.length > 0 && b.pre.length === 0) return -1

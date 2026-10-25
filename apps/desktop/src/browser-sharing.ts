@@ -132,8 +132,11 @@ export class DesktopBrowserSharing {
       return request.value
     }
     const coordinates = (): { x: number; y: number } => {
-      if (!Number.isFinite(request.x) || !Number.isFinite(request.y)) throw new Error('This action requires finite x and y coordinates.')
-      return { x: request.x!, y: request.y! }
+      const { x, y } = request
+      if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) {
+        throw new Error('This action requires finite x and y coordinates.')
+      }
+      return { x, y }
     }
     switch (request.action) {
       case 'snapshot':

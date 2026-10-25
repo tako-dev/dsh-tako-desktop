@@ -12,7 +12,9 @@ afterEach(async () => {
   for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
 })
 
-async function mount(client: TakoToolClient): Promise<{ ctx: Context; call: (name: string, args: unknown) => Promise<ToolExecutionResult> }> {
+type Mounted = { ctx: Context; call: (name: string, args: unknown) => Promise<ToolExecutionResult> }
+
+async function mount(client: TakoToolClient): Promise<Mounted> {
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)

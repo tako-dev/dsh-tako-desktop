@@ -12,10 +12,10 @@ function parseCallback(handle: Awaited<ReturnType<typeof startTakoBrowserLogin>>
 describe('Tako browser login callback', () => {
   it('opens the PKCE authorization page and exchanges one callback code for a key', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input, init) => {
-      expect(String(input)).toBe('https://tako.example.test/api/desktop/token')
+      expect(input instanceof URL ? input.href : input).toBe('https://tako.example.test/api/desktop/token')
       expect(init?.method).toBe('POST')
       expect(init?.headers).toEqual({ 'content-type': 'application/json' })
-      const payload = JSON.parse(String(init?.body)) as Record<string, string>
+      const payload = JSON.parse(init?.body as string) as Record<string, string>
       expect(payload.grant_type).toBe('authorization_code')
       expect(payload.client_id).toBe('dsh-desktop')
       expect(payload.code).toBe('test-code')
@@ -74,7 +74,7 @@ describe('Tako browser login callback', () => {
 
   it('computes the standard S256 challenge from the verifier sent to Tako', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (_input, init) => {
-      const payload = JSON.parse(String(init?.body)) as Record<string, string>
+      const payload = JSON.parse(init?.body as string) as Record<string, string>
       const verifier = payload.code_verifier
       if (verifier === undefined) throw new Error('missing code verifier')
       const expected = createHash('sha256').update(verifier).digest('base64url')
@@ -90,7 +90,7 @@ describe('Tako browser login callback', () => {
     await expect(handle.wait).resolves.toMatchObject({ ok: true })
     const body = fetchImpl.mock.calls[0]?.[1]?.body
     expect(typeof body).toBe('string')
-    const payload = JSON.parse(String(body)) as Record<string, string>
+    const payload = JSON.parse(body as string) as Record<string, string>
     const challenge = authorize.searchParams.get('code_challenge')
     if (challenge === null) throw new Error('missing code challenge')
     const verifier = payload.code_verifier

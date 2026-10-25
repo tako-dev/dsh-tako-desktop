@@ -49,13 +49,13 @@ export function createBrowserTransport(): BrowserTransport {
         return await new Promise<DesktopBrowserResult>((resolve, reject) => {
           pending.set(id, { resolve, reject })
           abort = () => {
-            if (process.connected) process.send?.({ type: 'browser-cancel', requestId: id }, error => {
+            if (process.connected) process.send?.({ type: 'browser-cancel', requestId: id }, (error) => {
               if (error !== null) console.error('Desktop browser cancellation transport failed', error)
             })
             reject(new Error('Browser action interrupted; inspect the page before retrying.'))
           }
           combined.addEventListener('abort', abort, { once: true })
-          process.send?.({ type: 'browser-action', requestId: id, sessionId, action }, error => { if (error !== null) reject(error) })
+          process.send?.({ type: 'browser-action', requestId: id, sessionId, action }, (error) => { if (error !== null) reject(error) })
         })
       } finally {
         pending.delete(id)

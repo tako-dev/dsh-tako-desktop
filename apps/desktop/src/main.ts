@@ -1208,7 +1208,7 @@ async function main(): Promise<void> {
             await shell.openExternal(login.authorizeUrl)
             const result = await login.wait
             if (!result.ok) return result
-            if (backend.host === undefined || welcomeBackend === undefined) return { ok: false, reason: 'failed' }
+            if (backend.host === undefined) return { ok: false, reason: 'failed' }
             const saved = await welcomeBackend.save(result.apiKey)
             if (!saved.ok) return { ok: false, reason: 'failed' }
             await enterWorkspace()
@@ -1220,8 +1220,9 @@ async function main(): Promise<void> {
             if (takoLogin === login) takoLogin = undefined
           }
         },
-        cancelProviderLogin: async () => {
+        cancelProviderLogin: () => {
           takoLogin?.cancel()
+          return Promise.resolve()
         },
         saveApiKey: async (apiKey) => {
           if (backend.host === undefined || welcomeBackend === undefined) return { ok: false }

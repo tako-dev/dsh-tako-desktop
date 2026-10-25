@@ -150,7 +150,7 @@ export class ElectronWebViewImpl implements BrowserFrame {
     this.lease = reservation.lease
     this.guestLifetime = new AbortController()
     const signal = AbortSignal.any([attachmentSignal, this.guestLifetime.signal])
-    const stopSharing = this.bridge.onSharingChanged(reservation.lease, shared => {
+    const stopSharing = this.bridge.onSharingChanged(reservation.lease, (shared) => {
       if (!signal.aborted) this.store.set({ ...this.store.getSnapshot(), sharing: shared ? 'shared' : 'isolated' })
     })
     signal.addEventListener('abort', stopSharing, { once: true })

@@ -215,7 +215,7 @@ function catalogFromPricing(
     .filter(model => model.model_name.trim().length > 0)
     .filter(model => (model.supported_endpoint_types ?? []).some(type =>
       type === 'openai' || type === 'openai-response' || type === 'anthropic' || type === 'gemini'))
-    .map(model => {
+    .map((model) => {
       const available = (model.enable_groups ?? []).some(group =>
         group === 'default' || usableGroups === undefined || usableGroups[group] !== undefined)
       const labels = [
@@ -298,11 +298,11 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('webserver/index-inject', (table) => {
     table.push({ kind: 'global', name: TAKO_PROFILE_GLOBAL, value: true })
   })
-  let current: () => Options = () => plainOptions(config)
+  const current: () => Options = () => plainOptions(config)
   let lastSnapshot: string | undefined
   let lastGood: ResolvedPiAiProviderProfile | undefined
   let catalog = validateCatalog(current().models ?? DEFAULT_MODELS)
-  validateConfig({ ...current(), models: catalog } as Options)
+  validateConfig({ ...current(), models: catalog })
   let catalogFetchedAt = 0
   let catalogRefresh: Promise<void> | undefined
 
@@ -318,7 +318,6 @@ export function apply(ctx: Context, config: Config): void {
       models: catalog.map(model => ({
         id: model.id,
         ...model.name === undefined ? {} : { name: model.name },
-        ...model.description === undefined ? {} : {},
         ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
         ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
       })),
@@ -377,7 +376,10 @@ export function apply(ctx: Context, config: Config): void {
     const now = Date.now()
     const interval = current().catalogRefreshMs ?? DEFAULT_REFRESH_MS
     if (catalogFetchedAt > 0 && now - catalogFetchedAt < interval) return
-    if (catalogRefresh !== undefined) return await catalogRefresh
+    if (catalogRefresh !== undefined) {
+      await catalogRefresh
+      return
+    }
     catalogRefresh = (async () => {
       try {
         let next: TakoModelEntry[] = []
@@ -413,7 +415,7 @@ export function apply(ctx: Context, config: Config): void {
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => new Map([[PROVIDER, options()]])
   const adapter = new TakoAdapter(refreshCatalog, {
     profiles,
-    resolveApiKey: async (_provider, profile) => resolveCredential(ctx, profile.apiKeyEnv!),
+    resolveApiKey: async (_provider, profile) => resolveCredential(ctx, profile.apiKeyEnv ?? credentialRef(DEFAULT_API_KEY_ENV)),
     auth: { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) },
     resolveAttachments: () => ctx.get('attachments'),
   })
@@ -428,7 +430,7 @@ export function apply(ctx: Context, config: Config): void {
     registration.replace([PROVIDER])
     registeredPolicy = policy
   }
-  ctx.inject(['settings'], child => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   ctx.on('loader/volatile-update', ensureRegistrationFacts)
 
   const toolOptions = current()
