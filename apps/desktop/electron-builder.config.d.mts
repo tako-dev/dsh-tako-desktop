@@ -14,7 +14,12 @@ export interface DesktopElectronBuilderConfig {
     { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
   ]
   readonly productName: 'DSH Tako'
-  readonly extraMetadata: { readonly dshDesktopAppId: string; readonly name: string; readonly version: string }
+  readonly extraMetadata: {
+    readonly dshDesktopAppId: string
+    readonly dshDesktopUpdateChannel: 'nightly' | 'latest'
+    readonly name: string
+    readonly version: string
+  }
   readonly asarUnpack: readonly string[]
   readonly extraResources: readonly [
     { readonly from: string, readonly to: 'runtime' },

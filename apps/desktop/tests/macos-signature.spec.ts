@@ -93,6 +93,20 @@ describe('desktop macOS release signature', () => {
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
 
+  it('records the DSH Tako latest channel in signed and unsigned manifests alike', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const signed = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
+    expect(signed.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
+    expect(signed.publish).toEqual([expect.objectContaining({ channel: 'latest' })])
+    const unsigned = createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1' }, 'darwin', 'arm64')
+    expect(unsigned.publish).toBeNull()
+    expect(unsigned.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
+    const requested = createElectronBuilderConfig({
+      ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1', DSH_DESKTOP_UPDATE_CHANNEL: 'nightly',
+    }, 'darwin', 'arm64')
+    expect(requested.extraMetadata.dshDesktopUpdateChannel).toBe('nightly')
+  })
+
   it('accepts LZMA DMGs through builder validation while rejecting unknown formats', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     for (const arch of ['arm64', 'x64']) {

@@ -103,7 +103,10 @@ export function createElectronBuilderConfig(
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
   // DSH Tako updates come from GitHub Releases only; unsigned builds embed no feed, like the official ones.
-  const update = unsigned ? undefined : { channel: resolveTakoDesktopUpdateChannel(env) }
+  // The packaged manifest always records the DSH Tako channel (`latest` unless DSH_DESKTOP_UPDATE_CHANNEL says
+  // otherwise), even for unsigned builds without a feed, so it never falls back to the official `nightly`.
+  const channel = resolveTakoDesktopUpdateChannel(env)
+  const update = unsigned ? undefined : { channel }
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
   // electron-builder merges extraMetadata into the packaged manifest, so the DSH Tako version here reaches
   // the artifact names, the update feed, and the installed app.getVersion() the updater compares against.
@@ -117,7 +120,7 @@ export function createElectronBuilderConfig(
     protocols: [{ name: TAKO_DESKTOP_PRODUCT_NAME, schemes: [TAKO_DESKTOP_PROTOCOL] }],
     extraMetadata: {
       dshDesktopAppId: appId,
-      dshDesktopUpdateChannel: update?.channel ?? 'nightly',
+      dshDesktopUpdateChannel: channel,
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       name: TAKO_DESKTOP_PACKAGE_NAME,
       version: appVersion,
