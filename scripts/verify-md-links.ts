@@ -12,6 +12,7 @@ import { dirname, relative, resolve } from 'node:path'
 import type { Nodes } from 'mdast'
 import { markdownHeadingLines, parseMarkdown, visitMarkdown } from './markdown.ts'
 import { isArchivedAgentNotePath, uniqueRepoFiles } from './repo-files.ts'
+import { isRemovedUpstreamPath } from './tako-removed-upstream-paths.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -223,6 +224,7 @@ export function findViolations(
     const target = pathPart(url)
     const resolved = target === '' ? absPath : resolve(dir, target)
     if (!cache.exists(resolved)) {
+      if (isRemovedUpstreamPath(relative(scanRoot, resolved).replaceAll('\\', '/'))) continue
       out.push({ file, line, url, reason: 'target' })
       continue
     }
