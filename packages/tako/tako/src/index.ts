@@ -95,6 +95,10 @@ const DEFAULT_MAX_TOKENS = 256_000
 const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 /** Browser bootstrap marker for Tako-first desktop profiles. */
 export const TAKO_PROFILE_GLOBAL = '__DSH_TAKO_PROFILE__'
+/** Page global the Web client reads to retitle the product (see ui-layout DocumentTitle). */
+export const CLIENT_TITLE_GLOBAL = '__DSH_CLIENT_TITLE__'
+/** Product title shown in the browser/document title under the Tako profile. */
+export const TAKO_CLIENT_TITLE = 'DSH Tako'
 
 /** Fallback catalog used before the first successful Tako directory response. */
 export const DEFAULT_MODELS: TakoModelEntry[] = [
@@ -297,6 +301,8 @@ export function apply(ctx: Context, config: Config): void {
   // config field during first launch.
   ctx.on('webserver/index-inject', (table) => {
     table.push({ kind: 'global', name: TAKO_PROFILE_GLOBAL, value: true })
+    // The shared Web build is titled "DeepSeek Harness"; the Tako profile shows its own product name.
+    table.push({ kind: 'global', name: CLIENT_TITLE_GLOBAL, value: TAKO_CLIENT_TITLE })
   })
   const current: () => Options = () => plainOptions(config)
   let lastSnapshot: string | undefined

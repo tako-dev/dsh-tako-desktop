@@ -5,7 +5,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { DocumentTitle } from '../src/client/DocumentTitle.tsx'
+import { CLIENT_TITLE_GLOBAL, DocumentTitle, resolveProductTitle } from '../src/client/DocumentTitle.tsx'
 import type { MainPanelId, PanelInfo } from '../src/client/service.ts'
 
 let originalTitle: string
@@ -81,5 +81,18 @@ describe('DocumentTitle', () => {
     sessions.update((state) => { state.byId = {}; state.ids = [] })
     render(<DocumentTitle {...props} productTitle="Product" />)
     expect(document.title).toBe('Product')
+  })
+})
+
+describe('resolveProductTitle', () => {
+  it('keeps the build title, or the local-build fallback, without a page-injected title', () => {
+    expect(resolveProductTitle('DeepSeek Harness', 'DSH Local Build', {})).toBe('DeepSeek Harness')
+    expect(resolveProductTitle(undefined, 'DSH Local Build', {})).toBe('DSH Local Build')
+    expect(resolveProductTitle('DeepSeek Harness', 'DSH Local Build', { [CLIENT_TITLE_GLOBAL]: '  ' })).toBe('DeepSeek Harness')
+    expect(resolveProductTitle('DeepSeek Harness', 'DSH Local Build', { [CLIENT_TITLE_GLOBAL]: 42 })).toBe('DeepSeek Harness')
+  })
+
+  it('lets a profile-injected title replace the build title', () => {
+    expect(resolveProductTitle('DeepSeek Harness', 'DSH Local Build', { [CLIENT_TITLE_GLOBAL]: 'DSH Tako' })).toBe('DSH Tako')
   })
 })
