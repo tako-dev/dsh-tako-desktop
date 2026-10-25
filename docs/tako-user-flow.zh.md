@@ -2,6 +2,8 @@
 
 [English](tako-user-flow.md) | 中文
 
+> **已被取代。** 这份实现前的 spec 作为设计记录保留。DSH Tako 现在以独立桌面应用发布（应用 ID `tech.shiroha.dsh-tako`、数据目录 `~/.dsh-tako`、命令 `dsh-tako`），安装包和更新来自 GitHub Releases，而不是通过官网命令安装到官方 DSH 中的 Tako bundle。下文中“DSH 仍然是官方宿主”“macOS 通过官网命令安装”“不 fork 官方应用”等表述已不再描述当前产品。现行文档：[用户指南](tako/user-guide.zh.md)和[维护者指南](tako/maintainers.zh.md)。
+
 这份 spec 草案定义面向普通用户的目标流程，供开发前评审，不代表全部能力已经实现。DSH 仍然是官方宿主应用；Tako 提供隔离配置、模型提供方、skills 合集和优选插件默认配置。用户不需要理解 profile、bundle 或 MCP。
 
 ## 用户主流程

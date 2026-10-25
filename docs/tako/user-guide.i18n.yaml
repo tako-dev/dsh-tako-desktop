@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for user-guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/tako/user-guide.md
+/dsh-tako-user-guide:
+  en: 11ac8094f178d879
+  zh: ded2607320742b63
+/dsh-tako-user-guide/download-and-install:
+  en: 627bb5816fc8f08a
+  zh: 1b2626a1c97cc513
+/dsh-tako-user-guide/first-sign-in:
+  en: 4ddacecdccad940e
+  zh: 17f82b8ea901a397
+/dsh-tako-user-guide/features:
+  en: 9eb55e137a031f4b
+  zh: a4526d8b86a8d211
+/dsh-tako-user-guide/features/tako-models:
+  en: 8ac4213bbad37ea5
+  zh: b39c932f080d0f45
+/dsh-tako-user-guide/features/five-tako-tools:
+  en: 3d4e2e398a546143
+  zh: 487fa660e9c0e66a
+/dsh-tako-user-guide/features/account-and-quota:
+  en: 340ba3311509b1ab
+  zh: 16f39c4c67ab7421
+/dsh-tako-user-guide/features/everything-else:
+  en: 0d4b4dca43282960
+  zh: c4406ebe099b4c18
+/dsh-tako-user-guide/difference-from-the-npm-plugin-dsh-tako:
+  en: 14dbd1e9ae630429
+  zh: f5755e26f8a7d8a4
+/dsh-tako-user-guide/running-beside-the-official-dsh:
+  en: afbe541ecae88264
+  zh: e7f2603d08d47f4f
+/dsh-tako-user-guide/uninstall:
+  en: 2b9295972bddb3f7
+  zh: 016df98e9c102aef
+/dsh-tako-user-guide/faq-and-troubleshooting:
+  en: 3ede006c50fde22d
+  zh: 17f02b89d9922a8e

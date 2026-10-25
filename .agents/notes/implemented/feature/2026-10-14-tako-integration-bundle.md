@@ -38,3 +38,7 @@ The first launch of `dsh --profile tako` can configure the Tako key without writ
 
 
 The Desktop Browser tab now exposes an explicit Share with Agent action. The Host registers `desktop_browser`, derives the chat from the executing Agent, and sends correlated private IPC to the shell. The shell attaches CDP to the exact live Electron guest, retaining its page and login state without copying cookies. Stop sharing, guest destruction, and Host shutdown revoke access and cancel pending work. The isolated Agent browser remains the default; its MCP calls are refused while a live tab is shared, with an instruction to use the shared tool.
+
+## DSH Tako desktop distribution
+
+This repository now ships the official Desktop shell rebranded as DSH Tako: its own product name, app ID `tech.shiroha.dsh-tako`, data directory `~/.dsh-tako`, command `dsh-tako`, URL scheme, and a GitHub Releases update feed, all isolated in `apps/desktop/scripts/tako-desktop-identity.mjs` and `apps/desktop/src/tako-identity.ts`. The bundle decisions above still hold, and the Desktop code still follows official releases by merge. The rejected alternative "Fork the official Desktop app" therefore describes forking the Desktop code paths, not shipping a separately branded build. The website-command installation and signed CDN manifest are not used for distribution; see the [maintainer guide](../../../../docs/tako/maintainers.md) and [user guide](../../../../docs/tako/user-guide.md).

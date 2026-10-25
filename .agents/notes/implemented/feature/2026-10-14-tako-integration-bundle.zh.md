@@ -38,3 +38,7 @@ bundle 还导出 release manifest helper，校验 HTTPS artifact 地址、选择
 
 
 Desktop 的 Browser 标签现在提供明确的“共享给 Agent”操作。Host 注册 `desktop_browser`，从执行中的 Agent 获取会话 ID，通过带关联 ID 的私有 IPC 请求主进程。主进程用 CDP 操作同一个实时 Electron 标签，保留当前页面与登录态，无需复制 cookie。停止共享、销毁标签和 Host 退出都会撤销访问并取消进行中的调用。Agent 默认仍使用独立浏览器；当前标签共享期间，独立浏览器 MCP 调用会被拒绝并提示使用共享工具。
+
+## DSH Tako 桌面发行版
+
+本仓库现在把官方 Desktop 外壳重新品牌化为 DSH Tako 发布：独立的产品名、应用 ID `tech.shiroha.dsh-tako`、数据目录 `~/.dsh-tako`、命令 `dsh-tako`、URL scheme 和 GitHub Releases 更新源，全部集中在 `apps/desktop/scripts/tako-desktop-identity.mjs` 和 `apps/desktop/src/tako-identity.ts`。上文关于 bundle 的决定仍然成立，Desktop 代码仍通过 merge 跟随官方版本。因此被放弃的“Fork 官方 Desktop 应用”指分叉 Desktop 代码路径，而不是发布独立品牌的构建。发行不使用官网命令安装和签名 CDN 清单；见[维护者指南](../../../../docs/tako/maintainers.zh.md)和[用户指南](../../../../docs/tako/user-guide.zh.md)。

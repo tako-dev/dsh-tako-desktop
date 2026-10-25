@@ -1,19 +1,54 @@
-<!-- DSH Tako fork notice: keep this block identical in README.md and README.zh.md. -->
-> **DSH Tako** — 非官方桌面发行版 / unofficial desktop distribution
->
-> **中文**：本仓库（[tako-dev/dsh-tako-desktop](https://github.com/tako-dev/dsh-tako-desktop)）是基于 DeepSeek Harness（MIT 许可）构建的非官方桌面应用 **DSH Tako**，与 DeepSeek 无隶属关系，也不是 DeepSeek 官方产品。它在官方 DSH 桌面版之上集成了 Tako：Tako 模型提供方（用 Tako API Key，模型目录由 Tako 服务端管理）、五个 Tako Agent 工具（搜索、生图、语音识别、语音合成、只读额度查询）、浏览器登录（PKCE，登录 tako.shiroha.tech 后自动换取 Key）、设置中的 Tako 额度与用量、插件页的 Tako 优选和浏览器共享。DSH Tako 使用独立的应用 ID（`tech.shiroha.dsh-tako`）、数据目录（`~/.dsh-tako`）和 URL scheme（`dsh-tako://`），可以与官方 DSH 桌面版同时安装。
->
-> 下载：macOS（Apple Silicon，签名并公证）与 Windows 安装包将发布在 [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases)（**暂未发布**）。应用内自动更新也只从该 Releases 获取。
->
-> 与 npm 插件 `dsh-tako` 的区别：`dsh-tako` 插件是给**官方** DSH 加上 Tako 模型的轻量插件；DSH Tako 是**完整桌面应用**，额外包含浏览器登录、Tako 工具和上面的桌面集成。
->
-> **English**: This repository builds **DSH Tako**, an unofficial desktop application built on DeepSeek Harness (MIT). It is not affiliated with or endorsed by DeepSeek. It adds Tako to the official DSH desktop: the Tako model provider, five Tako agent tools (search, image generation, speech-to-text, text-to-speech, read-only quota), browser sign-in, Tako quota and usage in Settings, Tako picks in Plugins, and browser sharing. It uses its own app ID, data directory (`~/.dsh-tako`), and URL scheme, so it can be installed beside the official DSH desktop. Installers for macOS (Apple Silicon, signed and notarized) and Windows will be published on [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases) (not yet released). The npm plugin `dsh-tako` only adds Tako models to the official DSH; DSH Tako is the complete desktop app.
->
-> The original DeepSeek Harness LICENSE and copyright notice are retained unchanged; the upstream README follows.
-
-# DeepSeek Harness
+# DSH Tako
 
 [English](README.md) | 中文
+
+> 非官方桌面发行版：DSH Tako 基于 DeepSeek Harness（MIT 许可）构建，与 DeepSeek 无隶属关系，不是 DeepSeek 官方产品。原 DeepSeek Harness 的 LICENSE 和版权声明保持不变，官方 README 见下文 [DeepSeek Harness](#deepseek-harness)。
+
+DSH Tako 是内置 Tako 模型和五个 Tako 工具（搜索、生图、语音识别、语音合成、额度查询）的桌面 Agent 应用，支持浏览器登录 Tako、显示 Tako 额度，并可与官方 DSH 桌面版同时安装。
+
+![DSH Tako 欢迎页](docs/tako/images/01-welcome.png)
+
+![DSH Tako 工作台](docs/tako/images/02-workspace.png)
+
+完整说明见 [DSH Tako 用户指南](docs/tako/user-guide.zh.md)；发版和跟进官方版本见[维护者指南](docs/tako/maintainers.zh.md)。
+
+## 下载与安装
+
+从 [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases) 下载：
+
+- **macOS（Apple Silicon）**：下载 `DSH-Tako-<版本>-mac-arm64.dmg`，打开后把 DSH Tako 拖到“应用程序”，再从“应用程序”启动。
+- **Windows（x64）**：下载并运行 `DSH-Tako-<版本>-win-x64.exe`。安装包未做代码签名，SmartScreen 提示时点“更多信息 → 仍要运行”。
+
+`latest*.yml`、`.zip`、`.blockmap` 供应用内自动更新使用，不需要手动下载。
+
+## 首次登录
+
+欢迎页提供两种方式：点“通过浏览器登录 Tako”，在浏览器中登录并授权后应用自动保存 API Key；或点“粘贴 Tako API Key”，粘贴在 Tako 官网获取的 Key。Arc 等浏览器可能在小弹窗（如 Little Arc）里打开授权页，请在弹窗中完成授权后回到应用。
+
+## 与 npm 插件 dsh-tako 的区别
+
+npm 插件 `dsh-tako` 只为**官方** DSH 加上 Tako 模型。DSH Tako 是**完整桌面应用**，另外包含浏览器登录、Tako 工具、额度卡片、Tako 品牌界面和独立的自动更新。DSH Tako 安装的终端命令也叫 `dsh-tako`，与 npm 插件同名但不是同一个东西。
+
+## 与官方 DSH 并存
+
+DSH Tako 使用独立的应用 ID `tech.shiroha.dsh-tako`、数据目录 `~/.dsh-tako`、终端命令 `dsh-tako` 和 URL scheme `dsh-tako://`，自动更新只从本仓库的 GitHub Releases 获取；官方 DSH 使用 `~/.dsh` 和 `dsh`，两者互不影响。
+
+## 卸载
+
+- **macOS**：把“应用程序”中的 DSH Tako 移到废纸篓；装过终端命令时删除 `/usr/local/bin/dsh-tako`。如需清除数据，删除 `~/.dsh-tako`、`~/Library/Application Support/DSH Tako`、`~/Library/Caches/dsh-tako-desktop-updater` 和 `~/Library/Logs/DSH Tako`。
+- **Windows**：在“设置 → 应用 → 已安装的应用”中卸载 DSH Tako。如需清除数据，删除 `%USERPROFILE%\.dsh-tako`、`%APPDATA%\DSH Tako` 和 `%LOCALAPPDATA%\dsh-tako-desktop-updater`。
+
+## 常见问题
+
+- **浏览器登录后没有跳回**：浏览器显示完成后手动切回应用；检查授权页是否还在小弹窗里未完成，代理或安全软件可能拦截本机回环请求；10 分钟后超时，可改用粘贴 API Key。
+- **Key 无效**：确认复制了完整 Key 且未在官网停用；“暂时无法连接 Tako”是网络问题，不是 Key 无效。
+- **额度暂不可用**：额度读取失败，Key 通常仍可用；稍后在“设置 → 账户”刷新，或到 Tako 官网查看账户。
+- **更新失败**：自动更新需要访问 GitHub，失败时从 Releases 手动下载覆盖安装，数据会保留；未签名的 macOS 包不支持自动更新。
+- **找不到模型**：在输入框右下角的模型菜单选择 Tako 模型；菜单为空时确认 Key 有效、检查网络后重启应用。
+
+更多问题见[用户指南的排错部分](docs/tako/user-guide.zh.md)。
+
+# DeepSeek Harness
 
 DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
 

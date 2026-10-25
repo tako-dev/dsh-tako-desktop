@@ -2,12 +2,30 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
-/:
-  en: f72727547ddf6f8b
-  zh: f72727547ddf6f8b
+/dsh-tako:
+  en: 7c16555e9d1d6450
+  zh: 22ce88e438cbf635
+/dsh-tako/download-and-install:
+  en: 67a931bba93dc13a
+  zh: 3713fcdd23ebe155
+/dsh-tako/first-sign-in:
+  en: 8a4a4649b878fa3b
+  zh: c4add94608e3edb7
+/dsh-tako/dsh-tako-and-the-npm-plugin-dsh-tako:
+  en: 13ef33e809316266
+  zh: 35838bbeb4ee3581
+/dsh-tako/running-beside-the-official-dsh:
+  en: 976a22aed805be6d
+  zh: 79eca32ef4aebab8
+/dsh-tako/uninstall:
+  en: f564099a5bd394fc
+  zh: a76e7d21553ff564
+/dsh-tako/faq:
+  en: d63b0ca45671e455
+  zh: 70d86f60c0b94344
 /deepseek-harness:
-  en: f68c4f080ce55ff2
-  zh: 88a76d7f7f0b260e
+  en: dec7acf71149d381
+  zh: 13ed68011a93aeec
 /deepseek-harness/developer-preview:
   en: 4ef4d8a71ac143f0
   zh: 1bfc3149ba8e5543

@@ -2,6 +2,8 @@
 
 English | [中文](tako-user-flow.zh.md)
 
+> **Superseded.** This pre-implementation spec is kept as the design record. DSH Tako now ships as its own desktop application (app ID `tech.shiroha.dsh-tako`, data directory `~/.dsh-tako`, command `dsh-tako`) with installers and updates on GitHub Releases, not as a Tako bundle inside the official DSH installed by a website command. Statements below that DSH remains the official host, that macOS installs through a website command, or that the official app is not forked no longer describe the product. Current documentation: [user guide](tako/user-guide.md) and [maintainer guide](tako/maintainers.md).
+
 This spec defines the target flow for ordinary users and records which parts are implemented in the current prototype. DSH remains the official host; Tako supplies isolated configuration, a model provider, a skills bundle, and curated plugin defaults. Users do not need to understand profiles, bundles, or MCP.
 
 ## Main user journey

@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/tako-user-flow.md
 /tako-desktop-user-flow:
-  en: 039d048d1b05697e
-  zh: 3e127f8cc02d0d6f
+  en: f334b29dad269626
+  zh: 823c6a5fc3ed4008
 /tako-desktop-user-flow/main-user-journey:
   en: c5802bd709c5b8ef
   zh: f035f771d77e299c

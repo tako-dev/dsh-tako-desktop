@@ -1,19 +1,54 @@
-<!-- DSH Tako fork notice: keep this block identical in README.md and README.zh.md. -->
-> **DSH Tako** — 非官方桌面发行版 / unofficial desktop distribution
->
-> **中文**：本仓库（[tako-dev/dsh-tako-desktop](https://github.com/tako-dev/dsh-tako-desktop)）是基于 DeepSeek Harness（MIT 许可）构建的非官方桌面应用 **DSH Tako**，与 DeepSeek 无隶属关系，也不是 DeepSeek 官方产品。它在官方 DSH 桌面版之上集成了 Tako：Tako 模型提供方（用 Tako API Key，模型目录由 Tako 服务端管理）、五个 Tako Agent 工具（搜索、生图、语音识别、语音合成、只读额度查询）、浏览器登录（PKCE，登录 tako.shiroha.tech 后自动换取 Key）、设置中的 Tako 额度与用量、插件页的 Tako 优选和浏览器共享。DSH Tako 使用独立的应用 ID（`tech.shiroha.dsh-tako`）、数据目录（`~/.dsh-tako`）和 URL scheme（`dsh-tako://`），可以与官方 DSH 桌面版同时安装。
->
-> 下载：macOS（Apple Silicon，签名并公证）与 Windows 安装包将发布在 [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases)（**暂未发布**）。应用内自动更新也只从该 Releases 获取。
->
-> 与 npm 插件 `dsh-tako` 的区别：`dsh-tako` 插件是给**官方** DSH 加上 Tako 模型的轻量插件；DSH Tako 是**完整桌面应用**，额外包含浏览器登录、Tako 工具和上面的桌面集成。
->
-> **English**: This repository builds **DSH Tako**, an unofficial desktop application built on DeepSeek Harness (MIT). It is not affiliated with or endorsed by DeepSeek. It adds Tako to the official DSH desktop: the Tako model provider, five Tako agent tools (search, image generation, speech-to-text, text-to-speech, read-only quota), browser sign-in, Tako quota and usage in Settings, Tako picks in Plugins, and browser sharing. It uses its own app ID, data directory (`~/.dsh-tako`), and URL scheme, so it can be installed beside the official DSH desktop. Installers for macOS (Apple Silicon, signed and notarized) and Windows will be published on [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases) (not yet released). The npm plugin `dsh-tako` only adds Tako models to the official DSH; DSH Tako is the complete desktop app.
->
-> The original DeepSeek Harness LICENSE and copyright notice are retained unchanged; the upstream README follows.
-
-# DeepSeek Harness
+# DSH Tako
 
 English | [中文](README.zh.md)
+
+> Unofficial desktop distribution: DSH Tako is built on DeepSeek Harness (MIT) and is not affiliated with or endorsed by DeepSeek. The original DeepSeek Harness LICENSE and copyright notice are retained unchanged; the official README follows under [DeepSeek Harness](#deepseek-harness).
+
+DSH Tako is a desktop agent application with Tako models and five Tako tools (search, image generation, speech recognition, speech synthesis, and quota query) built in. It supports browser sign-in to Tako, shows the Tako quota, and installs beside the official DSH desktop.
+
+![DSH Tako welcome screen](docs/tako/images/01-welcome.png)
+
+![DSH Tako workspace](docs/tako/images/02-workspace.png)
+
+See the [DSH Tako user guide](docs/tako/user-guide.md) for the full guide, and the [maintainer guide](docs/tako/maintainers.md) for releases and following official versions.
+
+## Download and install
+
+Download from [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases):
+
+- **macOS (Apple Silicon)**: download `DSH-Tako-<version>-mac-arm64.dmg`, open it, drag DSH Tako to Applications, and launch it from Applications.
+- **Windows (x64)**: download and run `DSH-Tako-<version>-win-x64.exe`. The installer is not code-signed; when SmartScreen appears, choose More info → Run anyway.
+
+The `latest*.yml`, `.zip`, and `.blockmap` files feed in-app updates and need no manual download.
+
+## First sign-in
+
+The welcome screen offers two ways in: choose Sign in with Tako in browser, sign in and approve in the browser, and the app stores the API key; or choose Paste Tako API key and paste a key from the Tako website. Arc and similar browsers may open the authorization page in a small popup (such as Little Arc); finish authorizing there, then return to the app.
+
+## DSH Tako and the npm plugin dsh-tako
+
+The npm plugin `dsh-tako` only adds Tako models to the **official** DSH. DSH Tako is a **complete desktop application** that also includes browser sign-in, the Tako tools, the quota card, the Tako-branded interface, and its own automatic updates. The terminal command DSH Tako installs is also called `dsh-tako`; it shares the plugin's name but is a different thing.
+
+## Running beside the official DSH
+
+DSH Tako uses its own app ID `tech.shiroha.dsh-tako`, data directory `~/.dsh-tako`, terminal command `dsh-tako`, and URL scheme `dsh-tako://`, and takes updates only from this repository's GitHub Releases; the official DSH uses `~/.dsh` and `dsh`, so neither affects the other.
+
+## Uninstall
+
+- **macOS**: move DSH Tako from Applications to the Trash; if you installed the terminal command, delete `/usr/local/bin/dsh-tako`. To remove data, delete `~/.dsh-tako`, `~/Library/Application Support/DSH Tako`, `~/Library/Caches/dsh-tako-desktop-updater`, and `~/Library/Logs/DSH Tako`.
+- **Windows**: uninstall DSH Tako under Settings → Apps → Installed apps. To remove data, delete `%USERPROFILE%\.dsh-tako`, `%APPDATA%\DSH Tako`, and `%LOCALAPPDATA%\dsh-tako-desktop-updater`.
+
+## FAQ
+
+- **The browser sign-in does not return**: once the browser reports completion, switch back to the app yourself; check whether the authorization page is still waiting in a popup, and note that a proxy or security software may block local loopback requests. The attempt times out after 10 minutes; you can paste an API key instead.
+- **Invalid key**: make sure you copied the whole key and it is not disabled on the website; "Could not reach Tako" is a network problem, not an invalid key.
+- **Quota unavailable**: the quota read failed, but the key usually still works; refresh later under Settings → Account, or check the account on the Tako website.
+- **Update fails**: automatic updates need access to GitHub; otherwise download the new version from Releases and install it over the old one, which keeps your data. Unsigned macOS builds do not update automatically.
+- **No model found**: choose a Tako model from the model menu at the bottom right of the composer; if the menu is empty, confirm the key is valid, check the network, and restart the app.
+
+See the [user guide troubleshooting section](docs/tako/user-guide.md) for more.
+
+# DeepSeek Harness
 
 DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
 
