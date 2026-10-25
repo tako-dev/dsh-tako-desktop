@@ -13,6 +13,12 @@ export const TAKO_DESKTOP_PRODUCT_NAME = 'DSH Tako'
 /** OS-level URL scheme; the official Desktop owns `dsh`. */
 export const TAKO_DESKTOP_PROTOCOL = 'dsh-tako'
 
+/** Terminal command name: macOS `/usr/local/bin/dsh-tako`, Windows `dsh-tako.cmd`. The official CLI owns `dsh`. */
+export const TAKO_CLI_COMMAND = 'dsh-tako'
+
+/** macOS command link the command manager installs. */
+export const TAKO_CLI_COMMAND_DESTINATION = `/usr/local/bin/${TAKO_CLI_COMMAND}`
+
 /** Harness home directory name used when DSH_HOME is not set. */
 export const TAKO_DSH_HOME_DIR_NAME = '.dsh-tako'
 

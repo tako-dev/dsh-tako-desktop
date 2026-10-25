@@ -52,8 +52,23 @@ function digest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
+/**
+ * Hidden-entry prefix derived from the command name, so DSH Tako (`dsh-tako`) never reads or replaces the
+ * official Desktop's `dsh` receipt, backups, or pending links in the same directory.
+ * @param options - Fixed command destination.
+ * @returns Prefix such as `.dsh-tako`.
+ */
+function entryPrefix(options: FileCommandInstallation): string {
+  return '.' + basename(options.destination)
+}
+
 function receiptPath(options: FileCommandInstallation): string {
-  return join(dirname(options.destination), '.dsh-desktop-command.json')
+  return join(dirname(options.destination), entryPrefix(options) + '-desktop-command.json')
+}
+
+function isBackupName(options: FileCommandInstallation, name: string): boolean {
+  const prefix = entryPrefix(options) + '-command-backup-'
+  return name.startsWith(prefix) && /^[a-f0-9-]{36}$/u.test(name.slice(prefix.length))
 }
 
 async function readEntry(path: string): Promise<Entry> {
@@ -96,7 +111,7 @@ async function readReceipt(options: FileCommandInstallation): Promise<Receipt | 
   if (record.backup !== undefined) {
     if (typeof record.backup !== 'object' || record.backup === null) throw new CommandInstallationError('EOWNERSHIP', 'Invalid command backup record.')
     const candidate = record.backup as Record<string, unknown>
-    if (typeof candidate.name !== 'string' || !/^\.dsh-command-backup-[a-f0-9-]{36}$/u.test(candidate.name)
+    if (typeof candidate.name !== 'string' || !isBackupName(options, candidate.name)
       || typeof candidate.fingerprint !== 'string' || !/^[a-f0-9]{64}$/u.test(candidate.fingerprint)) {
       throw new CommandInstallationError('EOWNERSHIP', 'Invalid command backup record.')
     }
@@ -165,7 +180,7 @@ async function linkEntry(options: FileCommandInstallation, source: string, desti
 async function withdraw(options: FileCommandInstallation, destination: string, expected: Entry): Promise<string | undefined> {
   if (expected.kind === 'missing') return undefined
   if (expected.kind === 'unsupported') throw new CommandInstallationError('EUNSUPPORTED', 'The command path is not a file or symbolic link.')
-  const path = join(dirname(destination), '.dsh-command-backup-' + randomUUID())
+  const path = join(dirname(destination), entryPrefix(options) + '-command-backup-' + randomUUID())
   await rename(destination, path)
   if ((await readEntry(path)).fingerprint !== expected.fingerprint) {
     try { await restoreEntry(options, path, destination) } catch (error) {
@@ -189,7 +204,7 @@ export async function installFileCommand(options: FileCommandInstallation, expec
     if (state.fingerprint !== expected) throw new CommandInstallationError('ESTALE', 'The command changed after confirmation.')
     if (!await available(options.launcher)) throw new CommandInstallationError('ENOENT', 'The installed launcher is unavailable.')
     const moved = await withdraw(options, options.destination, entry)
-    const pending = join(dirname(options.destination), '.dsh-command-new-' + randomUUID())
+    const pending = join(dirname(options.destination), entryPrefix(options) + '-command-new-' + randomUUID())
     let created: Entry | undefined
     try {
       await symlink(options.launcher, pending)

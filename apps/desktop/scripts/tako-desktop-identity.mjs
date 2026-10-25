@@ -18,6 +18,9 @@ export const OFFICIAL_DESKTOP_APP_ID = 'com.deepseek.harness'
 /** OS-level URL scheme registered by the packaged application (the official one owns `dsh`). */
 export const TAKO_DESKTOP_PROTOCOL = 'dsh-tako'
 
+/** Terminal command the Desktop installs (macOS link name, Windows `.cmd` launcher); the official CLI owns `dsh`. */
+export const TAKO_DESKTOP_CLI_COMMAND = 'dsh-tako'
+
 /** Installer and archive file-name prefix. */
 export const TAKO_DESKTOP_ARTIFACT_PREFIX = 'DSH-Tako'
 

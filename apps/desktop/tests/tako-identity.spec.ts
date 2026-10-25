@@ -1,8 +1,11 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { applyTakoDesktopHome, isTakoOpenUrl, takoWindowTitle } from '../src/tako-identity.ts'
 import {
-  TAKO_DESKTOP_APP_ID, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_VERSION, resolveTakoDesktopUpdateChannel, resolveTakoDesktopVersion,
+  TAKO_CLI_COMMAND, TAKO_CLI_COMMAND_DESTINATION, applyTakoDesktopHome, isTakoOpenUrl, takoWindowTitle,
+} from '../src/tako-identity.ts'
+import {
+  TAKO_DESKTOP_APP_ID, TAKO_DESKTOP_CLI_COMMAND, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_VERSION,
+  resolveTakoDesktopUpdateChannel, resolveTakoDesktopVersion,
 } from '../scripts/tako-desktop-identity.mjs'
 
 describe('DSH Tako identity', () => {
@@ -29,5 +32,11 @@ describe('DSH Tako identity', () => {
     expect(resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: '0.2.0' })).toBe('0.2.0')
     expect(() => resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: 'v0.2' })).toThrow(/strict semantic version/u)
     expect(resolveTakoDesktopUpdateChannel({})).toBe('latest')
+  })
+
+  it('installs the dsh-tako terminal command, never the official dsh', () => {
+    expect(TAKO_CLI_COMMAND).toBe('dsh-tako')
+    expect(TAKO_DESKTOP_CLI_COMMAND).toBe(TAKO_CLI_COMMAND)
+    expect(TAKO_CLI_COMMAND_DESTINATION).toBe('/usr/local/bin/dsh-tako')
   })
 })

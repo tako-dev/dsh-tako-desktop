@@ -6,6 +6,8 @@ export const TAKO_DESKTOP_APP_ID: 'tech.shiroha.dsh-tako'
 export const OFFICIAL_DESKTOP_APP_ID: 'com.deepseek.harness'
 /** OS-level URL scheme registered by the packaged application. */
 export const TAKO_DESKTOP_PROTOCOL: 'dsh-tako'
+/** Terminal command the Desktop installs; the official CLI owns `dsh`. */
+export const TAKO_DESKTOP_CLI_COMMAND: 'dsh-tako'
 /** Installer and archive file-name prefix. */
 export const TAKO_DESKTOP_ARTIFACT_PREFIX: 'DSH-Tako'
 /** Packaged package.json name; electron-builder derives the updater cache directory from it. */
