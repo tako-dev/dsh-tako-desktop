@@ -22,40 +22,57 @@ function nonEmptyString(value, label) {
 }
 
 /**
- * Resolve the one generic macOS feed from the final electron-builder configuration.
+ * Resolve the one macOS feed from the final electron-builder configuration: the official generic
+ * HTTPS feed, or the GitHub Releases feed DSH Tako publishes to.
  * @param {unknown} publish - Final electron-builder publish setting.
- * @returns {{ publicUrl: string, channel?: 'nightly' | 'latest' }} Resolved feed used by the packaged App.
+ * @returns {{ publicUrl: string, channel?: 'nightly' | 'latest' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'latest' }} Resolved feed used by the packaged App.
  */
 export function resolveMacOSAppUpdateFeed(publish) {
   if (!Array.isArray(publish) || publish.length !== 1) {
     throw new Error('desktop macOS update config: publish must contain exactly one provider')
   }
   const provider = object(publish[0], 'publish provider')
-  if (provider.provider !== 'generic' || !['nightly', 'latest'].includes(provider.channel)) {
-    throw new Error('desktop macOS update config: publish provider must be generic with nightly or latest channel')
+  if (!['generic', 'github'].includes(provider.provider) || !['nightly', 'latest'].includes(provider.channel)) {
+    throw new Error('desktop macOS update config: publish provider must be generic or github with nightly or latest channel')
   }
-  return { publicUrl: nonEmptyString(provider.url, 'publish provider URL'), channel: resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: provider.channel }) }
+  const channel = resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: provider.channel })
+  if (provider.provider === 'github') {
+    return { provider: 'github', owner: nonEmptyString(provider.owner, 'publish provider owner'),
+      repo: nonEmptyString(provider.repo, 'publish provider repo'), channel }
+  }
+  return { publicUrl: nonEmptyString(provider.url, 'publish provider URL'), channel }
 }
 
 /**
  * Create the electron-updater configuration embedded before code signing.
- * @param {{ publicUrl: string, channel?: 'nightly' | 'latest' }} update - Resolved update feed.
+ * @param {{ publicUrl: string, channel?: 'nightly' | 'latest' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'latest' }} update - Resolved update feed.
  * @param {string} updaterCacheDirName - electron-builder application cache directory.
- * @returns {{ provider: 'generic', url: string, channel: 'nightly' | 'latest', updaterCacheDirName: string }} Packaged updater fields.
+ * @returns {object} Packaged updater fields.
  */
 export function createMacOSAppUpdateConfig(update, updaterCacheDirName) {
+  const channel = resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: update.channel })
+  const cache = nonEmptyString(updaterCacheDirName, 'updater cache directory')
+  if ('provider' in update && update.provider === 'github') {
+    return {
+      provider: 'github',
+      owner: nonEmptyString(update.owner, 'owner'),
+      repo: nonEmptyString(update.repo, 'repo'),
+      channel,
+      updaterCacheDirName: cache,
+    }
+  }
   return {
     provider: 'generic',
     url: nonEmptyString(update.publicUrl, 'public URL'),
-    channel: resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: update.channel }),
-    updaterCacheDirName: nonEmptyString(updaterCacheDirName, 'updater cache directory'),
+    channel,
+    updaterCacheDirName: cache,
   }
 }
 
 /**
  * Write the updater configuration into an assembled App before signing.
  * @param {string} resourcesDir - App Contents/Resources directory.
- * @param {{ publicUrl: string, channel?: 'nightly' | 'latest' }} update - Resolved update feed.
+ * @param {object} update - Resolved update feed.
  * @param {string} updaterCacheDirName - electron-builder application cache directory.
  * @returns {Promise<void>} Resolves after the configuration is durable.
  */
@@ -67,7 +84,7 @@ export async function writeMacOSAppUpdateConfig(resourcesDir, update, updaterCac
 /**
  * Verify the updater configuration inside an assembled macOS App.
  * @param {string} appPath - Application bundle path.
- * @param {{ publicUrl: string, channel?: 'nightly' | 'latest' }} update - Expected update feed.
+ * @param {object} update - Expected update feed.
  * @param {string | undefined} updaterCacheDirName - Exact cache directory when known.
  * @returns {Promise<void>} Resolves when the packaged configuration matches the release destination.
  */
@@ -81,8 +98,12 @@ export async function verifyMacOSAppUpdateConfig(appPath, update, updaterCacheDi
     throw new Error(`desktop macOS update config: cannot read ${path}: ${error instanceof Error ? error.message : String(error)}`)
   }
   const config = object(parsed, CONFIG_FILENAME)
-  if (config.provider !== 'generic' || config.url !== update.publicUrl || config.channel !== resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: update.channel })) {
-    throw new Error(`desktop macOS update config: ${path} does not match ${update.publicUrl}`)
+  const expected = createMacOSAppUpdateConfig(update, typeof config.updaterCacheDirName === 'string' && config.updaterCacheDirName !== ''
+    ? config.updaterCacheDirName : 'unknown')
+  const feedFields = expected.provider === 'github' ? ['provider', 'owner', 'repo', 'channel'] : ['provider', 'url', 'channel']
+  if (feedFields.some(field => config[field] !== expected[field])) {
+    const destination = expected.provider === 'github' ? `github:${expected.owner}/${expected.repo}` : expected.url
+    throw new Error(`desktop macOS update config: ${path} does not match ${destination}`)
   }
   const actualCacheDirName = nonEmptyString(config.updaterCacheDirName, `${CONFIG_FILENAME}.updaterCacheDirName`)
   if (updaterCacheDirName !== undefined && actualCacheDirName !== updaterCacheDirName) {

@@ -1,5 +1,5 @@
-Sign in to Tako
-DeepSeek Harness
+DSH Tako
+DSH Tako
 Connect Tako to get started
 Paste your Tako API key to use Tako models and tools. You can get one from the Tako website.
 Enter API key [password]

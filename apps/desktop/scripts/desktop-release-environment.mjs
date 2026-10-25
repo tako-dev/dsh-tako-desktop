@@ -1,5 +1,7 @@
 /** Resolve public release identifiers supplied by the packaging environment. */
 
+import { OFFICIAL_DESKTOP_APP_ID, TAKO_DESKTOP_APP_ID } from './tako-desktop-identity.mjs'
+
 /** Environment variable that supplies the Electron application identifier. */
 export const DESKTOP_APP_ID_ENV = 'DSH_DESKTOP_APP_ID'
 
@@ -58,10 +60,15 @@ export function resolveNpmRegistry(env) {
 /**
  * Resolve and validate the application identifier shared by every platform target.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
- * @returns {string} Reverse-DNS application identifier.
+ * @returns {string} Reverse-DNS application identifier; the DSH Tako identifier when unset.
  */
 export function resolveDesktopAppId(env) {
-  const appId = requireEnvironmentValue(env, DESKTOP_APP_ID_ENV)
+  // DSH Tako defaults to its own identifier and refuses the official one, so it never shares
+  // the official Desktop's bundle identity, keychain items, or Windows registration.
+  const appId = env[DESKTOP_APP_ID_ENV]?.trim() ? requireEnvironmentValue(env, DESKTOP_APP_ID_ENV) : TAKO_DESKTOP_APP_ID
+  if (appId === OFFICIAL_DESKTOP_APP_ID) {
+    throw new Error(`desktop release environment: ${DESKTOP_APP_ID_ENV} must not be the official ${OFFICIAL_DESKTOP_APP_ID}`)
+  }
   if (!/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/u.test(appId)) {
     throw new Error(`desktop release environment: ${DESKTOP_APP_ID_ENV} must be a reverse-DNS identifier`)
   }

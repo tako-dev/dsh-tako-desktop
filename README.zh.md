@@ -1,3 +1,16 @@
+<!-- DSH Tako fork notice: keep this block identical in README.md and README.zh.md. -->
+> **DSH Tako** — 非官方桌面发行版 / unofficial desktop distribution
+>
+> **中文**：本仓库（[tako-dev/dsh-tako-desktop](https://github.com/tako-dev/dsh-tako-desktop)）是基于 DeepSeek Harness（MIT 许可）构建的非官方桌面应用 **DSH Tako**，与 DeepSeek 无隶属关系，也不是 DeepSeek 官方产品。它在官方 DSH 桌面版之上集成了 Tako：Tako 模型提供方（用 Tako API Key，模型目录由 Tako 服务端管理）、五个 Tako Agent 工具（搜索、生图、语音识别、语音合成、只读额度查询）、浏览器登录（PKCE，登录 tako.shiroha.tech 后自动换取 Key）、设置中的 Tako 额度与用量、插件页的 Tako 优选和浏览器共享。DSH Tako 使用独立的应用 ID（`tech.shiroha.dsh-tako`）、数据目录（`~/.dsh-tako`）和 URL scheme（`dsh-tako://`），可以与官方 DSH 桌面版同时安装。
+>
+> 下载：macOS（Apple Silicon，签名并公证）与 Windows 安装包将发布在 [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases)（**暂未发布**）。应用内自动更新也只从该 Releases 获取。
+>
+> 与 npm 插件 `dsh-tako` 的区别：`dsh-tako` 插件是给**官方** DSH 加上 Tako 模型的轻量插件；DSH Tako 是**完整桌面应用**，额外包含浏览器登录、Tako 工具和上面的桌面集成。
+>
+> **English**: This repository builds **DSH Tako**, an unofficial desktop application built on DeepSeek Harness (MIT). It is not affiliated with or endorsed by DeepSeek. It adds Tako to the official DSH desktop: the Tako model provider, five Tako agent tools (search, image generation, speech-to-text, text-to-speech, read-only quota), browser sign-in, Tako quota and usage in Settings, Tako picks in Plugins, and browser sharing. It uses its own app ID, data directory (`~/.dsh-tako`), and URL scheme, so it can be installed beside the official DSH desktop. Installers for macOS (Apple Silicon, signed and notarized) and Windows will be published on [GitHub Releases](https://github.com/tako-dev/dsh-tako-desktop/releases) (not yet released). The npm plugin `dsh-tako` only adds Tako models to the official DSH; DSH Tako is the complete desktop app.
+>
+> The original DeepSeek Harness LICENSE and copyright notice are retained unchanged; the upstream README follows.
+
 # DeepSeek Harness
 
 [English](README.md) | 中文

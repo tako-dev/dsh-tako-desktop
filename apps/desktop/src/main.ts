@@ -63,6 +63,9 @@ import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 import { startTakoBrowserLogin, type TakoBrowserLoginHandle } from './tako-login.ts'
 import { createTakoDesktopUpdateCompatibilityGate, takoDesktopUpdateManifestUrl } from './tako-update-gate.ts'
+import {
+  TAKO_DESKTOP_ATTRIBUTION, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_PROTOCOL, applyTakoDesktopHome, isTakoOpenUrl, takoWindowTitle,
+} from './tako-identity.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -209,6 +212,7 @@ function platformLoginUrl(authorizeUrl: string): string {
 
 function createWindow(preload: string, show = false, primary = false): BrowserWindow {
   const window = new BrowserWindow({
+    title: TAKO_DESKTOP_PRODUCT_NAME,
     width: 1280,
     height: 820,
     minWidth: 520,
@@ -243,6 +247,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
     return { action: 'deny' }
+  })
+  // The shared Web client titles itself with the official product name; DSH Tako shows its own.
+  window.on('page-title-updated', (event, title) => {
+    event.preventDefault()
+    window.setTitle(takoWindowTitle(title))
   })
   if (process.platform === 'darwin' || process.platform === 'win32') {
     // Fullscreen hides native window controls; overlays drop their caption clearance.
@@ -317,6 +326,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 }
 
 async function main(): Promise<void> {
+  // Before any Harness path is resolved or the Host environment is captured.
+  applyTakoDesktopHome(process.env)
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -389,7 +400,7 @@ async function main(): Promise<void> {
   // chrome and its content never mix languages.
   const showAbout = async (): Promise<void> => {
     await ordinaryMessageBox({ type: 'info', title: locale.messages.aboutMenu, message: locale.messages.aboutProduct,
-      detail: formatDesktopMessage(locale.messages.aboutVersion, { version: app.getVersion() }),
+      detail: `${formatDesktopMessage(locale.messages.aboutVersion, { version: app.getVersion() })}\n${TAKO_DESKTOP_ATTRIBUTION}`,
       buttons: [locale.messages.updateAcknowledge], cancelId: 0 })
   }
   const commandManager = new DesktopCommandManager({
@@ -955,11 +966,12 @@ async function main(): Promise<void> {
   const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
-    applicationName: 'DeepSeek Harness',
+    applicationName: TAKO_DESKTOP_PRODUCT_NAME,
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
     copyright: '',
+    credits: TAKO_DESKTOP_ATTRIBUTION,
     iconPath: applicationIconPath,
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
@@ -1285,10 +1297,10 @@ async function main(): Promise<void> {
     window.focus()
   }
 
-  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('dsh')
+  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient(TAKO_DESKTOP_PROTOCOL)
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    if (url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
+    if (isTakoOpenUrl(url)) focusPrimaryWindow()
   })
 
   app.on('activate', (_event, hasVisibleWindows) => {

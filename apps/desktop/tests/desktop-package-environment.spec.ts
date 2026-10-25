@@ -35,7 +35,7 @@ describe('Desktop local packaging configuration', () => {
     const local = localMacOSPackageEnvironment(parent)
     expect(local).toEqual({
       PATH: parent.PATH, HTTPS_PROXY: parent.HTTPS_PROXY, DSH_DESKTOP_NPM_REGISTRY: parent.DSH_DESKTOP_NPM_REGISTRY,
-      DSH_DESKTOP_APP_ID: 'com.deepseek.harness', DSH_DESKTOP_UNSIGNED: '1',
+      DSH_DESKTOP_APP_ID: 'tech.shiroha.dsh-tako', DSH_DESKTOP_UNSIGNED: '1',
     })
     expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
     expect(parent.DSH_DESKTOP_UNSIGNED).toBe('0')
@@ -105,9 +105,11 @@ describe('Desktop local packaging configuration', () => {
       await writeFile(file, settings.replace(`DOWNLOAD_TEST_RELEASE_ID='${RELEASE.DOWNLOAD_TEST_RELEASE_ID}'\n`, ''))
       const missing = loadDesktopPackageEnvironment(platform, parent, directory)
       expect(missing.DOWNLOAD_TEST_RELEASE_ID).toBeUndefined()
+      // DSH Tako publishes to GitHub Releases, so a signed build no longer needs the official COS release ID;
+      // validation stops at the signing inputs instead.
       expect(() => {
         validateDesktopPackageEnvironment(missing, platform === 'win32' ? WINDOWS : MACOS)
-      }).toThrow(/DOWNLOAD_TEST_RELEASE_ID/u)
+      }).toThrow(platform === 'win32' ? /DSH_DESKTOP_WINDOWS_CER_FILE/u : /DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
       expect(parent.DOWNLOAD_TEST_RELEASE_ID).toBe('a'.repeat(32))
     })
   })
@@ -138,15 +140,19 @@ describe('Desktop local packaging configuration', () => {
   })
 
   it('checks application and update configuration before Windows credentials while preserving unsigned and preparation modes', () => {
+    // The DSH Tako identifier is the default, so an empty environment stops at the update policy.
     expect(() => {
       validateDesktopPackageEnvironment({}, WINDOWS, { unsigned: true })
-    }).toThrow(/DSH_DESKTOP_APP_ID/u)
+    }).toThrow(/DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN/u)
     expect(() => {
       validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'invalid' }, WINDOWS)
     }).toThrow(/reverse-DNS/u)
     expect(() => {
-      validateDesktopPackageEnvironment({ ...POLICY, DSH_DESKTOP_APP_ID: RELEASE.DSH_DESKTOP_APP_ID }, WINDOWS)
-    }).toThrow(/DOWNLOAD_TEST_ORIGIN/u)
+      validateDesktopPackageEnvironment({ ...POLICY, DSH_DESKTOP_APP_ID: 'com.deepseek.harness' }, WINDOWS, { unsigned: true })
+    }).toThrow(/must not be the official/u)
+    expect(() => {
+      validateDesktopPackageEnvironment({ ...POLICY, DSH_DESKTOP_APP_ID: RELEASE.DSH_DESKTOP_APP_ID, DSH_DESKTOP_UPDATE_CHANNEL: 'beta' }, WINDOWS)
+    }).toThrow(/invalid update channel/u)
     expect(() => {
       validateDesktopPackageEnvironment(RELEASE, WINDOWS)
     }).toThrow(/DSH_DESKTOP_WINDOWS_CER_FILE/u)

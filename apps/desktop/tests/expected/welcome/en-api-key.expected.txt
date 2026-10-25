@@ -1,5 +1,5 @@
-DeepSeek Harness
-DeepSeek Harness
+DSH Tako
+DSH Tako
 Add an API key to get started
 Configure official DeepSeek models to start using Harness
 Enter API key [password]

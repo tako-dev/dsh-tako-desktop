@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
   [string]$ManifestUrl = $env:TAKO_RELEASE_MANIFEST_URL,
-  [string]$InstallRoot = "$env:LOCALAPPDATA\Programs\DeepSeek Harness",
+  [string]$InstallRoot = "$env:LOCALAPPDATA\Programs\DSH Tako",
   [switch]$NoLaunch
 )
 $ErrorActionPreference = 'Stop'
@@ -43,7 +43,7 @@ try {
   $process = Start-Process -FilePath $artifact -ArgumentList '/S' -Wait -PassThru
   if ($process.ExitCode -ne 0) { throw "Desktop installer failed with exit code $($process.ExitCode)." }
   if (-not $NoLaunch) {
-    $executable = Join-Path $InstallRoot 'DeepSeek Harness.exe'
+    $executable = Join-Path $InstallRoot 'DSH Tako.exe'
     if (-not (Test-Path -LiteralPath $executable)) { throw "Installed Desktop executable was not found at $executable." }
     Write-Host '[tako] starting Tako Desktop'
     Start-Process -FilePath $executable

@@ -48,7 +48,7 @@ describe('packaged runtime verification', () => {
     expect(await requiredRuntimeVersion('/qualification/dsh', '0.1.6-alpha.2.20260921.1')).toBe('0.1.6-alpha.2.20260921.1')
   })
 
-  it('does not let a build version change what the bundled runtime must declare', async () => {
+  it('does not let the DSH Tako application version change what the bundled runtime must declare', async () => {
     const productVersion = (JSON.parse(
       await import('node:fs/promises').then(async fs => fs.readFile(new URL('../package.json', import.meta.url), 'utf8')),
     ) as { version: string }).version
@@ -56,7 +56,8 @@ describe('packaged runtime verification', () => {
     verifyDesktopRuntime.mockClear()
     const config = createElectronBuilderConfig(
       { ...ENVIRONMENT, DSH_DESKTOP_BUILD_VERSION: `${productVersion}.20260921.1` }, 'win32', 'x64')
-    expect(config.extraMetadata).toMatchObject({ version: `${productVersion}.20260921.1` })
+    // The packaged application carries the DSH Tako version; the bundled runtime still declares the product version.
+    expect(config.extraMetadata).toMatchObject({ version: '0.1.0' })
     await config.afterPack(CONTEXT as never)
     expect(verifyDesktopRuntime.mock.calls[0]?.[1]).toBe(productVersion)
   })

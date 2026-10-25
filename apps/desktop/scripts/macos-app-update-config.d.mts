@@ -1,18 +1,35 @@
-/** Resolved fields required to embed a macOS updater feed. */
-export interface MacOSAppUpdateFeed {
+/** Resolved fields required to embed a generic HTTPS macOS updater feed. */
+export interface MacOSGenericAppUpdateFeed {
   readonly publicUrl: string
   readonly channel?: 'nightly' | 'latest'
 }
 
+/** Resolved fields required to embed a GitHub Releases macOS updater feed (DSH Tako). */
+export interface MacOSGitHubAppUpdateFeed {
+  readonly provider: 'github'
+  readonly owner: string
+  readonly repo: string
+  readonly channel?: 'nightly' | 'latest'
+}
+
+/** Resolved fields required to embed a macOS updater feed. */
+export type MacOSAppUpdateFeed = MacOSGenericAppUpdateFeed | MacOSGitHubAppUpdateFeed
+
 /** Packaged electron-updater configuration for macOS. */
-export interface MacOSAppUpdateConfig {
+export type MacOSAppUpdateConfig = {
   readonly provider: 'generic'
   readonly url: string
   readonly channel: 'nightly' | 'latest'
   readonly updaterCacheDirName: string
+} | {
+  readonly provider: 'github'
+  readonly owner: string
+  readonly repo: string
+  readonly channel: 'nightly' | 'latest'
+  readonly updaterCacheDirName: string
 }
 
-/** Resolve the one generic macOS feed from the final electron-builder configuration. */
+/** Resolve the one generic or GitHub macOS feed from the final electron-builder configuration. */
 export function resolveMacOSAppUpdateFeed(publish: unknown): MacOSAppUpdateFeed
 
 /** Create the electron-updater configuration embedded before code signing. */

@@ -19,9 +19,16 @@ import {
   resolveWindowsUpdatePublisher,
   scrubWindowsSigningEnvironment,
 } from './windows-sign.mjs'
-import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
 import { resolveDesktopBuildCommit } from './desktop-build-commit.mjs'
-import { resolveDesktopBuildVersion } from './desktop-build-version.mjs'
+import {
+  TAKO_DESKTOP_ARTIFACT_PREFIX,
+  TAKO_DESKTOP_PACKAGE_NAME,
+  TAKO_DESKTOP_PRODUCT_NAME,
+  TAKO_DESKTOP_PROTOCOL,
+  resolveTakoDesktopUpdateChannel,
+  resolveTakoDesktopVersion,
+  takoDesktopPublish,
+} from './tako-desktop-identity.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 import { desktopArtifactOutput, desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 import { installWindowsDirectoryInstaller } from './windows-directory-installer.mjs'
@@ -95,27 +102,30 @@ export function createElectronBuilderConfig(
   if (windowsSigner !== undefined) {
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
-  const update = unsigned ? undefined : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
+  // DSH Tako updates come from GitHub Releases only; unsigned builds embed no feed, like the official ones.
+  const update = unsigned ? undefined : { channel: resolveTakoDesktopUpdateChannel(env) }
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
-  // electron-builder merges extraMetadata into the packaged manifest, so a build version here reaches
+  // electron-builder merges extraMetadata into the packaged manifest, so the DSH Tako version here reaches
   // the artifact names, the update feed, and the installed app.getVersion() the updater compares against.
+  // The manifest keeps the official version, which the bundled runtime tree must still match.
   const productVersion = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version
-  const buildVersion = resolveDesktopBuildVersion(env, productVersion)
-  if (update?.channel === 'latest' && buildVersion.includes('-')) throw new Error('desktop package: latest requires a stable version')
+  const appVersion = resolveTakoDesktopVersion(env)
+  if (update?.channel === 'latest' && appVersion.includes('-')) throw new Error('desktop package: latest requires a stable version')
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: 'DeepSeek Harness', schemes: ['dsh'] }],
+    protocols: [{ name: TAKO_DESKTOP_PRODUCT_NAME, schemes: [TAKO_DESKTOP_PROTOCOL] }],
     extraMetadata: {
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
-      ...buildVersion === productVersion ? {} : { version: buildVersion },
+      name: TAKO_DESKTOP_PACKAGE_NAME,
+      version: appVersion,
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    productName: 'DeepSeek Harness',
+    productName: TAKO_DESKTOP_PRODUCT_NAME,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
+    artifactName: `${TAKO_DESKTOP_ARTIFACT_PREFIX}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
@@ -165,7 +175,7 @@ export function createElectronBuilderConfig(
       identity: unsigned ? '-' : macOSSigning?.signingIdentity,
       forceCodeSigning: !unsigned,
       hardenedRuntime: true,
-      extendInfo: { NSMicrophoneUsageDescription: 'DeepSeek Harness uses your microphone to transcribe speech into message drafts.' },
+      extendInfo: { NSMicrophoneUsageDescription: `${TAKO_DESKTOP_PRODUCT_NAME} uses your microphone to transcribe speech into message drafts.` },
       entitlements: fileURLToPath(new URL('./macos-entitlements.plist', import.meta.url)),
       entitlementsInherit: fileURLToPath(new URL('./macos-entitlements.plist', import.meta.url)),
       // Prepared runtime files retain their signatures; PAK resources are sealed by their enclosing bundle.
@@ -261,6 +271,6 @@ export function createElectronBuilderConfig(
       differentialPackage: true,
     },
     detectUpdateChannel: false,
-    publish: update === undefined ? null : [{ provider: 'generic', url: update.publicUrl, channel: update.channel }],
+    publish: update === undefined ? null : [takoDesktopPublish(update.channel)],
   }
 }

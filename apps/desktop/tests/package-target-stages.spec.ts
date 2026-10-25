@@ -64,8 +64,9 @@ it('requires one signing preflight before building, then records only the comple
     }
   }
   expect(writeFileSync).toHaveBeenCalledOnce()
-  const record = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]![1] as string) as { publicUrl: string }
-  expect(record.publicUrl).toBe('https://updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/win-x64/')
+  const record = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]![1] as string) as Record<string, string>
+  // DSH Tako records its own application version and GitHub Releases feed, never the official COS feed.
+  expect(record).toMatchObject({ publicUrl: 'https://github.com/tako-dev/dsh-tako-desktop/releases', version: '0.1.0', environment: 'github' })
 })
 
 it('initializes shared storage only after acquiring the preflight stage lock', async () => {

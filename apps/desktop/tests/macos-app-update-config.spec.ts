@@ -35,6 +35,17 @@ describe('macOS packaged updater configuration', () => {
     }
   })
 
+  it('writes and verifies the DSH Tako GitHub Releases feed', async () => {
+    const github = { provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' } as const
+    expect(resolveMacOSAppUpdateFeed([github])).toEqual(github)
+    const paths = await fixture()
+    expect(createMacOSAppUpdateConfig(github, 'dsh-tako-desktop-updater')).toEqual({ ...github, updaterCacheDirName: 'dsh-tako-desktop-updater' })
+    await writeMacOSAppUpdateConfig(paths.resourcesDir, github, 'dsh-tako-desktop-updater')
+    await expect(verifyMacOSAppUpdateConfig(paths.appPath, github, 'dsh-tako-desktop-updater')).resolves.toBeUndefined()
+    await expect(verifyMacOSAppUpdateConfig(paths.appPath, { ...github, repo: 'other' })).rejects.toThrow(/does not match github:tako-dev\/other/u)
+    await expect(verifyMacOSAppUpdateConfig(paths.appPath, update)).rejects.toThrow(/macOS update config/u)
+  })
+
   it('writes and verifies the fixed release feed before signing', async () => {
     const paths = await fixture()
     expect(createMacOSAppUpdateConfig(update, 'deepseek-harness-updater')).toEqual({

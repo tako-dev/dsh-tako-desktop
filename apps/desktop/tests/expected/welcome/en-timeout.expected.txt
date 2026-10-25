@@ -1,5 +1,5 @@
-DeepSeek Harness
-DeepSeek Harness
+DSH Tako
+DSH Tako
 Sign in timed out
 Sign in again
 Add API Key

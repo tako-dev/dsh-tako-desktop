@@ -48,7 +48,7 @@ describe('desktop macOS release signature', () => {
   it('loads release identifiers from the environment and requires code signing', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     const config = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
-    expect(config.protocols).toEqual([{ name: 'DeepSeek Harness', schemes: ['dsh'] }])
+    expect(config.protocols).toEqual([{ name: 'DSH Tako', schemes: ['dsh-tako'] }])
     expect(portablePath(config.directories.output)).toContain('/.desktop-build/targets/mac-arm64/artifacts')
     expect(config.mac.extendInfo.NSMicrophoneUsageDescription).toContain('microphone')
     expect(config.mac.entitlementsInherit).toBe(config.mac.entitlements)
@@ -85,11 +85,10 @@ describe('desktop macOS release signature', () => {
         sign: true,
         writeUpdateInfo: false,
       },
-      publish: [{
-        provider: 'generic',
-        url: 'https://desktop-updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/',
-        channel: 'nightly',
-      }],
+      // DSH Tako updates come from GitHub Releases; the official COS deployment settings are ignored.
+      publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }],
+      productName: 'DSH Tako',
+      extraMetadata: { dshDesktopAppId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID, name: 'dsh-tako-desktop', version: '0.1.0' },
     })
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
@@ -160,7 +159,7 @@ describe('desktop macOS release signature', () => {
       DSH_DESKTOP_UNSIGNED: '1',
     }, 'darwin', arch)
     expect(portablePath(config.directories.output)).toContain(`/targets/mac-${arch}/unsigned-artifacts`)
-    expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
+    expect(config.artifactName).toBe('DSH-Tako-${version}-${os}-${arch}-unsigned.${ext}')
     expect(config.mac).toMatchObject({ identity: '-', forceCodeSigning: false, notarize: false, target: ['dmg'] })
     expect(config.dmg).toMatchObject({ sign: false, writeUpdateInfo: false })
     expect(config.publish).toBeNull()
@@ -230,7 +229,9 @@ describe('desktop macOS release signature', () => {
   })
 
   it('rejects missing and malformed release identifiers', () => {
-    expect(() => resolveDesktopAppId({})).toThrow(/DSH_DESKTOP_APP_ID/u)
+    // DSH Tako supplies its own identifier when none is configured and never accepts the official one.
+    expect(resolveDesktopAppId({})).toBe('tech.shiroha.dsh-tako')
+    expect(() => resolveDesktopAppId({ DSH_DESKTOP_APP_ID: 'com.deepseek.harness' })).toThrow(/must not be the official/u)
     expect(() => resolveDesktopAppId({ DSH_DESKTOP_APP_ID: 'not-a-bundle-id' })).toThrow(/reverse-DNS/u)
     expect(() => resolveMacOSSigningEnvironment({})).toThrow(/DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
     expect(() => resolveMacOSSigningEnvironment({

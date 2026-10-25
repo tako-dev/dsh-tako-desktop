@@ -1,6 +1,6 @@
-登录 Tako
-DeepSeek Harness
-欢迎使用 Tako
-连接 Tako 后，即可在 DSH 中使用 Tako 模型和工具。
+DSH Tako
+DSH Tako
+欢迎使用 DSH Tako
+连接 Tako 后，即可使用 Tako 模型和工具。基于 DeepSeek Harness 构建。
 粘贴 Tako API Key
 通过浏览器登录 Tako
