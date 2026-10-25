@@ -41,6 +41,10 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
   const detail = ready
     ? plan === undefined ? weeklyText : `${t('takoPlan')} ${plan}`
     : t('takoAccountHint')
+  const status = quota === undefined ? t('loading') : ready ? t('takoConnected') : t('takoQuotaUnavailable')
+  // The summary or plan line may already carry the daily or weekly usage; each line renders once.
+  // Without quota data the status badge already says so, leaving the account hint as the only detail.
+  const details = ready ? [...new Set([detail, dailyText, weeklyText])].filter(line => line !== summary) : [detail]
   const label = `${t('takoQuota')} · ${summary}`
   const openAccount = (): void => { window.open('https://tako.shiroha.tech/wallet', '_blank', 'noopener,noreferrer') }
   const content = (
@@ -50,11 +54,9 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
       </span>
       {wide ? (
         <span className={css.copy}>
-          <span className={css.title}><span>{t('takoBrand')}</span><span className={ready ? css.connected : css.muted}>{ready ? t('takoConnected') : t('takoQuotaUnavailable')}</span></span>
-          <span className={ready ? css.summary : css.muted}>{summary}</span>
-          <span className={css.detail}>{detail}</span>
-          <span className={css.detail}>{ready ? dailyText : t('takoAccountHint')}</span>
-          <span className={css.detail}>{ready ? weeklyText : t('takoQuotaNoData')}</span>
+          <span className={css.title}><span>{t('takoBrand')}</span><span className={ready ? css.connected : css.muted}>{status}</span></span>
+          {ready ? <span className={css.summary}>{summary}</span> : null}
+          {details.map(line => <span key={line} className={css.detail}>{line}</span>)}
         </span>
       ) : null}
     </button>
