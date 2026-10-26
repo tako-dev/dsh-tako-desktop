@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   desktopProfileBundles, ensureNpmDshTakoManifest, FORKED_TAKO_BUNDLE, installNpmDshTakoPlugin,
-  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, type SpawnAddRequest,
+  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, type ProfileManifest, type SpawnAddRequest,
 } from '../src/tako-npm-plugin.ts'
 
 describe('ensureNpmDshTakoManifest', () => {
   it('adds the npm plugin and removes the forked bundle', () => {
-    const manifest = {
+    const manifest: ProfileManifest = {
       dependencies: {},
       dsh: { profile: { bundles: ['@deepseek-ai/dsh-web-app', FORKED_TAKO_BUNDLE] } },
     }
@@ -19,7 +19,7 @@ describe('ensureNpmDshTakoManifest', () => {
   })
 
   it('does not downgrade a newer pin', () => {
-    const manifest = { dependencies: { [NPM_DSH_TAKO]: '0.9.0' } }
+    const manifest: ProfileManifest = { dependencies: { [NPM_DSH_TAKO]: '0.9.0' } }
     expect(ensureNpmDshTakoManifest(manifest)).toBe(false)
     expect(manifest.dependencies[NPM_DSH_TAKO]).toBe('0.9.0')
   })
