@@ -1,4 +1,5 @@
 import type { MacOSSigningEnvironment } from './desktop-release-environment.mjs'
+import type { StapleRetryPolicy } from './macos-staple-retry.mjs'
 
 /**
  * Reject signature metadata that does not name the company release authority and team.
@@ -13,6 +14,21 @@ export function assertMacOSSignatureDetails(details: string, expected: MacOSSign
  * @param expected - Public release identity.
  */
 export function assertMacOSRuntimeSignatureDetails(details: string, expected: MacOSSigningEnvironment): void
+
+/** Overrides for one retried ticket validation. */
+export interface StapledTicketValidationOptions {
+  readonly policy?: StapleRetryPolicy
+  readonly environment?: NodeJS.ProcessEnv
+  readonly execute?: (path: string) => void
+  readonly sleep?: (milliseconds: number) => void
+}
+
+/**
+ * Validate the ticket stapled to an App or DMG, retrying only transient CloudKit transport failures.
+ * @param path - Stapled `.app` directory or `.dmg` file.
+ * @param options - Retry overrides for tests and diagnostics.
+ */
+export function validateStapledTicket(path: string, options?: StapledTicketValidationOptions): void
 
 /**
  * Sign one Mach-O file using the packaging-owned CSC_KEYCHAIN; missing setup rejects before signing.
