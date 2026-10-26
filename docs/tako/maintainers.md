@@ -110,6 +110,20 @@ Conflict hotspots:
 | Icons, welcome screen, installer text | Tako icons and copy | `apps/desktop/resources/`, `renderer/`, `installer/strings.nsh`, `src/locale.ts` |
 | Web client brand and title | DSH Tako | `packages/client/ui-brand-official`, `ui-layout` |
 
+## Cannot-break profile invariants (2026-10-26)
+
+0.1.5 stripped `@deepseek-ai/dsh-tako` from the desktop profile before npm `dsh-tako` was installed. Tako models and tools disappeared. These checks must stay green:
+
+| Lock | Where |
+|---|---|
+| Shipped `tako` template still lists `@deepseek-ai/dsh-tako` after `dsh-web-app` | `apps/desktop/tests/tako-profile-invariants.spec.ts` |
+| `createPluginProfile` keeps that bundle and does **not** pin npm `dsh-tako` | same file + `scripts/smoke-runtime.ts` (packaging) |
+| `applyRelease` restores a profile that had the bundle stripped | `tako-profile-invariants.spec.ts` |
+| `project-manager.ts` / `main.ts` do not import `tako-npm-plugin` or call `installTakoPlugin` | `tako-profile-invariants.spec.ts` |
+| Welcome still treats settings `ns === 'tako'` as Tako | `tako-profile-invariants.spec.ts`, `welcome-host.spec.ts` |
+
+Do not skip, delete, or weaken those tests. Do not drop the bundled Tako layer in `applyRelease` / `createPluginProfile` unless the npm plugin is already installed and a live upgrade has been verified on a real DSH Tako profile. `apps/desktop/src/tako-npm-plugin.ts` still contains the 0.1.5 strip helpers; leaving that file in the tree is not permission to wire it back.
+
 ## Known limitations
 
 - The Windows installer is not code-signed: installation and updates may trigger SmartScreen, and enterprise policy may block it.

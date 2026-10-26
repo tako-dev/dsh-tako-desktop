@@ -176,7 +176,8 @@ export function createPluginProfile(projectDir: string): void {
   restoreBundledTakoLayer(projectDir)
 }
 
-const FORKED_TAKO_BUNDLE = '@deepseek-ai/dsh-tako'
+/** Bundled Tako provider. Do not drop this from the desktop profile (0.1.5). */
+export const FORKED_TAKO_BUNDLE = '@deepseek-ai/dsh-tako'
 
 /** Put the bundled Tako layer back if 0.1.5 stripped it. */
 export function restoreBundledTakoLayer(projectDir: string): void {

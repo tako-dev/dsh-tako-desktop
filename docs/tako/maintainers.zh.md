@@ -110,6 +110,20 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 | 图标、欢迎页、安装器文案 | Tako 图标与文案 | `apps/desktop/resources/`、`renderer/`、`installer/strings.nsh`、`src/locale.ts` |
 | Web 客户端品牌和标题 | DSH Tako | `packages/client/ui-brand-official`、`ui-layout` |
 
+## 不能破的 profile 不变量（2026-10-26）
+
+0.1.5 在 npm 插件还没装上时，就把 `@deepseek-ai/dsh-tako` 从 desktop profile 摘掉，Tako 模型和工具全部消失。下面这些检查必须保持绿：
+
+| 锁 | 位置 |
+|---|---|
+| 自带 `tako` 模板仍把 `@deepseek-ai/dsh-tako` 放在 `dsh-web-app` 后面 | `apps/desktop/tests/tako-profile-invariants.spec.ts` |
+| `createPluginProfile` 保留该 bundle，且**不**把 npm `dsh-tako` 写进 dependencies | 同上 + `scripts/smoke-runtime.ts`（打包烟测） |
+| `applyRelease` 会把被摘掉的 bundle 加回去 | `tako-profile-invariants.spec.ts` |
+| `project-manager.ts` / `main.ts` 不 import `tako-npm-plugin`，也不调用 `installTakoPlugin` | `tako-profile-invariants.spec.ts` |
+| 欢迎页仍把 settings `ns === 'tako'` 当成 Tako | `tako-profile-invariants.spec.ts`、`welcome-host.spec.ts` |
+
+不要 skip、删除或放宽这些测试。不要在 `applyRelease` / `createPluginProfile` 里摘掉内置 Tako 层，除非 npm 插件已经装上，并且在真实 DSH Tako profile 上做过升级验证。`apps/desktop/src/tako-npm-plugin.ts` 里还留着 0.1.5 的摘包函数；文件还在不等于可以再接到启动路径上。
+
 ## 已知限制
 
 - Windows 安装包未做代码签名：首次安装和更新可能触发 SmartScreen，企业策略可能阻止运行。

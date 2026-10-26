@@ -41,6 +41,17 @@ export async function smokeDesktopRuntime(
   try {
     writeFileSync(join(home, 'npmrc'), '')
     createPluginProfile(profile)
+    const profileManifest = JSON.parse(readFileSync(join(profile, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      dsh?: { profile?: { bundles?: string[] } }
+    }
+    const profileBundles = profileManifest.dsh?.profile?.bundles ?? []
+    if (!profileBundles.includes('@deepseek-ai/dsh-tako')) {
+      throw new Error('desktop runtime: createPluginProfile dropped @deepseek-ai/dsh-tako (0.1.5 stripped it and Tako vanished)')
+    }
+    if (profileManifest.dependencies?.['dsh-tako'] !== undefined) {
+      throw new Error('desktop runtime: createPluginProfile must not pin npm dsh-tako (offline plugin-add smoke fails)')
+    }
     const pluginName = 'desktop-runtime-smoke-plugin'
     const plugin = join(home, pluginName)
     mkdirSync(plugin, { recursive: true })

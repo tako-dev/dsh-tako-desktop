@@ -1,6 +1,12 @@
 /**
- * The public npm plugin is the Tako model source. Desktop only pre-installs
- * it into the user profile and keeps the Tako welcome entry.
+ * Unused after 0.1.6. 0.1.5 called `stripForkedTakoBundle` /
+ * `ensureNpmDshTakoManifest` from profile prepare, then failed to
+ * `plugin add`, and every Tako model vanished.
+ *
+ * Do not import this module from `project-manager.ts` or `main.ts`
+ * until npm `dsh-tako` is actually installed on a real
+ * `~/.dsh-tako/profiles/desktop` and a live upgrade has been verified.
+ * Locks: `tests/tako-profile-invariants.spec.ts`.
  * @module desktop/tako-npm-plugin
  */
 
