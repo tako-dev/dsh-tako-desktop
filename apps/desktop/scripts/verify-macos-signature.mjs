@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { resolveMacOSSigningEnvironment } from './desktop-release-environment.mjs'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
+import { isStapleNetworkFailure, resolveStapleRetryPolicy, retryStapleOperation } from './macos-staple-retry.mjs'
 
 /**
  * Reject signature metadata that does not name the company release authority and team.
@@ -107,6 +108,23 @@ function runCodeSign(args) {
 }
 
 /**
+ * Validate the ticket stapled to an App or DMG, retrying only transient CloudKit transport failures.
+ * A missing or rejected ticket is a real release failure and surfaces on the first attempt.
+ * @param {string} path - Stapled `.app` directory or `.dmg` file.
+ * @param {{ policy?: object, environment?: NodeJS.ProcessEnv, execute?: (path: string) => void, sleep?: (milliseconds: number) => void }} options - Retry overrides for tests and diagnostics.
+ * @returns {void}
+ */
+export function validateStapledTicket(path, options = {}) {
+  const execute = options.execute ?? (target => { runAppleCommand('/usr/bin/xcrun', ['stapler', 'validate', target], 'stapler validate') })
+  retryStapleOperation(() => execute(path), {
+    policy: options.policy ?? resolveStapleRetryPolicy(options.environment),
+    retryOn: isStapleNetworkFailure,
+    sleep: options.sleep,
+    label: 'stapler validate',
+  })
+}
+
+/**
  * Sign one Mach-O file using the packaging-owned CSC_KEYCHAIN; missing setup rejects before signing.
  * @param {string} path - Writable standalone Mach-O file.
  * @param {string} identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
@@ -161,7 +179,7 @@ export function verifyMacOSSignature(appPath, expected) {
  */
 export function verifyMacOSNotarizedApplication(appPath, expected) {
   verifyMacOSSignature(appPath, expected)
-  runAppleCommand('/usr/bin/xcrun', ['stapler', 'validate', appPath], 'stapler validate')
+  validateStapledTicket(appPath)
   runAppleCommand('/usr/sbin/spctl', ['--assess', '--type', 'execute', '--verbose=4', appPath], 'spctl')
 }
 
@@ -173,7 +191,7 @@ export function verifyMacOSNotarizedApplication(appPath, expected) {
  */
 export function verifyMacOSDiskImage(diskImagePath, expected) {
   verifyMacOSDiskImageSignature(diskImagePath, expected)
-  runAppleCommand('/usr/bin/xcrun', ['stapler', 'validate', diskImagePath], 'stapler validate')
+  validateStapledTicket(diskImagePath)
   runAppleCommand('/usr/sbin/spctl', ['--assess', '--type', 'install', '--verbose=4', diskImagePath], 'spctl')
 }
 

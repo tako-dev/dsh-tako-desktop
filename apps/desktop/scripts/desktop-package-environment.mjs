@@ -10,6 +10,7 @@ import { createWindowsTokenSigner } from './windows-sign.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 import { validateMacOSSignatureCacheDirectory } from './macos-signature-cache-directory.mjs'
 import { resolveMacOSPackageSettings } from './macos-package-settings.mjs'
+import { resolveStapleRetryPolicy } from './macos-staple-retry.mjs'
 import { resolveWindowsSignatureCacheDirectory } from './windows-signature-cache-directory.mjs'
 import { resolveWindowsPackageSettings } from './windows-package-settings.mjs'
 
@@ -165,6 +166,7 @@ export function validateDesktopPackageEnvironment(environment, target, options =
       const credentials = resolveMacOSNotarizationEnvironment(environment)
       if ('appleApiKey' in credentials) requireReadableFile(environment, 'APPLE_API_KEY')
       if ('keychain' in credentials) requireReadableFile(environment, 'APPLE_KEYCHAIN')
+      resolveStapleRetryPolicy(environment)
     }
     requireReadableFile(environment, 'CSC_LINK')
     if (environment.CSC_KEY_PASSWORD === undefined) {

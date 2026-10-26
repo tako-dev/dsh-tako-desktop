@@ -15,6 +15,7 @@ import { withMacOSSigningKeychain } from './macos-signing-keychain.mjs'
 import { macOSDownloadEnvironment, resolveMacOSPackageSettings } from './macos-package-settings.mjs'
 import { packagingErrorDetails, packagingStep } from './packaging-step.mjs'
 import { notarizeMacOS } from './notarize-macos.mjs'
+import { resolveStapleRetryPolicy } from './macos-staple-retry.mjs'
 import { resolveMacOSNotarizationEnvironment } from './desktop-release-environment.mjs'
 import { DESKTOP_BUILD_VERSION_ENV, validateDesktopBuildVersion } from './desktop-build-version.mjs'
 import { suggestDesktopBuildVersion } from './desktop-build-version-discovery.ts'
@@ -370,6 +371,10 @@ async function main(): Promise<void> {
   if (invocation.check) {
     validateDesktopPackageEnvironment(environment, target, invocation)
     await requireDesktopToolchain(target.platform, environment)
+    if (target.platform === 'darwin' && !invocation.unsigned && !invocation.skipNotarization) {
+      const staple = resolveStapleRetryPolicy(environment)
+      process.stdout.write(`desktop package: stapling retries ${staple.attempts} attempts per artifact with ${staple.backoffMs}ms exponential backoff (maximum ${staple.maxBackoffMs}ms); override with DSH_DESKTOP_STAPLE_ATTEMPTS and DSH_DESKTOP_STAPLE_BACKOFF_MS\n`)
+    }
     process.stdout.write(`desktop package: ${target.name} would publish ${buildVersion}; local configuration and toolchain valid, signing and notarization were not attempted\n`)
     return
   }
