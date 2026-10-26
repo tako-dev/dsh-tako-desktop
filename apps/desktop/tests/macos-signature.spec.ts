@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import type { NotarizeOptions } from '@electron/notarize'
+import { TAKO_DESKTOP_VERSION } from '../scripts/tako-desktop-identity.mjs'
 import {
   resolveDesktopAppId,
   resolveMacOSNotarizationEnvironment,
@@ -88,7 +89,7 @@ describe('desktop macOS release signature', () => {
       // DSH Tako updates come from GitHub Releases; the official COS deployment settings are ignored.
       publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }],
       productName: 'DSH Tako',
-      extraMetadata: { dshDesktopAppId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID, name: 'dsh-tako-desktop', version: '0.1.0' },
+      extraMetadata: { dshDesktopAppId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID, name: 'dsh-tako-desktop', version: TAKO_DESKTOP_VERSION },
     })
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
