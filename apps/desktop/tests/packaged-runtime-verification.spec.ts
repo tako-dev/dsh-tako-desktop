@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { TAKO_DESKTOP_VERSION } from '../scripts/tako-desktop-identity.mjs'
 
 const { verifyDesktopRuntime } = vi.hoisted(() => ({
   verifyDesktopRuntime: vi.fn<(root: string, expected: string) => Promise<void>>(async () => undefined),
@@ -57,7 +58,7 @@ describe('packaged runtime verification', () => {
     const config = createElectronBuilderConfig(
       { ...ENVIRONMENT, DSH_DESKTOP_BUILD_VERSION: `${productVersion}.20260921.1` }, 'win32', 'x64')
     // The packaged application carries the DSH Tako version; the bundled runtime still declares the product version.
-    expect(config.extraMetadata).toMatchObject({ version: '0.1.0' })
+    expect(config.extraMetadata).toMatchObject({ version: TAKO_DESKTOP_VERSION })
     await config.afterPack(CONTEXT as never)
     expect(verifyDesktopRuntime.mock.calls[0]?.[1]).toBe(productVersion)
   })

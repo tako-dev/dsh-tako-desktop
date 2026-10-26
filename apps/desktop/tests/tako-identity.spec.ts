@@ -27,8 +27,9 @@ describe('DSH Tako identity', () => {
   })
 
   it('builds a separate product with its own version and a stable GitHub channel', () => {
-    expect([TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_APP_ID, TAKO_DESKTOP_VERSION]).toEqual(['DSH Tako', 'tech.shiroha.dsh-tako', '0.1.0'])
-    expect(resolveTakoDesktopVersion({})).toBe('0.1.0')
+    expect([TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_APP_ID]).toEqual(['DSH Tako', 'tech.shiroha.dsh-tako'])
+    expect(TAKO_DESKTOP_VERSION).toMatch(/^\d+\.\d+\.\d+$/u)
+    expect(resolveTakoDesktopVersion({})).toBe(TAKO_DESKTOP_VERSION)
     expect(resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: '0.2.0' })).toBe('0.2.0')
     expect(() => resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: 'v0.2' })).toThrow(/strict semantic version/u)
     expect(resolveTakoDesktopUpdateChannel({})).toBe('latest')

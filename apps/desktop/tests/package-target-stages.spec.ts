@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { afterEach, expect, it, vi } from 'vitest'
 import { packageTarget, parseDesktopPackageInvocation } from '../scripts/package-target.ts'
+import { TAKO_DESKTOP_VERSION } from '../scripts/tako-desktop-identity.mjs'
 import { withMacOSNotarizationProxy } from '../scripts/macos-notarization-proxy.ts'
 import { packageMacOSArtifacts } from '../scripts/package-macos.ts'
 import { withWindowsSigningStage } from '../scripts/windows-signing-stage.mjs'
@@ -66,7 +67,9 @@ it('requires one signing preflight before building, then records only the comple
   expect(writeFileSync).toHaveBeenCalledOnce()
   const record = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]![1] as string) as Record<string, string>
   // DSH Tako records its own application version and GitHub Releases feed, never the official COS feed.
-  expect(record).toMatchObject({ publicUrl: 'https://github.com/tako-dev/dsh-tako-desktop/releases', version: '0.1.0', environment: 'github' })
+  expect(record).toMatchObject({
+    publicUrl: 'https://github.com/tako-dev/dsh-tako-desktop/releases', version: TAKO_DESKTOP_VERSION, environment: 'github',
+  })
 })
 
 it('initializes shared storage only after acquiring the preflight stage lock', async () => {

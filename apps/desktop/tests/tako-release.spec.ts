@@ -36,9 +36,11 @@ describe('release version', () => {
   })
 
   it('requires a v-prefixed stable tag equal to the source version', () => {
-    expect(resolveTakoReleaseVersion('v0.1.0', '0.1.0')).toBe('0.1.0')
-    expect(() => resolveTakoReleaseVersion('0.1.0', '0.1.0')).toThrow('must be v<version>')
-    expect(() => resolveTakoReleaseVersion('v0.1.1', '0.1.0')).toThrow('does not match TAKO_DESKTOP_VERSION 0.1.0')
+    expect(resolveTakoReleaseVersion(`v${TAKO_DESKTOP_VERSION}`, TAKO_DESKTOP_VERSION)).toBe(TAKO_DESKTOP_VERSION)
+    expect(() => resolveTakoReleaseVersion(TAKO_DESKTOP_VERSION, TAKO_DESKTOP_VERSION)).toThrow('must be v<version>')
+    // A tag for some other release must never match the checked-out constant, whatever that constant is.
+    expect(() => resolveTakoReleaseVersion('v9.9.9', TAKO_DESKTOP_VERSION))
+      .toThrow(`does not match TAKO_DESKTOP_VERSION ${TAKO_DESKTOP_VERSION}`)
     expect(() => resolveTakoReleaseVersion('v0.2.0-beta.1', '0.2.0-beta.1')).toThrow('stable MAJOR.MINOR.PATCH')
     expect(() => resolveTakoReleaseVersion('v01.0.0', '01.0.0')).toThrow('stable MAJOR.MINOR.PATCH')
   })
@@ -88,35 +90,39 @@ describe('release assets', () => {
   })
 
   it('reads the files an electron-updater metadata file refers to', () => {
+    const artifact = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.exe`
     const metadata = [
-      'version: 0.1.0',
+      `version: ${TAKO_DESKTOP_VERSION}`,
       'files:',
-      '  - url: DSH-Tako-0.1.0-win-x64.exe',
+      `  - url: ${artifact}`,
       '    sha512: abc',
       '    size: 1',
-      "path: 'DSH-Tako-0.1.0-win-x64.exe'",
+      `path: '${artifact}'`,
       'sha512: abc',
       "releaseDate: '2026-10-25T00:00:00.000Z'",
     ].join('\n')
-    expect(takoUpdateMetadataReferences(metadata)).toEqual({ version: '0.1.0', files: ['DSH-Tako-0.1.0-win-x64.exe'] })
+    expect(takoUpdateMetadataReferences(metadata)).toEqual({ version: TAKO_DESKTOP_VERSION, files: [artifact] })
   })
 
   it('collects a complete Windows release and rejects missing or inconsistent files', () => {
     const appRoot = temporary()
     const directory = join(appRoot, '.desktop-build/targets/win-x64/unsigned-artifacts')
     mkdirSync(directory, { recursive: true })
-    writeFileSync(join(directory, 'DSH-Tako-0.1.0-win-x64.exe'), 'installer')
+    const artifact = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.exe`
+    const expected = [artifact, `${artifact}.blockmap`, 'latest.yml']
+    writeFileSync(join(directory, artifact), 'installer')
     const output = join(appRoot, 'release')
-    const request = { target: 'win-x64', version: '0.1.0', mode: 'signed', output, appRoot } as const
+    const request = { target: 'win-x64', version: TAKO_DESKTOP_VERSION, mode: 'signed', output, appRoot } as const
     expect(() => collectTakoReleaseAssets(request)).toThrow('missing or empty release file')
-    writeFileSync(join(directory, 'DSH-Tako-0.1.0-win-x64.exe.blockmap'), 'blockmap')
-    writeFileSync(join(directory, 'latest.yml'), 'version: 0.1.0\nfiles:\n  - url: DSH-Tako-0.1.0-win-x64-unsigned.exe\n')
+    writeFileSync(join(directory, `${artifact}.blockmap`), 'blockmap')
+    writeFileSync(join(directory, 'latest.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64-unsigned.exe\n`)
     expect(() => collectTakoReleaseAssets(request)).toThrow('must refer only to published files')
-    writeFileSync(join(directory, 'latest.yml'), 'version: 0.0.9\nfiles:\n  - url: DSH-Tako-0.1.0-win-x64.exe\n')
+    // A metadata file for another release is stale and must be rejected.
+    writeFileSync(join(directory, 'latest.yml'), `version: 0.0.9\nfiles:\n  - url: ${artifact}\n`)
     expect(() => collectTakoReleaseAssets(request)).toThrow('declares version 0.0.9')
-    writeFileSync(join(directory, 'latest.yml'), 'version: 0.1.0\nfiles:\n  - url: DSH-Tako-0.1.0-win-x64.exe\npath: DSH-Tako-0.1.0-win-x64.exe\n')
-    expect(collectTakoReleaseAssets(request)).toEqual(['DSH-Tako-0.1.0-win-x64.exe', 'DSH-Tako-0.1.0-win-x64.exe.blockmap', 'latest.yml'])
-    expect(readdirSync(output).sort()).toEqual(['DSH-Tako-0.1.0-win-x64.exe', 'DSH-Tako-0.1.0-win-x64.exe.blockmap', 'latest.yml'])
+    writeFileSync(join(directory, 'latest.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${artifact}\npath: ${artifact}\n`)
+    expect(collectTakoReleaseAssets(request)).toEqual(expected)
+    expect(readdirSync(output).sort()).toEqual(expected)
   })
 
   it('writes sha256sum-compatible checksums for every release file', () => {
@@ -135,11 +141,12 @@ describe('release assets', () => {
 describe('release notes', () => {
   it('fills every placeholder of the maintained template for both macOS modes', () => {
     const template = readFileSync(join(REPOSITORY_ROOT, '.github/tako-release-notes.md'), 'utf8')
-    const signed = renderTakoReleaseNotes(template, '0.1.0', 'signed')
-    expect(signed).toContain('`DSH-Tako-0.1.0-mac-arm64.dmg`')
-    expect(signed).toContain('`DSH-Tako-0.1.0-win-x64.exe`')
+    const base = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}`
+    const signed = renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'signed')
+    expect(signed).toContain(`\`${base}-mac-arm64.dmg\``)
+    expect(signed).toContain(`\`${base}-win-x64.exe\``)
     expect(signed).not.toContain('{{')
-    expect(renderTakoReleaseNotes(template, '0.1.0', 'unsigned')).toContain('`DSH-Tako-0.1.0-mac-arm64-unsigned.dmg`')
-    expect(() => renderTakoReleaseNotes('{{UNKNOWN}}', '0.1.0', 'signed')).toThrow('unknown placeholder')
+    expect(renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'unsigned')).toContain(`\`${base}-mac-arm64-unsigned.dmg\``)
+    expect(() => renderTakoReleaseNotes('{{UNKNOWN}}', TAKO_DESKTOP_VERSION, 'signed')).toThrow('unknown placeholder')
   })
 })
