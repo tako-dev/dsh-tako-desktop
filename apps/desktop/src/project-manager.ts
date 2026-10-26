@@ -25,11 +25,16 @@ import { readDesktopRuntime } from './runtime-tree.ts'
 import {
   initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
 } from '@deepseek-ai/dsh-app-boot'
+import {
+  desktopProfileBundles, ensureNpmDshTakoManifest, installNpmDshTakoPlugin, type ProfileManifest,
+} from './tako-npm-plugin.ts'
 
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const TAKO_PROFILE = PROFILE_TEMPLATES.tako as ProfileTemplate
+/** Official web layers plus Tako extras, without the forked `@deepseek-ai/dsh-tako` bundle. */
+const DESKTOP_PROFILE_BUNDLES = desktopProfileBundles(TAKO_PROFILE.bundles)
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
@@ -74,7 +79,18 @@ export class DesktopProjectManager {
    * @returns Backup path after the locked profile write, or undefined if the patch was absent.
    */
   async disableAllPlugins(): Promise<string | undefined> {
-    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, TAKO_PROFILE.bundles))
+    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, DESKTOP_PROFILE_BUNDLES))
+  }
+
+  /**
+   * Install the public npm plugin into the Desktop profile when it is missing.
+   * Call after {@link applyRelease} and before the Host starts.
+   */
+  async installTakoPlugin(): Promise<void> {
+    await this.withLock(() => installNpmDshTakoPlugin({
+      profileDir: this.paths.profile,
+      dshDir: this.runtime.dsh,
+    }))
   }
 
   /**
@@ -172,5 +188,15 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, TAKO_PROFILE.bundles)
+  initProfile(projectDir, DESKTOP_PROFILE_BUNDLES)
+  ensureNpmDshTakoProfile(projectDir)
+}
+
+/** Keep the npm plugin on the profile manifest; never runs pnpm. */
+export function ensureNpmDshTakoProfile(projectDir: string): void {
+  const path = join(projectDir, 'package.json')
+  if (!existsSync(path)) return
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as ProfileManifest
+  if (!ensureNpmDshTakoManifest(manifest)) return
+  writeFileSync(path, `${JSON.stringify(manifest, undefined, 2)}\n`, { mode: 0o600 })
 }

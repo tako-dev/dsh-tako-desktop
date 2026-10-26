@@ -37,6 +37,29 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/** Tako credential settings: workspace bundle, npm plugin, or the pi-ai route it writes. */
+export function takoCredentialSettings(namespaces: readonly unknown[]): { apiKeyEnv: string, baseURL?: string } | undefined {
+  for (const ns of ['tako', 'dsh-tako']) {
+    const item: unknown = namespaces.find(entry => record(entry) && entry.ns === ns)
+    if (record(item) && record(item.value) && typeof item.value.apiKeyEnv === 'string') {
+      return {
+        apiKeyEnv: item.value.apiKeyEnv,
+        ...typeof item.value.baseURL === 'string' ? { baseURL: item.value.baseURL } : {},
+      }
+    }
+  }
+  const piAi: unknown = namespaces.find(entry => record(entry) && entry.ns === 'llm-pi-ai')
+  const providers = record(piAi) && record(piAi.value) ? piAi.value.providers : undefined
+  const route = record(providers) ? providers.tako : undefined
+  if (record(route) && typeof route.apiKeyEnv === 'string') {
+    return {
+      apiKeyEnv: route.apiKeyEnv,
+      ...typeof route.baseURL === 'string' ? { baseURL: route.baseURL } : {},
+    }
+  }
+  return undefined
+}
+
 /**
  * Authenticate the native HTTP client through the Web application's launch URL.
  * @param authenticatedUrl - URL supplied by the running Desktop Host.
@@ -82,22 +105,25 @@ export async function connectDesktopWelcome(
   }> => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
-    const tako: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'tako')
+    const tako = takoCredentialSettings(settings.namespaces)
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    const selected = tako ?? official
-    if (selected === undefined) {
+    if (tako !== undefined) {
+      selectedProvider = 'tako'
+      return { settings: { namespaces: settings.namespaces }, ref: tako.apiKeyEnv, provider: selectedProvider, baseURL: tako.baseURL }
+    }
+    if (official === undefined) {
       selectedProvider = 'deepseek'
       return { settings: { namespaces: settings.namespaces }, ref: undefined, provider: selectedProvider, baseURL: undefined }
     }
-    if (!record(selected) || !record(selected.value) || typeof selected.value.apiKeyEnv !== 'string') {
-      throw new Error(`desktop welcome: missing ${selected === tako ? 'Tako' : 'official DeepSeek'} credential reference`)
+    if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
+      throw new Error('desktop welcome: missing official DeepSeek credential reference')
     }
-    selectedProvider = selected === tako ? 'tako' : 'deepseek'
+    selectedProvider = 'deepseek'
     return {
       settings: { namespaces: settings.namespaces },
-      ref: selected.value.apiKeyEnv,
+      ref: official.value.apiKeyEnv,
       provider: selectedProvider,
-      baseURL: typeof selected.value.baseURL === 'string' ? selected.value.baseURL : undefined,
+      baseURL: typeof official.value.baseURL === 'string' ? official.value.baseURL : undefined,
     }
   }
   const localePreference = (namespaces: unknown[]): string | null => {

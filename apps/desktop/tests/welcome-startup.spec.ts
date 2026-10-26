@@ -109,6 +109,7 @@ vi.mock('../src/login-shell-environment.ts', async importOriginal => ({
 }))
 vi.mock('../src/project-manager.ts', () => ({ DesktopProjectManager: class {
   applyRelease = vi.fn(async () => {})
+  installTakoPlugin = vi.fn(async () => {})
   canRecoverProfile = vi.fn(() => true)
 } }))
 vi.mock('../src/host-process.ts', () => ({

@@ -219,6 +219,7 @@ const harness = await vi.hoisted(async () => {
     openExternal: vi.fn(async () => {}),
     protocolHandle: vi.fn<(scheme: string, handler: (request: Request) => Response | Promise<Response>) => void>(),
     applyRelease: vi.fn(() => { preparing.resolve(); return prepared.promise }),
+    installTakoPlugin: vi.fn(async () => {}),
     disableAllPlugins: vi.fn(async () => {
       pluginsEnabled = false
       return 'desktop-test-profile/cordis.patch.yml.bak-1789555200000'
@@ -321,6 +322,7 @@ vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: 'desk
 vi.mock('../src/project-manager.ts', () => ({
   DesktopProjectManager: class {
     readonly applyRelease = harness.applyRelease
+    readonly installTakoPlugin = harness.installTakoPlugin
     disableAllPlugins = harness.disableAllPlugins
 
   },
