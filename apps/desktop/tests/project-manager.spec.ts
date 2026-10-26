@@ -150,19 +150,7 @@ describe('desktop external plugin profile', () => {
       .toBe('packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n')
   })
 
-  it('pre-installs the npm dsh-tako plugin and drops the forked bundle from the profile', async () => {
-    const { manager } = setup()
-    await manager.applyRelease()
-    const manifest = JSON.parse(readFileSync(join(manager.paths.profile, 'package.json'), 'utf8')) as {
-      dependencies: Record<string, string>
-      dsh: { profile: { bundles: string[] } }
-    }
-    expect(manifest.dependencies['dsh-tako']).toBe('0.5.0')
-    expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-web-app')
-    expect(manifest.dsh.profile.bundles).not.toContain('@deepseek-ai/dsh-tako')
-  })
-
-  it('does not downgrade an already newer npm plugin and strips a leftover forked bundle', async () => {
+  it('drops the forked Tako bundle from the profile without writing npm dependencies', async () => {
     const { manager } = setup()
     await manager.applyRelease()
     const path = join(manager.paths.profile, 'package.json')
@@ -170,15 +158,15 @@ describe('desktop external plugin profile', () => {
       dependencies: Record<string, string>
       dsh: { profile: { bundles: string[] } }
     }
-    manifest.dependencies['dsh-tako'] = '0.6.0'
+    expect(manifest.dependencies['dsh-tako']).toBeUndefined()
+    expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-web-app')
+    expect(manifest.dsh.profile.bundles).not.toContain('@deepseek-ai/dsh-tako')
     manifest.dsh.profile.bundles.push('@deepseek-ai/dsh-tako')
     writeFileSync(path, JSON.stringify(manifest, undefined, 2))
     await manager.applyRelease()
     const next = JSON.parse(readFileSync(path, 'utf8')) as {
-      dependencies: Record<string, string>
       dsh: { profile: { bundles: string[] } }
     }
-    expect(next.dependencies['dsh-tako']).toBe('0.6.0')
     expect(next.dsh.profile.bundles).not.toContain('@deepseek-ai/dsh-tako')
   })
 
@@ -222,8 +210,8 @@ describe('desktop external plugin profile', () => {
     const { manager } = setup()
     await expect(manager.applyRelease()).resolves.toBeUndefined()
     await expect(manager.applyRelease()).resolves.toBeUndefined()
-    expect(plugins(manager)).toEqual([{ name: 'dsh-tako', version: '0.5.0', enabled: false }])
-    expect(JSON.parse(readFileSync(join(manager.paths.profile, 'package.json'), 'utf8'))).toMatchObject({ dependencies: { 'dsh-tako': '0.5.0' } })
+    expect(plugins(manager)).toEqual([])
+    expect(JSON.parse(readFileSync(join(manager.paths.profile, 'package.json'), 'utf8'))).toMatchObject({ dependencies: {} })
   })
 
   it.skipIf(process.platform !== 'win32')('reuses the profile when the launch path changes only Windows letter casing', async () => {
@@ -267,10 +255,7 @@ describe('desktop external plugin profile', () => {
     runtimeFixture(dsh, '1.1.0', '24.18.0')
     const next = new DesktopProjectManager(manager.paths, { ...manager.runtime, dsh })
     await next.applyRelease()
-    expect(plugins(next)).toEqual([
-      { name: 'dsh-tako', version: '0.5.0', enabled: false },
-      { name: 'plugin', version: '1.0.0', enabled: true },
-    ])
+    expect(plugins(next)).toEqual([{ name: 'plugin', version: '1.0.0', enabled: true }])
   })
 
   it('allows peer version mismatches to reach Host startup and remain available for recovery', async () => {
@@ -282,10 +267,7 @@ describe('desktop external plugin profile', () => {
     const next = new DesktopProjectManager(manager.paths, { ...manager.runtime, dsh })
     await expect(next.applyRelease()).resolves.toBeUndefined()
     await next.disableAllPlugins()
-    expect(plugins(next)).toEqual([
-      { name: 'dsh-tako', version: '0.5.0', enabled: false },
-      { name: 'plugin', version: '1.0.0', enabled: false },
-    ])
+    expect(plugins(next)).toEqual([{ name: 'plugin', version: '1.0.0', enabled: false }])
   })
 })
 

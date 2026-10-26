@@ -26,7 +26,7 @@ import {
   initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
 } from '@deepseek-ai/dsh-app-boot'
 import {
-  desktopProfileBundles, ensureNpmDshTakoManifest, installNpmDshTakoPlugin, type ProfileManifest,
+  desktopProfileBundles, installNpmDshTakoPlugin, stripForkedTakoBundle, type ProfileManifest,
 } from './tako-npm-plugin.ts'
 
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
@@ -189,14 +189,9 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
   initProfile(projectDir, DESKTOP_PROFILE_BUNDLES)
-  ensureNpmDshTakoProfile(projectDir)
-}
-
-/** Keep the npm plugin on the profile manifest; never runs pnpm. */
-export function ensureNpmDshTakoProfile(projectDir: string): void {
   const path = join(projectDir, 'package.json')
   if (!existsSync(path)) return
   const manifest = JSON.parse(readFileSync(path, 'utf8')) as ProfileManifest
-  if (!ensureNpmDshTakoManifest(manifest)) return
+  if (!stripForkedTakoBundle(manifest)) return
   writeFileSync(path, `${JSON.stringify(manifest, undefined, 2)}\n`, { mode: 0o600 })
 }

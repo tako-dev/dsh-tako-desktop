@@ -40,29 +40,32 @@ export function isOlder(current: string, wanted: string): boolean {
   return a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && a[2] < b[2])))
 }
 
+/** Drop the forked Tako bundle from the profile layer list. Does not touch dependencies. */
+export function stripForkedTakoBundle(manifest: ProfileManifest): boolean {
+  const bundles = manifest.dsh?.profile?.bundles
+  if (bundles === undefined || !bundles.includes(FORKED_TAKO_BUNDLE)) return false
+  manifest.dsh = {
+    ...manifest.dsh,
+    profile: {
+      ...manifest.dsh?.profile,
+      bundles: bundles.filter(name => name !== FORKED_TAKO_BUNDLE),
+    },
+  }
+  return true
+}
+
 /**
  * Write the npm plugin into the profile manifest and drop the forked bundle
  * from the layer list. Does not run pnpm.
  * @returns whether the manifest object changed.
  */
 export function ensureNpmDshTakoManifest(manifest: ProfileManifest, version = NPM_DSH_TAKO_VERSION): boolean {
-  let changed = false
+  let changed = stripForkedTakoBundle(manifest)
   const dependencies = manifest.dependencies ?? {}
   const current = dependencies[NPM_DSH_TAKO]
   if (current === undefined || isOlder(current, version)) {
     dependencies[NPM_DSH_TAKO] = version
     manifest.dependencies = dependencies
-    changed = true
-  }
-  const bundles = manifest.dsh?.profile?.bundles
-  if (bundles !== undefined && bundles.includes(FORKED_TAKO_BUNDLE)) {
-    manifest.dsh = {
-      ...manifest.dsh,
-      profile: {
-        ...manifest.dsh?.profile,
-        bundles: bundles.filter(name => name !== FORKED_TAKO_BUNDLE),
-      },
-    }
     changed = true
   }
   return changed
