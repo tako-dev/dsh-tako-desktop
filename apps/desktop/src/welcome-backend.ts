@@ -38,7 +38,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 /** Tako credential settings: workspace bundle, npm plugin, or the pi-ai route it writes. */
-export function takoCredentialSettings(namespaces: readonly unknown[]): { apiKeyEnv: string, baseURL?: string } | undefined {
+export function takoCredentialSettings(namespaces: readonly unknown[]): { apiKeyEnv: string; baseURL?: string } | undefined {
   for (const ns of ['tako', 'dsh-tako']) {
     const item: unknown = namespaces.find(entry => record(entry) && entry.ns === ns)
     if (record(item) && record(item.value) && typeof item.value.apiKeyEnv === 'string') {

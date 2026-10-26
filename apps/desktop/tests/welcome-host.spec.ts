@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
-function transport(preference?: string, options: { tako?: boolean, dshTako?: boolean, piAiTako?: boolean } = {}) {
+function transport(preference?: string, options: { tako?: boolean; dshTako?: boolean; piAiTako?: boolean } = {}) {
   const keys = new Map<string, string>()
   const piAi = options.piAiTako
     ? { ns: 'llm-pi-ai', value: { providers: { tako: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }, profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } }

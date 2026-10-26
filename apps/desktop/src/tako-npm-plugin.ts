@@ -114,13 +114,13 @@ async function defaultSpawnAdd(request: SpawnAddRequest): Promise<SpawnAddResult
       timedOut = true
       child.kill('SIGTERM')
     }, request.timeoutMs)
-    child.stdout?.on('data', chunk => { stdout += String(chunk) })
-    child.stderr?.on('data', chunk => { stderr += String(chunk) })
-    child.on('error', error => {
+    child.stdout.on('data', (chunk) => { stdout += String(chunk) })
+    child.stderr.on('data', (chunk) => { stderr += String(chunk) })
+    child.on('error', (error) => {
       clearTimeout(timer)
       reject(error)
     })
-    child.on('close', status => {
+    child.on('close', (status) => {
       clearTimeout(timer)
       if (timedOut) stderr = `${stderr}\ndsh plugin add timed out after ${request.timeoutMs}ms`.trim()
       resolveSpawn({ status, stdout, stderr })

@@ -62,7 +62,7 @@ describe('installNpmDshTakoPlugin', () => {
       spawnAdd,
     })
     expect(spawnAdd).toHaveBeenCalledTimes(1)
-    const args = spawnAdd.mock.calls[0]![0]!.args.join(' ')
+    const args = spawnAdd.mock.calls[0][0].args.join(' ')
     expect(args).toContain('plugin --profile desktop add')
     expect(args).toContain('--registry=https://registry.npmjs.org/')
     expect(args).toContain('--config.minimum-release-age=0')
