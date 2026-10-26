@@ -52,19 +52,25 @@ describe('installNpmDshTakoPlugin', () => {
   it('runs dsh plugin add against the official registry', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-tako-plugin-'))
     const dsh = join(root, 'dsh')
-    mkdirSync(join(dsh, 'node_modules/@deepseek-ai/dsh/lib'), { recursive: true })
-    writeFileSync(join(dsh, 'node_modules/@deepseek-ai/dsh/lib/bin.js'), '')
+    const cli = join(dsh, 'node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js')
+    mkdirSync(join(cli, '..'), { recursive: true })
+    writeFileSync(cli, '')
     const spawnAdd = vi.fn(async (_request: SpawnAddRequest) => ({ status: 0, stdout: '', stderr: '' }))
     await installNpmDshTakoPlugin({
       profileDir: join(root, 'profile'),
       dshDir: dsh,
-      execPath: '/usr/bin/node',
+      execPath: '/Applications/DSH Tako.app/Contents/MacOS/DSH Tako',
       spawnAdd,
     })
     expect(spawnAdd).toHaveBeenCalledTimes(1)
     const spawned = spawnAdd.mock.calls[0]?.[0]
     if (spawned === undefined) throw new Error('expected dsh plugin add spawn')
     const args = spawned.args.join(' ')
+    expect(spawned.execPath).toBe('/Applications/DSH Tako.app/Contents/MacOS/DSH Tako')
+    expect(spawned.env.ELECTRON_RUN_AS_NODE).toBe('1')
+    expect(spawned.args[0]).toBe('--expose-internals')
+    expect(spawned.args[1]).toBe(cli)
+    expect(args).not.toContain('dsh/lib/bin.js')
     expect(args).toContain('plugin --profile desktop add')
     expect(args).toContain('--registry=https://registry.npmjs.org/')
     expect(args).toContain('--config.minimum-release-age=0')

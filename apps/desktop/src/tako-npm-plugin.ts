@@ -1,11 +1,9 @@
 /**
- * Unused after 0.1.6. 0.1.5 called `stripForkedTakoBundle` /
- * `ensureNpmDshTakoManifest` from profile prepare, then failed to
- * `plugin add`, and every Tako model vanished.
+ * Install npm `dsh-tako` into the desktop profile via the desktop-host CLI.
  *
- * Do not import this module from `project-manager.ts` or `main.ts`
- * until npm `dsh-tako` is actually installed on a real
- * `~/.dsh-tako/profiles/desktop` and a live upgrade has been verified.
+ * 0.1.5 spawned `dsh/lib/bin.js` without `ELECTRON_RUN_AS_NODE`, then stripped
+ * `@deepseek-ai/dsh-tako` before the plugin existed. Do not call
+ * `stripForkedTakoBundle` / `ensureNpmDshTakoManifest` from startup.
  * Locks: `tests/tako-profile-invariants.spec.ts`.
  * @module desktop/tako-npm-plugin
  */
@@ -134,6 +132,11 @@ function pluginAddArgs(withAgeFlag: boolean, version = NPM_DSH_TAKO_VERSION): st
   return ['plugin', '--profile', 'desktop', 'add', ...flags, `${NPM_DSH_TAKO}@${version}`]
 }
 
+/** Packaged Host CLI. Do not spawn `dsh/lib/bin.js` from Electron. */
+export function desktopHostCli(dshDir: string): string {
+  return join(dshDir, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'cli.js')
+}
+
 export interface InstallNpmDshTakoOptions {
   profileDir: string
   dshDir: string
@@ -149,15 +152,15 @@ export async function installNpmDshTakoPlugin(options: InstallNpmDshTakoOptions)
   const version = options.version ?? NPM_DSH_TAKO_VERSION
   const installed = installedPluginVersion(options.profileDir)
   if (installed !== undefined && !isOlder(installed, version)) return
-  const bin = join(options.dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-  if (!existsSync(bin)) throw new Error(`desktop tako plugin: dsh CLI not found at ${bin}`)
+  const cli = desktopHostCli(options.dshDir)
+  if (!existsSync(cli)) throw new Error(`desktop tako plugin: desktop-host CLI not found at ${cli}`)
   const spawnAdd = options.spawnAdd ?? defaultSpawnAdd
   const execPath = options.execPath ?? process.execPath
-  const env = options.env ?? process.env
+  const env = { ...(options.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' }
   const timeoutMs = options.timeoutMs ?? INSTALL_TIMEOUT_MS
   const run = async (withAgeFlag: boolean): Promise<SpawnAddResult> => spawnAdd({
     execPath,
-    args: [bin, ...pluginAddArgs(withAgeFlag, version)],
+    args: ['--expose-internals', cli, ...pluginAddArgs(withAgeFlag, version)],
     env,
     timeoutMs,
   })

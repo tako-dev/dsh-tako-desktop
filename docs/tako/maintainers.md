@@ -119,7 +119,8 @@ Conflict hotspots:
 | Shipped `tako` template still lists `@deepseek-ai/dsh-tako` after `dsh-web-app` | `apps/desktop/tests/tako-profile-invariants.spec.ts` |
 | `createPluginProfile` keeps that bundle and does **not** pin npm `dsh-tako` | same file + `scripts/smoke-runtime.ts` (packaging) |
 | `applyRelease` restores a profile that had the bundle stripped | `tako-profile-invariants.spec.ts` |
-| `project-manager.ts` / `main.ts` do not import `tako-npm-plugin` or call `installTakoPlugin` | `tako-profile-invariants.spec.ts` |
+| `applyRelease` / `createPluginProfile` do not strip the bundle or pin npm `dsh-tako` | `tako-profile-invariants.spec.ts` |
+| npm `dsh-tako` install uses desktop-host CLI + `ELECTRON_RUN_AS_NODE`, never `dsh/lib/bin.js` | `tako-npm-plugin.spec.ts` |
 | Welcome still treats settings `ns === 'tako'` as Tako | `tako-profile-invariants.spec.ts`, `welcome-host.spec.ts` |
 
 Do not skip, delete, or weaken those tests. Do not drop the bundled Tako layer in `applyRelease` / `createPluginProfile` unless the npm plugin is already installed and a live upgrade has been verified on a real DSH Tako profile. `apps/desktop/src/tako-npm-plugin.ts` still contains the 0.1.5 strip helpers; leaving that file in the tree is not permission to wire it back.

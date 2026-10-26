@@ -13,7 +13,9 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { desktopNodeEnvironment } from './node-environment.ts'
+import { installNpmDshTakoPlugin } from './tako-npm-plugin.ts'
 import {
   DESKTOP_HOST_PACKAGE,
   desktopCorePackageOverrides,
@@ -65,7 +67,7 @@ export class DesktopProjectManager {
    */
   constructor(
     readonly paths: DesktopPaths,
-    readonly runtime: { readonly dsh: string },
+    readonly runtime: { readonly dsh: string; readonly node?: string; readonly nodeBin?: string },
   ) {}
 
   /**
@@ -88,6 +90,27 @@ export class DesktopProjectManager {
       createPluginProfile(this.paths.profile)
       removeLinkProjections(this.paths.profile)
     })
+  }
+
+  /**
+   * Install npm `dsh-tako` with the desktop-host CLI. Leaves the bundled Tako
+   * layer in place. Failures are logged so Host startup still proceeds.
+   */
+  async installTakoPlugin(): Promise<void> {
+    try {
+      const node = this.runtime.node ?? process.execPath
+      await installNpmDshTakoPlugin({
+        profileDir: this.paths.profile,
+        dshDir: this.runtime.dsh,
+        execPath: node,
+        env: desktopNodeEnvironment(node, this.runtime.nodeBin, {
+          ...process.env,
+          DSH_HOME: dirname(dirname(this.paths.profile)),
+        }),
+      })
+    } catch (error) {
+      console.error('desktop tako plugin: install failed', error)
+    }
   }
 
   private async withLock<T>(operation: () => T | Promise<T>): Promise<T> {

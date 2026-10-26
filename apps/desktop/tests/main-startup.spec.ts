@@ -2231,6 +2231,7 @@ describe('desktop main startup', () => {
     harness.hosts[0]!.ready.resolve()
     await Promise.all([retry, secondRetry, harness.navigated.promise])
     expect(harness.applyRelease).toHaveBeenCalledTimes(1)
+    expect(harness.installTakoPlugin).toHaveBeenCalledTimes(1)
     expect(harness.hosts[0]).toMatchObject({
       node: process.execPath,
       runtime: join(harness.app.getAppPath(), 'dsh'),
@@ -2258,6 +2259,7 @@ describe('desktop main startup', () => {
     expect(harness.hosts[0]).toMatchObject({ node: process.execPath, runtime: project,
       primaryRuntime: 'test-primary-runtime', profile: 'desktop-test-profile' })
     expect(harness.applyRelease).toHaveBeenCalledOnce()
+    expect(harness.installTakoPlugin).toHaveBeenCalledOnce()
     harness.hosts[0]!.ready.resolve()
     await harness.navigated.promise
     expect(harness.dialog.showErrorBox).not.toHaveBeenCalled()

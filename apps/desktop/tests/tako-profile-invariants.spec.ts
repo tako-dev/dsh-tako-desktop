@@ -85,13 +85,29 @@ describe('tako profile invariants (do not break)', () => {
     expect(dependencies[NPM_DSH_TAKO]).toBeUndefined()
   })
 
-  it('applyRelease and startup do not import the 0.1.5 strip/install helpers', () => {
+  it('startup may install npm dsh-tako but must not strip the bundled Tako layer', () => {
     const manager = readFileSync(join(import.meta.dirname, '../src/project-manager.ts'), 'utf8')
     const main = readFileSync(join(import.meta.dirname, '../src/main.ts'), 'utf8')
-    expect(manager).not.toMatch(/tako-npm-plugin/)
+    const plugin = readFileSync(join(import.meta.dirname, '../src/tako-npm-plugin.ts'), 'utf8')
     expect(manager).not.toMatch(/stripForkedTakoBundle|ensureNpmDshTakoManifest/)
-    expect(main).not.toMatch(/tako-npm-plugin/)
-    expect(main).not.toMatch(/installTakoPlugin/)
+    expect(main).not.toMatch(/stripForkedTakoBundle|ensureNpmDshTakoManifest/)
+    expect(main).toMatch(/installTakoPlugin/)
+    expect(plugin).toMatch(/dsh-desktop-host/)
+    expect(plugin).toMatch(/ELECTRON_RUN_AS_NODE/)
+    expect(plugin).toMatch(/args: \['--expose-internals', cli,/)
+    expect(plugin).not.toMatch(/join\(options\.dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin\.js'\)/)
+  })
+
+  it('installTakoPlugin failure leaves the bundled Tako layer unpinned', async () => {
+    const root = temporaryRoot()
+    const dsh = join(root, 'resources', 'dsh')
+    runtimeFixture(dsh)
+    const manager = new DesktopProjectManager(resolveDesktopPaths(join(root, '.dsh')), { dsh })
+    await manager.applyRelease()
+    await manager.installTakoPlugin()
+    const { dependencies, bundles } = readProfile(manager.paths.profile)
+    expect(bundles).toContain(FORKED_TAKO_BUNDLE)
+    expect(dependencies[NPM_DSH_TAKO]).toBeUndefined()
   })
 
   it('welcome still treats bundled ns tako as Tako credentials', () => {
