@@ -25,16 +25,11 @@ import { readDesktopRuntime } from './runtime-tree.ts'
 import {
   initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
 } from '@deepseek-ai/dsh-app-boot'
-import {
-  desktopProfileBundles, installNpmDshTakoPlugin, stripForkedTakoBundle, type ProfileManifest,
-} from './tako-npm-plugin.ts'
 
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const TAKO_PROFILE = PROFILE_TEMPLATES.tako as ProfileTemplate
-/** Official web layers plus Tako extras, without the forked `@deepseek-ai/dsh-tako` bundle. */
-const DESKTOP_PROFILE_BUNDLES = desktopProfileBundles(TAKO_PROFILE.bundles)
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
@@ -79,18 +74,7 @@ export class DesktopProjectManager {
    * @returns Backup path after the locked profile write, or undefined if the patch was absent.
    */
   async disableAllPlugins(): Promise<string | undefined> {
-    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, DESKTOP_PROFILE_BUNDLES))
-  }
-
-  /**
-   * Install the public npm plugin into the Desktop profile when it is missing.
-   * Call after {@link applyRelease} and before the Host starts.
-   */
-  async installTakoPlugin(): Promise<void> {
-    await this.withLock(() => installNpmDshTakoPlugin({
-      profileDir: this.paths.profile,
-      dshDir: this.runtime.dsh,
-    }))
+    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, TAKO_PROFILE.bundles))
   }
 
   /**
@@ -188,10 +172,24 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, DESKTOP_PROFILE_BUNDLES)
+  initProfile(projectDir, TAKO_PROFILE.bundles)
+  restoreBundledTakoLayer(projectDir)
+}
+
+const FORKED_TAKO_BUNDLE = '@deepseek-ai/dsh-tako'
+
+/** Put the bundled Tako layer back if 0.1.5 stripped it. */
+export function restoreBundledTakoLayer(projectDir: string): void {
   const path = join(projectDir, 'package.json')
   if (!existsSync(path)) return
-  const manifest = JSON.parse(readFileSync(path, 'utf8')) as ProfileManifest
-  if (!stripForkedTakoBundle(manifest)) return
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as {
+    dsh?: { profile?: { bundles?: string[] } }
+  }
+  const bundles = manifest.dsh?.profile?.bundles
+  if (bundles === undefined || bundles.includes(FORKED_TAKO_BUNDLE)) return
+  const web = bundles.indexOf('@deepseek-ai/dsh-web-app')
+  const next = [...bundles]
+  next.splice(web >= 0 ? web + 1 : 0, 0, FORKED_TAKO_BUNDLE)
+  manifest.dsh = { ...manifest.dsh, profile: { ...manifest.dsh?.profile, bundles: next } }
   writeFileSync(path, `${JSON.stringify(manifest, undefined, 2)}\n`, { mode: 0o600 })
 }

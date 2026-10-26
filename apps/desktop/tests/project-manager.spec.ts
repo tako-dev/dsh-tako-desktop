@@ -150,24 +150,23 @@ describe('desktop external plugin profile', () => {
       .toBe('packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n')
   })
 
-  it('drops the forked Tako bundle from the profile without writing npm dependencies', async () => {
+  it('restores the bundled Tako layer if a previous release stripped it', async () => {
     const { manager } = setup()
     await manager.applyRelease()
     const path = join(manager.paths.profile, 'package.json')
     const manifest = JSON.parse(readFileSync(path, 'utf8')) as {
-      dependencies: Record<string, string>
       dsh: { profile: { bundles: string[] } }
     }
-    expect(manifest.dependencies['dsh-tako']).toBeUndefined()
-    expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-web-app')
-    expect(manifest.dsh.profile.bundles).not.toContain('@deepseek-ai/dsh-tako')
-    manifest.dsh.profile.bundles.push('@deepseek-ai/dsh-tako')
+    expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-tako')
+    manifest.dsh.profile.bundles = manifest.dsh.profile.bundles.filter(name => name !== '@deepseek-ai/dsh-tako')
     writeFileSync(path, JSON.stringify(manifest, undefined, 2))
     await manager.applyRelease()
     const next = JSON.parse(readFileSync(path, 'utf8')) as {
       dsh: { profile: { bundles: string[] } }
     }
-    expect(next.dsh.profile.bundles).not.toContain('@deepseek-ai/dsh-tako')
+    expect(next.dsh.profile.bundles).toContain('@deepseek-ai/dsh-tako')
+    expect(next.dsh.profile.bundles.indexOf('@deepseek-ai/dsh-tako'))
+      .toBe(next.dsh.profile.bundles.indexOf('@deepseek-ai/dsh-web-app') + 1)
   })
 
   it('opens a linked profile and migrates only the generated pnpm defaults', async () => {
