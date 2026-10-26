@@ -16,7 +16,7 @@ import { WELCOME_IPC, type WelcomeOperations, type WelcomeProvider } from './wel
 export function welcomeWindowOptions(
   platform: NodeJS.Platform,
   locale: DesktopLocale,
-  provider: WelcomeProvider = 'deepseek',
+  provider: WelcomeProvider = 'tako',
 ): BrowserWindowConstructorOptions {
   return {
     width: 600,
@@ -42,9 +42,7 @@ export function welcomeWindowOptions(
     } as const : {}),
     webPreferences: {
       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
-      additionalArguments: provider === 'tako'
-        ? [`--dsh-welcome-locale=${locale.id}`, `--dsh-welcome-provider=${provider}`]
-        : [`--dsh-welcome-locale=${locale.id}`],
+      additionalArguments: [`--dsh-welcome-locale=${locale.id}`, `--dsh-welcome-provider=${provider}`],
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

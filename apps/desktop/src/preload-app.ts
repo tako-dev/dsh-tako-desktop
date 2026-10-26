@@ -59,6 +59,9 @@ function createProductApi(): DshDesktopProductApi {
 }
 
 if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
+  // Hide official DeepSeek account login. The Tako bundle also injects this
+  // from the Host; set it here so the account client cannot miss it.
+  contextBridge.exposeInMainWorld('__DSH_TAKO_PROFILE__', true)
   contextBridge.exposeInMainWorld('dshOnboarding', {
     hasApiKey: () => ipcRenderer.invoke(DESKTOP_IPC.onboardingApiKey) as Promise<boolean>,
     setActive: (active: boolean) => { ipcRenderer.send(DESKTOP_IPC.onboardingActive, active) },

@@ -1186,7 +1186,7 @@ async function main(): Promise<void> {
     }
     openingWelcome ??= (async () => {
       welcomeWindow = await openWelcomeWindow(locale, {
-        provider: welcomeBackend?.provider ?? 'deepseek',
+        provider: welcomeBackend?.provider ?? 'tako',
         analytics: track,
         analyticsEnabled: () => Promise.resolve(analyticsEnabled),
         takeNotice: () => {

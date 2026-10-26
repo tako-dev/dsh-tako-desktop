@@ -19,6 +19,12 @@ vi.mock('../src/preload-mandatory-overlay.ts', () => ({ installMandatoryUpdateOv
 beforeEach(() => { vi.stubGlobal('process', { ...process, isMainFrame: true }) })
 afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.resetModules() })
 
+it('marks the application document as a Tako profile so official DeepSeek login stays hidden', async () => {
+  vi.stubGlobal('location', new URL('dsh-app://app/'))
+  await import('../src/preload-app.ts')
+  expect(electron.contextBridge.exposeInMainWorld).toHaveBeenCalledWith('__DSH_TAKO_PROFILE__', true)
+})
+
 it('reads only native login API-key presence through the onboarding bridge', async () => {
   vi.stubGlobal('location', new URL('dsh-app://app/'))
   electron.ipcRenderer.invoke.mockResolvedValueOnce(true)

@@ -11,7 +11,7 @@ const locale = process.argv.find(argument => argument.startsWith(prefix))?.slice
 if (locale === undefined) throw new Error('desktop welcome: missing window locale')
 const providerPrefix = '--dsh-welcome-provider='
 const providerValue = process.argv.find(argument => argument.startsWith(providerPrefix))?.slice(providerPrefix.length)
-const provider: WelcomeProvider = providerValue === 'tako' ? 'tako' : 'deepseek'
+const provider: WelcomeProvider = providerValue === 'deepseek' ? 'deepseek' : 'tako'
 const api: WelcomeApi = {
   ...resolveDesktopLocale(locale),
   provider,

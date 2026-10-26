@@ -15,7 +15,7 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { desktopNodeEnvironment } from './node-environment.ts'
-import { installNpmDshTakoPlugin } from './tako-npm-plugin.ts'
+import { installNpmDshTakoPlugin, restoreNpmDshTakoBundle } from './tako-npm-plugin.ts'
 import {
   DESKTOP_HOST_PACKAGE,
   desktopCorePackageOverrides,
@@ -197,6 +197,7 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 export function createPluginProfile(projectDir: string): void {
   initProfile(projectDir, TAKO_PROFILE.bundles)
   restoreBundledTakoLayer(projectDir)
+  restoreNpmDshTakoBundle(projectDir)
 }
 
 /** Bundled Tako provider. Do not drop this from the desktop profile (0.1.5). */

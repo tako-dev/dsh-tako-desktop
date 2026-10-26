@@ -123,7 +123,7 @@ Conflict hotspots:
 | npm `dsh-tako` install uses desktop-host CLI + `ELECTRON_RUN_AS_NODE`, never `dsh/lib/bin.js` | `tako-npm-plugin.spec.ts` |
 | Welcome still treats settings `ns === 'tako'` as Tako | `tako-profile-invariants.spec.ts`, `welcome-host.spec.ts` |
 
-Do not skip, delete, or weaken those tests. Do not drop the bundled Tako layer in `applyRelease` / `createPluginProfile` unless the npm plugin is already installed and a live upgrade has been verified on a real DSH Tako profile. `apps/desktop/src/tako-npm-plugin.ts` still contains the 0.1.5 strip helpers; leaving that file in the tree is not permission to wire it back.
+Do not skip, delete, or weaken those tests. Do not drop the bundled Tako layer in `applyRelease` / `createPluginProfile` unless the npm plugin is already installed and a live upgrade has been verified on a real DSH Tako profile. Keep npm `dsh-tako` in the bundle list when it is already on disk. Hide official DeepSeek login; Desktop preload sets `__DSH_TAKO_PROFILE__`. `apps/desktop/src/tako-npm-plugin.ts` still contains the 0.1.5 strip helpers; leaving that file in the tree is not permission to wire it back.
 
 ## Known limitations
 

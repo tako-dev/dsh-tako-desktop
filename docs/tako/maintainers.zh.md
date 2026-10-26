@@ -123,7 +123,7 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 | 安装 npm `dsh-tako` 走 desktop-host CLI + `ELECTRON_RUN_AS_NODE`，不走 `dsh/lib/bin.js` | `tako-npm-plugin.spec.ts` |
 | 欢迎页仍把 settings `ns === 'tako'` 当成 Tako | `tako-profile-invariants.spec.ts`、`welcome-host.spec.ts` |
 
-不要 skip、删除或放宽这些测试。不要在 `applyRelease` / `createPluginProfile` 里摘掉内置 Tako 层，除非 npm 插件已经装上，并且在真实 DSH Tako profile 上做过升级验证。`apps/desktop/src/tako-npm-plugin.ts` 里还留着 0.1.5 的摘包函数；文件还在不等于可以再接到启动路径上。
+不要 skip、删除或放宽这些测试。不要在 `applyRelease` / `createPluginProfile` 里摘掉内置 Tako 层，除非 npm 插件已经装上，并且在真实 DSH Tako profile 上做过升级验证。npm `dsh-tako` 已经在磁盘上时，要继续留在 bundle 列表里。官方 DeepSeek 登录藏掉，Desktop preload 会设置 `__DSH_TAKO_PROFILE__`。`apps/desktop/src/tako-npm-plugin.ts` 里还留着 0.1.5 的摘包函数；文件还在不等于可以再接到启动路径上。
 
 ## 已知限制
 

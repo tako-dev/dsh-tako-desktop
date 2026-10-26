@@ -9,7 +9,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const NPM_DSH_TAKO = 'dsh-tako'
@@ -82,6 +82,18 @@ export function installedPluginVersion(profileDir: string): string | undefined {
   } catch {
     return undefined
   }
+}
+
+/** Keep npm `dsh-tako` in the bundle list when it is already installed. Does not strip the forked layer. */
+export function restoreNpmDshTakoBundle(projectDir: string): void {
+  if (installedPluginVersion(projectDir) === undefined) return
+  const path = join(projectDir, 'package.json')
+  if (!existsSync(path)) return
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as ProfileManifest
+  const bundles = manifest.dsh?.profile?.bundles
+  if (bundles === undefined || bundles.includes(NPM_DSH_TAKO)) return
+  manifest.dsh = { ...manifest.dsh, profile: { ...manifest.dsh?.profile, bundles: [...bundles, NPM_DSH_TAKO] } }
+  writeFileSync(path, `${JSON.stringify(manifest, undefined, 2)}\n`, { mode: 0o600 })
 }
 
 export interface SpawnAddRequest {

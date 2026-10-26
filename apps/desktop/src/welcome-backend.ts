@@ -39,7 +39,7 @@ function record(value: unknown): value is Record<string, unknown> {
 
 /** Tako credential settings: workspace bundle, npm plugin, or the pi-ai route it writes. */
 export function takoCredentialSettings(namespaces: readonly unknown[]): { apiKeyEnv: string; baseURL?: string } | undefined {
-  for (const ns of ['tako', 'dsh-tako']) {
+  for (const ns of ['tako', 'llm-tako', 'dsh-tako']) {
     const item: unknown = namespaces.find(entry => record(entry) && entry.ns === ns)
     if (record(item) && record(item.value) && typeof item.value.apiKeyEnv === 'string') {
       return {
@@ -96,7 +96,7 @@ export async function connectDesktopWelcome(
     return envelope.result.value
   }
   const account = desktopAccountBackend(origin, invoke, cookies)
-  let selectedProvider: WelcomeProvider = 'deepseek'
+  let selectedProvider: WelcomeProvider = 'tako'
   const settingsAndReference = async (): Promise<{
     settings: { namespaces: unknown[] }
     ref: string | undefined

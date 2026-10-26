@@ -2,13 +2,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
-function transport(preference?: string, options: { tako?: boolean; dshTako?: boolean; piAiTako?: boolean } = {}) {
+function transport(preference?: string, options: { tako?: boolean; dshTako?: boolean; llmTako?: boolean; piAiTako?: boolean } = {}) {
   const keys = new Map<string, string>()
   const piAi = options.piAiTako
     ? { ns: 'llm-pi-ai', value: { providers: { tako: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }, profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } }
     : { ns: 'llm-pi-ai', value: { profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } }
   const namespaces = [
     ...(options.tako ? [{ ns: 'tako', value: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }] : []),
+    ...(options.llmTako ? [{ ns: 'llm-tako', value: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }] : []),
     ...(options.dshTako ? [{ ns: 'dsh-tako', value: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } }] : []),
     { ns: 'llm-deepseek', value: { apiKeyEnv: 'CUSTOM_DEEPSEEK_KEY' } },
     piAi,
@@ -115,6 +116,13 @@ describe('desktop welcome Web operations', () => {
     providerFetch.mockResolvedValueOnce(Response.json({ data: [] }))
     expect(await backend.save('tako-valid')).toEqual({ ok: true })
     expect(host.keys.get('TAKO_API_KEY')).toBe('tako-valid')
+  })
+
+  it('treats the bundled llm-tako namespace as the Tako entry', async () => {
+    const host = transport(undefined, { llmTako: true })
+    const backend = await connectDesktopWelcome(url, host.send)
+    expect(await backend.read()).toMatchObject({ writable: true })
+    expect(backend.provider).toBe('tako')
   })
 
   it('treats the npm plugin namespace as the Tako entry', async () => {

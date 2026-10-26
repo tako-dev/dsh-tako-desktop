@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   desktopProfileBundles, ensureNpmDshTakoManifest, FORKED_TAKO_BUNDLE, installNpmDshTakoPlugin,
-  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, type SpawnAddRequest,
+  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, restoreNpmDshTakoBundle, type SpawnAddRequest,
 } from '../src/tako-npm-plugin.ts'
 
 describe('ensureNpmDshTakoManifest', () => {
@@ -22,6 +22,23 @@ describe('ensureNpmDshTakoManifest', () => {
     const manifest = { dependencies: { [NPM_DSH_TAKO]: '0.9.0' } as Record<string, string> }
     expect(ensureNpmDshTakoManifest(manifest)).toBe(false)
     expect(manifest.dependencies[NPM_DSH_TAKO]).toBe('0.9.0')
+  })
+})
+
+describe('restoreNpmDshTakoBundle', () => {
+  it('puts npm dsh-tako back in the bundle list without dropping the forked layer', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-tako-restore-'))
+    mkdirSync(join(root, 'node_modules', NPM_DSH_TAKO), { recursive: true })
+    writeFileSync(join(root, 'node_modules', NPM_DSH_TAKO, 'package.json'), JSON.stringify({ name: NPM_DSH_TAKO, version: NPM_DSH_TAKO_VERSION }))
+    writeFileSync(join(root, 'package.json'), JSON.stringify({
+      dependencies: { [NPM_DSH_TAKO]: NPM_DSH_TAKO_VERSION },
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-web-app', FORKED_TAKO_BUNDLE] } },
+    }))
+    restoreNpmDshTakoBundle(root)
+    const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      dsh: { profile: { bundles: string[] } }
+    }
+    expect(manifest.dsh.profile.bundles).toEqual(['@deepseek-ai/dsh-web-app', FORKED_TAKO_BUNDLE, NPM_DSH_TAKO])
   })
 })
 
