@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 import { isVolatile } from '@deepseek-ai/cosmokit'
 import z from '@deepseek-ai/schemastery'
 import { assertUsableApiKey, LlmError, resolveRetryPolicy, RetryPolicySchema } from '@deepseek-ai/dsh-llm'
-import type { RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
+import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 // Activates the webserver Context merge used to publish the profile marker
@@ -293,6 +293,34 @@ async function resolveCredential(ctx: Context, ref: CredentialRef): Promise<stri
   return assertUsableApiKey(hit.value, 'tako', ref)
 }
 
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * True when npm `dsh-tako` already owns `llm-pi-ai.providers.tako`.
+ * That route carries the live pricing catalog; this bundle must not also
+ * claim provider id `tako` or the chat picker stays empty.
+ */
+export function pluginOwnsTakoRoute(ctx: Context): boolean {
+  const settings = ctx.get('settings') as { describe?: () => unknown } | undefined
+  if (settings?.describe === undefined) return false
+  let namespaces: unknown
+  try { namespaces = settings.describe() }
+  catch { return false }
+  if (!Array.isArray(namespaces)) return false
+  const piAi = namespaces.find(entry => record(entry) && entry.ns === 'llm-pi-ai')
+  if (!record(piAi)) return false
+  for (const layer of [piAi.user, piAi.value]) {
+    if (record(layer) && record(layer.providers) && record(layer.providers.tako)) return true
+  }
+  return false
+}
+
+function isDuplicateClaim(error: unknown, code: string): boolean {
+  return error instanceof LlmError && error.code === code
+}
+
 /** Register the provider, tools, settings section, and embedded Tako skill. */
 export function apply(ctx: Context, config: Config): void {
   // The account client uses this immutable bootstrap marker to hide the
@@ -425,19 +453,65 @@ export function apply(ctx: Context, config: Config): void {
     auth: { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) },
     resolveAttachments: () => ctx.get('attachments'),
   })
-  ctx.llm.registerConfigurableProviders([
-    { provider: PROVIDER, displayName: 'Tako', settingsNs: NS, settingsPath: [] },
-  ])
-  const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
+  let directory: DirectoryRegistrationHandle | undefined
+  let registration: AdapterRegistrationHandle | undefined
+  let yieldedToPlugin = false
+  const releaseChatRoute = (): void => {
+    if (yieldedToPlugin) return
+    yieldedToPlugin = true
+    const adapterHandle = registration
+    const directoryHandle = directory
+    registration = undefined
+    directory = undefined
+    try { adapterHandle?.() }
+    catch { /* already released */ }
+    try { directoryHandle?.() }
+    catch { /* already released */ }
+    queueMicrotask(() => { ctx.emit('loader/volatile-update', []) })
+  }
+  const claimChatRoute = (): void => {
+    if (pluginOwnsTakoRoute(ctx) || yieldedToPlugin) {
+      if (registration !== undefined || directory !== undefined) releaseChatRoute()
+      return
+    }
+    if (directory === undefined) {
+      try {
+        directory = ctx.llm.registerConfigurableProviders([
+          { provider: PROVIDER, displayName: 'Tako', settingsNs: NS, settingsPath: [] },
+        ])
+      } catch (error: unknown) {
+        if (!isDuplicateClaim(error, 'DUPLICATE_DIRECTORY')) throw error
+        ctx.logger.warn('tako: chat directory already owned; keeping tools and credentials')
+        ctx.logger.warn(error)
+      }
+    }
+    if (registration === undefined) {
+      try {
+        registration = ctx.llm.registerAdapter([PROVIDER], adapter)
+      } catch (error: unknown) {
+        if (!isDuplicateClaim(error, 'DUPLICATE_ADAPTER')) throw error
+        ctx.logger.warn('tako: chat adapter already owned; keeping tools and credentials')
+        ctx.logger.warn(error)
+      }
+    }
+  }
+  claimChatRoute()
   let registeredPolicy = initial.retryPolicy
   const ensureRegistrationFacts = (): void => {
+    if (registration === undefined || pluginOwnsTakoRoute(ctx) || yieldedToPlugin) return
     const policy = options().retryPolicy
     if (deepEqualJson(policy, registeredPolicy)) return
     registration.replace([PROVIDER])
     registeredPolicy = policy
   }
-  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
-  ctx.on('loader/volatile-update', ensureRegistrationFacts)
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    claimChatRoute()
+  })
+  ctx.on('loader/volatile-update', () => {
+    claimChatRoute()
+    ensureRegistrationFacts()
+  })
 
   const toolOptions = current()
   applyTakoTools(ctx, client, {

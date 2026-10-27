@@ -7,9 +7,10 @@ import { hostname as osHostname } from 'node:os'
 const MAX_BODY_BYTES = 8 * 1024
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 const API_KEY_PATTERN = /^[\x21-\x7e]{1,512}$/u
-const CLIENT_ID = 'dsh-desktop'
+/** Same OAuth client as npm `dsh-tako`, so welcome and the plugin share one Tako token. */
+export const TAKO_LOGIN_CLIENT_ID = 'tako-connect'
 const CALLBACK_PATH = '/tako/callback'
-const DEVICE_NAME_PREFIX = 'DSH-Tako@'
+const DEVICE_NAME_PREFIX = 'dsh-tako@'
 /** Tako's limit for the `device_name` authorization parameter. */
 const MAX_DEVICE_NAME_LENGTH = 32
 const DEVICE_NAME_EDGE = /^[-._+]+|[-._+]+$/gu
@@ -32,7 +33,7 @@ export function takoHostLabel(hostname: string): string {
  * new sign-in on the same machine still replaces that machine's previous key.
  * @param hostname - Host name; defaults to os.hostname().
  * @param platform - Fallback label when the host name yields nothing; defaults to process.platform.
- * @returns `DSH-Tako@<host label>` or `DSH-Tako@<platform>`, at most 32 characters and never ending in `.`, `-`, `_`, or `+`.
+ * @returns `dsh-tako@<host label>` or `dsh-tako@<platform>`, at most 32 characters and never ending in `.`, `-`, `_`, or `+`.
  */
 export function defaultTakoDeviceName(hostname: string = osHostname(), platform: string = process.platform): string {
   const label = takoHostLabel(hostname) || takoHostLabel(platform)
@@ -124,7 +125,7 @@ async function exchangeCode(
         code,
         code_verifier: codeVerifier,
         redirect_uri: callbackURL,
-        client_id: CLIENT_ID,
+        client_id: TAKO_LOGIN_CLIENT_ID,
       }),
       signal,
     })
@@ -247,7 +248,7 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
   const callbackURL = `http://127.0.0.1:${String(address.port)}${CALLBACK_PATH}`
   handles.callbackURL = callbackURL
   const authorize = new URL('/app/authorize', parsedOrigin)
-  authorize.searchParams.set('client_id', CLIENT_ID)
+  authorize.searchParams.set('client_id', TAKO_LOGIN_CLIENT_ID)
   authorize.searchParams.set('response_type', 'code')
   authorize.searchParams.set('redirect_uri', callbackURL)
   authorize.searchParams.set('state', state)
