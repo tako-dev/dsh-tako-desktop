@@ -86,7 +86,15 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
       <span className={css.balanceValue}>{balance ?? noData}</span>
     </span>
   ) : (
-    <span className={css.detail}>{quota === undefined ? t('loading') : t('takoAccountHint')}</span>
+    <span className={css.wallet}>
+      {quota === undefined
+        ? t('loading')
+        : quota !== null && quota.status === 'failed' && quota.code === 'MISSING_CREDENTIAL'
+          ? t('takoSignInForQuota')
+          : quota !== null && quota.status === 'failed'
+            ? t('takoQuotaUnavailable')
+            : t('takoOpenWallet')}
+    </span>
   )
   const content = (
     <button type="button" className={wide ? css.action : css.railAction} data-tako-quota={onPlan ? 'plan' : ready ? 'balance' : 'empty'} aria-label={label} onClick={openAccount}>

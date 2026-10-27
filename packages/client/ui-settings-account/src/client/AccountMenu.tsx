@@ -11,7 +11,6 @@ import { LogoutIcon } from './LogoutIcon.tsx'
 import { AccountAvatar } from './AccountAvatar.tsx'
 import { AccountNoticeStack } from './AccountNotice.tsx'
 import css from './AccountMenu.module.css'
-import { TakoLogo } from './TakoLogo.tsx'
 
 /** Account launcher composed by the settings shell. */
 export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
@@ -76,9 +75,9 @@ export function AccountMenu({
           ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
             <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
           </span>
-          : takoMode ? <span className={css.avatar}><TakoLogo size={20} /></span>
+          : takoMode ? <IconSettingsOutlineMedium size={16} />
             : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{takoMode ? t('takoBrand') : signedIn ? label : t('more')}</span>}
+        {wide && <span className={css.label}>{takoMode ? t('settings') : signedIn ? label : t('more')}</span>}
       </button>}
       items={menuItems.map(item => item.id === 'settings' && settingsShortcut !== undefined ? { ...item, shortcut: settingsShortcut } : item)}
       onClose={() => { setOpen(false) }}

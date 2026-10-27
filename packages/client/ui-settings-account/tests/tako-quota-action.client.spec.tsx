@@ -36,16 +36,16 @@ function lines(view: ReturnType<typeof render>): string[] {
 }
 
 describe('TakoQuotaAction', () => {
-  it('shows the official-page hint exactly once when signed out or the quota read failed', () => {
-    for (const quota of [null, { status: 'failed', code: 'MISSING_CREDENTIAL' }] as Quota[]) {
-      const view = mount(quota)
-      expect(lines(view)).toEqual(['Tako', '套餐、充值和续费在 Tako 官方页面完成'])
-      expect(view.getAllByText('套餐、充值和续费在 Tako 官方页面完成')).toHaveLength(1)
-      view.unmount()
-    }
+  it.each([
+    [null, '打开钱包'],
+    [{ status: 'failed', code: 'MISSING_CREDENTIAL' } as const, '登录后显示额度'],
+    [{ status: 'failed', code: 'UNAVAILABLE' } as const, '额度暂不可用'],
+  ])('uses a short wallet call-to-action when quota is empty %#', (quota, copy) => {
+    const view = mount(quota)
+    expect(lines(view)).toEqual(['Tako', copy])
   })
 
-  it('shows the hint once in English while the quota is still loading', () => {
+  it('shows loading copy while the quota is still in flight', () => {
     const view = mount(undefined, en)
     expect(lines(view)).toEqual(['Tako', 'Loading…'])
   })

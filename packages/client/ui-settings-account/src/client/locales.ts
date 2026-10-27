@@ -39,6 +39,7 @@ export const en = {
   takoDailyUsage: 'Daily usage', takoWeeklyUsage: 'Weekly usage', takoWeeklyShort: 'Week',
   takoMonthlyUsage: 'Monthly usage', takoQuotaUnavailable: 'Quota unavailable', takoQuotaNoData: 'No quota data yet',
   takoAccountHint: 'Plan, recharge, and renewal are managed on Tako', takoManage: 'Open Tako account',
+  takoOpenWallet: 'Open wallet', takoSignInForQuota: 'Sign in to see quota',
 } as const
 /** Account locale keys. */
 export type AccountKey = keyof typeof en
@@ -80,4 +81,5 @@ export const zh: Record<AccountKey, string> = {
   takoDailyUsage: '今日用量', takoWeeklyUsage: '本周用量', takoWeeklyShort: '本周',
   takoMonthlyUsage: '本月用量', takoQuotaUnavailable: '额度暂不可用', takoQuotaNoData: '暂无额度数据',
   takoAccountHint: '套餐、充值和续费在 Tako 官方页面完成', takoManage: '打开 Tako 账户',
+  takoOpenWallet: '打开钱包', takoSignInForQuota: '登录后显示额度',
 }

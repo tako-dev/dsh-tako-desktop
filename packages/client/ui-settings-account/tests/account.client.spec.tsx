@@ -138,8 +138,8 @@ it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
-  expect(screen.getByRole('button', { name: copy.menu }).textContent).toContain(copy.takoBrand)
-  expect(screen.getByTestId('tako-logo')).toBeTruthy()
+  expect(screen.getByRole('button', { name: copy.menu }).textContent).toContain(copy.settings)
+  expect(screen.queryByTestId('tako-logo')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.contactUs])
   fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))

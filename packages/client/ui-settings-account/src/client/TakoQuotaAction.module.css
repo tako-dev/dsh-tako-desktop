@@ -12,11 +12,16 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  min-height: 82px;
+  min-height: 52px;
   padding: 8px 10px;
   border-radius: 12px;
   text-align: left;
   box-shadow: inset 3px 0 0 #F26D5B;
+}
+
+.action[data-tako-quota="plan"],
+.action[data-tako-quota="balance"] {
+  min-height: 82px;
 }
 
 .action:hover,
@@ -79,6 +84,17 @@
 .summary { color: var(--dsw-alias-label-primary); }
 .muted,
 .detail { color: var(--dsw-alias-label-tertiary); }
+
+.wallet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  color: #F26D5B;
+  font-size: 12px;
+  font-weight: 510;
+  line-height: 18px;
+}
 
 .planChip {
   flex: none;
