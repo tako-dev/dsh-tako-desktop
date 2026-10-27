@@ -15,9 +15,9 @@ function valueText(value: number | null | undefined): string | undefined {
   return value === null || value === undefined || !Number.isFinite(value) ? undefined : String(value)
 }
 
-function usageText(label: string, value: string | undefined, limit: string | undefined, noData: string): string {
-  if (value === undefined) return `${label} ${noData}`
-  return `${label} ${value}${limit === undefined || limit === '0' ? '' : ` / ${limit}`}`
+function pairText(value: string | undefined, limit: string | undefined, noData: string): string {
+  if (value === undefined) return noData
+  return limit === undefined || limit === '0' ? value : `${value} / ${limit}`
 }
 
 /** Tako subscription windows are typically 300 minutes; fall back to 5h when the server omits it. */
@@ -50,41 +50,56 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
     ? undefined
     : formatBalance(String(rawBalance), takoAccount?.currency === 'CNY' ? '¥' : '$')
   const onPlan = hasActivePlan(snapshot?.value)
-  const windowText = usageText(
-    windowHoursLabel(snapshot?.value?.plan?.windowMinutes),
+  const noData = t('takoQuotaNoData')
+  const windowPair = pairText(
     valueText(snapshot?.value?.usage?.windowCost),
     valueText(snapshot?.value?.plan?.windowCostLimit),
-    t('takoQuotaNoData'),
+    noData,
   )
-  const weeklyText = usageText(
-    t('takoWeeklyUsage'),
+  const weeklyPair = pairText(
     valueText(snapshot?.value?.usage?.weeklyCost),
     valueText(snapshot?.value?.plan?.weeklyCostLimit),
-    t('takoQuotaNoData'),
+    noData,
   )
+  const windowLabel = windowHoursLabel(snapshot?.value?.plan?.windowMinutes)
   const summary = quota === undefined
     ? t('loading')
     : ready
-      ? onPlan ? windowText : balance === undefined ? t('takoQuotaNoData') : `${t('takoBalance')} ${balance}`
+      ? onPlan ? `${windowLabel} ${windowPair}` : (balance ?? noData)
       : t('takoQuotaUnavailable')
-  const status = quota === undefined ? t('loading') : ready ? t('takoConnected') : t('takoQuotaUnavailable')
-  const details = quota === undefined
-    ? [t('takoAccountHint')]
-    : ready
-      ? onPlan ? [weeklyText] : []
-      : [t('takoAccountHint')]
   const label = `${t('takoQuota')} · ${summary}`
   const openAccount = (): void => { window.open('https://tako.shiroha.tech/wallet', '_blank', 'noopener,noreferrer') }
+  const body = !wide ? null : onPlan ? (
+    <span className={css.metrics}>
+      <span className={css.metric}>
+        <span className={css.metricLabel}>{windowLabel}</span>
+        <span className={css.metricValue}>{windowPair}</span>
+      </span>
+      <span className={css.metric}>
+        <span className={css.metricLabel}>{t('takoWeeklyShort')}</span>
+        <span className={css.metricValueSecondary}>{weeklyPair}</span>
+      </span>
+    </span>
+  ) : ready ? (
+    <span className={css.balanceBlock}>
+      <span className={css.metricLabel}>{t('takoBalance')}</span>
+      <span className={css.balanceValue}>{balance ?? noData}</span>
+    </span>
+  ) : (
+    <span className={css.detail}>{quota === undefined ? t('loading') : t('takoAccountHint')}</span>
+  )
   const content = (
-    <button type="button" className={wide ? css.action : css.railAction} aria-label={label} onClick={openAccount}>
+    <button type="button" className={wide ? css.action : css.railAction} data-tako-quota={onPlan ? 'plan' : ready ? 'balance' : 'empty'} aria-label={label} onClick={openAccount}>
       <span className={css.icon} aria-hidden="true">
         {wide ? <TakoLogo size={24} /> : <IconGaugeOutlineRegular size={18} />}
       </span>
       {wide ? (
         <span className={css.copy}>
-          <span className={css.title}><span>{t('takoBrand')}</span><span className={ready ? css.connected : css.muted}>{status}</span></span>
-          {ready ? <span className={css.summary}>{summary}</span> : null}
-          {details.map(line => <span key={line} className={css.detail}>{line}</span>)}
+          <span className={css.title}>
+            <span>{t('takoBrand')}</span>
+            {onPlan ? <span className={css.planChip}>{t('takoPlan')}</span> : null}
+          </span>
+          {body}
         </span>
       ) : null}
     </button>

@@ -57,6 +57,7 @@ export class AccountController extends TypertRemoteService {
           ...value.apiId === undefined ? {} : { apiId: value.apiId },
           source: value.source,
           fetchedAt: value.fetchedAt,
+          ...value.account === undefined ? {} : { account: value.account },
           ...value.plan === undefined ? {} : { plan: value.plan },
           ...value.usage === undefined ? {} : { usage: value.usage },
         },

@@ -34,7 +34,10 @@ export const en = {
   quotaDescription: 'DeepSeek Harness cannot start a new task with this account when no balance is available. Would you like to top up? You can also top up later in Settings → Account.',
   quotaTopUp: 'Top up',
   bonusNoticeTitle: 'Bonus credited',
-  takoBrand: 'Tako', takoConnected: 'Connected', takoQuota: 'Tako quota', takoBalance: 'Balance', takoPlan: 'Plan', takoDailyUsage: 'Daily usage', takoWeeklyUsage: 'Weekly usage', takoMonthlyUsage: 'Monthly usage', takoQuotaUnavailable: 'Quota unavailable', takoQuotaNoData: 'No quota data yet',
+  takoBrand: 'Tako', takoConnected: 'Connected', takoQuota: 'Tako quota',
+  takoBalance: 'Balance', takoPlan: 'Plan',
+  takoDailyUsage: 'Daily usage', takoWeeklyUsage: 'Weekly usage', takoWeeklyShort: 'Week',
+  takoMonthlyUsage: 'Monthly usage', takoQuotaUnavailable: 'Quota unavailable', takoQuotaNoData: 'No quota data yet',
   takoAccountHint: 'Plan, recharge, and renewal are managed on Tako', takoManage: 'Open Tako account',
 } as const
 /** Account locale keys. */
@@ -72,6 +75,9 @@ export const zh: Record<AccountKey, string> = {
   quotaDescription: '没有可用额度时，DeepSeek Harness 无法开始新的任务，是否前往充值？或者可以稍后前往 设置 → 账号与余额 进行充值。',
   quotaTopUp: '去充值',
   bonusNoticeTitle: '赠金已到账',
-  takoBrand: 'Tako', takoConnected: '已连接', takoQuota: 'Tako 额度', takoBalance: '余额', takoPlan: '套餐', takoDailyUsage: '今日用量', takoWeeklyUsage: '本周用量', takoMonthlyUsage: '本月用量', takoQuotaUnavailable: '额度暂不可用', takoQuotaNoData: '暂无额度数据',
+  takoBrand: 'Tako', takoConnected: '已连接', takoQuota: 'Tako 额度',
+  takoBalance: '余额', takoPlan: '套餐',
+  takoDailyUsage: '今日用量', takoWeeklyUsage: '本周用量', takoWeeklyShort: '本周',
+  takoMonthlyUsage: '本月用量', takoQuotaUnavailable: '额度暂不可用', takoQuotaNoData: '暂无额度数据',
   takoAccountHint: '套餐、充值和续费在 Tako 官方页面完成', takoManage: '打开 Tako 账户',
 }

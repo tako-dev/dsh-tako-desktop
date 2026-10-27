@@ -51,7 +51,9 @@ it('returns a redacted Tako quota projection when the bundle is mounted', async 
   const { ctx, controller } = fixture()
   const quota = {
     apiId: '42', source: 'user-quota' as const, fetchedAt: '2026-10-14T00:00:00.000Z',
-    plan: { dailyCostLimit: 10 }, usage: { dailyCost: 2 },
+    account: { balance: 20, currency: 'USD', plans: [{ title: 'Pro' }] },
+    plan: { dailyCostLimit: 10, windowCostLimit: 200, windowMinutes: 300, weeklyCostLimit: 50 },
+    usage: { dailyCost: 2, windowCost: 0.05, weeklyCost: 7 },
   }
   ctx.provide('takoClient', { quota: vi.fn(async () => quota) } as never)
   await expect(controller.getTakoQuota()).resolves.toEqual({ status: 'ready', value: quota })
