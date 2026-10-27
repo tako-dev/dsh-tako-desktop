@@ -27,6 +27,8 @@ The `latest.yml`, `latest-mac.yml`, `.zip`, and `.blockmap` files feed in-app up
 
 ## First sign-in
 
+If you never pick a model, new chats use Tako **`deepseek-v4.1-flash`**. Check for updates under **Settings → General** (button next to the version) or the application menu.
+
 The first launch shows a welcome screen with two ways to connect Tako:
 
 1. **Sign in with Tako in browser**: the app opens the Tako authorization page in your default browser. After you sign in and approve, the browser hands the result back to DSH Tako on this computer, which stores the API key and opens the workspace. Authorization must finish within 10 minutes; after a timeout you can retry.
@@ -60,7 +62,7 @@ For example, "Search this weekend's weather in Beijing, make a packing-list imag
 
 ### Account and quota
 
-The Tako card at the bottom of the sidebar shows the quota state; Settings → Account shows the plan, balance, and daily, weekly, and monthly usage. Recharging, renewal, and plan changes happen on the Tako website. When the quota cannot be read, the card shows "Quota unavailable" instead of treating the failure as a zero balance.
+The octopus at the bottom of the sidebar is drawn by the **npm plugin**: with a plan it shows remaining **5h** and **weekly** bars plus wallet balance. The 5h/week numbers are subscription windows (same as the Tako plan page); wallet remainder is a different figure. Recharging and plan changes happen on the Tako website. Click the octopus to open the Tako console.
 
 ### Everything else
 
@@ -107,7 +109,7 @@ Deleting these directories does not touch the official DSH's `~/.dsh`.
 
 **The key is reported invalid or expired.** Make sure you copied the complete Tako API key without extra spaces, and confirm on the Tako website that it has not been deleted or disabled. "Could not reach Tako" is a network problem, not an invalid key; check the network or proxy and retry.
 
-**The sidebar shows "Quota unavailable".** The app could not read the quota, but the key usually still works. Restart the app later or refresh under Settings → Account; if it keeps failing, check the account on the Tako website. After the quota runs out, recharge on the website and refresh in the app; refreshing never repeats billed requests.
+**The 5h/week bars do not match the wallet.** That is expected: bars are plan windows; wallet is a separate line. **Check for updates** is under Settings → General, next to the version.
 
 **Updating fails.** Automatic updates download from GitHub Releases and fail on networks that restrict GitHub; download the new version from Releases and install it over the old one, which keeps your data. Unsigned macOS builds do not update automatically. Windows update installers are also unsigned; if SmartScreen appears again, choose More info → Run anyway.
 

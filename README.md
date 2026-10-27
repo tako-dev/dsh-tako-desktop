@@ -10,6 +10,8 @@ DSH Tako is a desktop agent application with Tako models and five Tako tools (se
 
 ![DSH Tako workspace](docs/tako/images/02-workspace.png)
 
+![Tako quota footer: remaining 5h and weekly bars plus wallet](docs/tako/images/03-quota-footer.svg)
+
 See the [DSH Tako user guide](docs/tako/user-guide.md) for the full guide, and the [maintainer guide](docs/tako/maintainers.md) for releases and following official versions.
 
 ## Download and install
@@ -24,6 +26,10 @@ The `latest*.yml`, `.zip`, and `.blockmap` files feed in-app updates and need no
 ## First sign-in
 
 The welcome screen offers two ways in: choose Sign in with Tako in browser, sign in and approve in the browser, and the app stores the API key; or choose Paste Tako API key and paste a key from the Tako website. Arc and similar browsers may open the authorization page in a small popup (such as Little Arc); finish authorizing there, then return to the app.
+
+If you never pick a model, new chats use **Tako `deepseek-v4.1-flash`**, not the official DeepSeek default.
+
+The sidebar footer (octopus icon) shows remaining **5h** and **weekly** plan windows as progress bars, plus wallet balance. Settings → General has **Check for updates** next to the version. The application menu item Check for Updates still works.
 
 ## DSH Tako and the npm plugin dsh-tako
 
@@ -42,9 +48,9 @@ DSH Tako uses its own app ID `tech.shiroha.dsh-tako`, data directory `~/.dsh-tak
 
 - **The browser sign-in does not return**: once the browser reports completion, switch back to the app yourself; check whether the authorization page is still waiting in a popup, and note that a proxy or security software may block local loopback requests. The attempt times out after 10 minutes; you can paste an API key instead.
 - **Invalid key**: make sure you copied the whole key and it is not disabled on the website; "Could not reach Tako" is a network problem, not an invalid key.
-- **Quota unavailable**: the quota read failed, but the key usually still works; refresh later under Settings → Account, or check the account on the Tako website.
-- **Update fails**: automatic updates need access to GitHub; otherwise download the new version from Releases and install it over the old one, which keeps your data. Unsigned macOS builds do not update automatically.
-- **No model found**: choose a Tako model from the model menu at the bottom right of the composer; if the menu is empty, confirm the key is valid, check the network, and restart the app.
+- **Quota looks wrong**: the 5h / weekly bars are the **subscription windows** (same as the Tako plan page). Wallet remainder is a different number, shown on its own line.
+- **Update fails**: automatic updates need access to GitHub (there is no China CDN yet). Download from Releases and install over the old build; data stays. Unsigned macOS builds do not update automatically. You can also use Settings → General → Check for updates.
+- **No model found**: choose a Tako model from the composer menu. A new install with no saved choice defaults to Tako `deepseek-v4.1-flash`.
 
 See the [user guide troubleshooting section](docs/tako/user-guide.md) for more.
 
