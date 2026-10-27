@@ -12,6 +12,7 @@ import { DesktopHostFatalError, DesktopHostUncleanExitError } from '../src/host-
 import { en, zh } from '../src/locale.ts'
 import { DesktopUpdatePreparationError } from '../src/update-error.ts'
 import { writeCrashReport } from '../src/crash-report.ts'
+import { TAKO_DESKTOP_VERSION } from '../src/tako-desktop-version.ts'
 
 type InvokeEvent = { sender?: unknown; senderFrame: { url: string } }
 type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
@@ -556,9 +557,10 @@ describe('desktop main startup', () => {
     ;(about!.click as () => void)()
     await vi.advanceTimersByTimeAsync(0)
     const zh = locale === 'zh-CN'
+    const productVersion = packaged ? '1.0.0' : TAKO_DESKTOP_VERSION
     expect(harness.dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({
       type: 'info', title: zh ? '关于 DSH Tako' : 'About DSH Tako', message: 'DSH Tako',
-      detail: `${zh ? '版本 V1.0.0' : 'Version V1.0.0'}\nBuilt on DeepSeek Harness (MIT). Not an official DeepSeek product.`, buttons: [zh ? '确定' : 'OK'], cancelId: 0,
+      detail: `${zh ? '版本' : 'Version'} V${productVersion}\n${zh ? 'DSH 内核 1.2.3' : 'DSH kernel 1.2.3'}\nBuilt on DeepSeek Harness (MIT). Not an official DeepSeek product.`, buttons: [zh ? '确定' : 'OK'], cancelId: 0,
     }))
     // A dialog that cannot open is logged, not surfaced as an unhandled rejection.
     harness.dialog.showMessageBox.mockRejectedValueOnce(new Error('overlay unavailable'))
@@ -1602,7 +1604,7 @@ describe('desktop main startup', () => {
     await prompt
     expect(signal.aborted).toBe(true)
     expect(harness.dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({
-      message: 'You’re up to date!', detail: 'Current version: 1.0.0',
+      message: 'You’re up to date!', detail: 'DSH Tako 1.0.0',
     }))
   })
 

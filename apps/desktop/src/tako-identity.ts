@@ -6,7 +6,7 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { TAKO_DESKTOP_VERSION } from '../scripts/tako-desktop-identity.mjs'
+import { TAKO_DESKTOP_VERSION } from './tako-desktop-version.ts'
 
 /** Product name shown in the About panel and menus. */
 export const TAKO_DESKTOP_PRODUCT_NAME = 'DSH Tako'
