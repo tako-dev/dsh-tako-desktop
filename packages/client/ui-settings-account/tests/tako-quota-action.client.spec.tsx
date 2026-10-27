@@ -56,7 +56,11 @@ describe('TakoQuotaAction', () => {
         usage: { dailyCost: 3, weeklyCost: 7 },
       },
     })
-    expect(lines(view)).toEqual(['Tako', '已连接', '余额 12', '套餐 Pro', '今日用量 3 / 10', '本周用量 7 / 50'])
+    expect(lines(view)).toEqual(['Tako', '已连接', '余额 $12.00', '套餐 Pro', '今日用量 3 / 10', '本周用量 7 / 50'])
+    const plan = [...view.container.querySelectorAll('button span')].find(node => node.textContent === '套餐 Pro')
+    expect(plan?.className).toMatch(/plan/)
+    const balance = [...view.container.querySelectorAll('button span')].find(node => node.textContent === '余额 $12.00')
+    expect(balance?.className).toMatch(/summary/)
   })
 
   it('does not repeat usage lines that already serve as the summary and plan line', () => {

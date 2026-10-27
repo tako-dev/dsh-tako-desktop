@@ -125,8 +125,8 @@ it('renders the redacted Tako quota card and official account action', () => {
   })
   expect(screen.getByTestId('tako-account-card').textContent).toContain('Daily usage 2 / 10')
   expect(screen.getByTestId('tako-usage-breakdown').textContent).toContain('Weekly usage 5 / 30')
-  expect(screen.getByTestId('tako-account-breakdown').textContent).toContain('Balance 20')
-  expect(screen.getByTestId('tako-account-breakdown').textContent).toContain('Plan Tako Pro')
+  expect(screen.getByTestId('tako-balance-row').querySelector(`.${css.amount}`)?.textContent).toBe('$20.00')
+  expect(screen.getByTestId('tako-plan-row').querySelector(`.${css.planBadge}`)?.textContent).toBe('Tako Pro')
   expect(screen.getByRole('link', { name: en.takoManage }).getAttribute('href')).toBe('https://tako.shiroha.tech/wallet')
 })
 

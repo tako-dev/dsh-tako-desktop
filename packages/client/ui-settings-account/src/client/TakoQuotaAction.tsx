@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { IconGaugeOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AccountSectionInjected } from './AccountSection.tsx'
+import { formatBalance } from './formatBalance.ts'
 import { TakoLogo } from './TakoLogo.tsx'
 import css from './TakoQuotaAction.module.css'
 
@@ -24,13 +25,19 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
   const account = useAccount(snapshot => snapshot)
   if (account.takoMode !== true) return null
   const quota = account.takoQuota
-  const ready = quota?.status === 'ready'
-  const balance = ready ? valueText(quota.value?.account?.balance) : undefined
-  const plan = ready ? quota.value?.account?.plans?.map(item => item.title).find(Boolean) : undefined
-  const daily = ready ? valueText(quota.value?.usage?.dailyCost) : undefined
-  const dailyLimit = ready ? valueText(quota.value?.plan?.dailyCostLimit) : undefined
-  const weekly = ready ? valueText(quota.value?.usage?.weeklyCost) : undefined
-  const weeklyLimit = ready ? valueText(quota.value?.plan?.weeklyCostLimit) : undefined
+  const snapshot = quota !== null && quota !== undefined && quota.status === 'ready' ? quota : undefined
+  const ready = snapshot !== undefined
+  const takoAccount = snapshot?.value?.account
+  const rawBalance = takoAccount?.balance
+  const balance = rawBalance === undefined || rawBalance === null || !Number.isFinite(rawBalance)
+    ? undefined
+    : formatBalance(String(rawBalance), takoAccount?.currency === 'CNY' ? '¥' : '$')
+  const plan = takoAccount?.plans?.map(item => item.title).find(Boolean)
+  const planLine = plan === undefined ? undefined : `${t('takoPlan')} ${plan}`
+  const daily = valueText(snapshot?.value?.usage?.dailyCost)
+  const dailyLimit = valueText(snapshot?.value?.plan?.dailyCostLimit)
+  const weekly = valueText(snapshot?.value?.usage?.weeklyCost)
+  const weeklyLimit = valueText(snapshot?.value?.plan?.weeklyCostLimit)
   const dailyText = usageText(t('takoDailyUsage'), daily, dailyLimit, t('takoQuotaNoData'))
   const weeklyText = usageText(t('takoWeeklyUsage'), weekly, weeklyLimit, t('takoQuotaNoData'))
   const summary = quota === undefined
@@ -39,7 +46,7 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
       ? balance === undefined ? dailyText : `${t('takoBalance')} ${balance}`
       : t('takoQuotaUnavailable')
   const detail = ready
-    ? plan === undefined ? weeklyText : `${t('takoPlan')} ${plan}`
+    ? planLine ?? weeklyText
     : t('takoAccountHint')
   const status = quota === undefined ? t('loading') : ready ? t('takoConnected') : t('takoQuotaUnavailable')
   // The summary or plan line may already carry the daily or weekly usage; each line renders once.
@@ -56,7 +63,9 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
         <span className={css.copy}>
           <span className={css.title}><span>{t('takoBrand')}</span><span className={ready ? css.connected : css.muted}>{status}</span></span>
           {ready ? <span className={css.summary}>{summary}</span> : null}
-          {details.map(line => <span key={line} className={css.detail}>{line}</span>)}
+          {details.map(line => (
+            <span key={line} className={line === planLine ? css.plan : css.detail}>{line}</span>
+          ))}
         </span>
       ) : null}
     </button>

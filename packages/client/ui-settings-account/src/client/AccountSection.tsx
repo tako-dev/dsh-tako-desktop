@@ -177,24 +177,41 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
     if (value === undefined || value === null) return t('takoQuotaNoData')
     return `${label} ${value}${limit == null || limit === 0 ? '' : ` / ${limit}`}`
   }
+  const takoPlanTitles = (takoAccount?.plans ?? [])
+    .map(plan => plan.title)
+    .filter((title): title is string => title !== undefined && title !== '')
+  const takoHasBalance = takoAccount?.balance !== undefined && takoAccount.balance !== null
+  const takoBalanceText = takoHasBalance
+    ? formatBalance(String(takoAccount.balance), takoAccount.currency === 'CNY' ? '¥' : '$')
+    : t('takoQuotaNoData')
   const takoCard = takoQuota !== undefined && (
     <div className={css.balanceCard} data-testid="tako-account-card">
-      <div className={css.row}>
-        <span>{t('takoQuota')}</span>
-        <span className={takoQuota?.status === 'ready' ? css.amount : css.unavailable}>{takoQuotaText}</span>
+      <div className={css.row} data-testid="tako-balance-row">
+        <span>{takoHasBalance ? t('takoBalance') : t('takoQuota')}</span>
+        <span className={takoQuota?.status === 'ready' ? css.amount : css.unavailable}>
+          {takoHasBalance ? takoBalanceText : takoQuotaText}
+        </span>
       </div>
-      {takoQuota?.status === 'ready' ? (
-        <div className={css.row} data-testid="tako-usage-breakdown">
-          <span className={css.secondary}>{quotaLine(t('takoDailyUsage'), takoUsage?.dailyCost, takoPlan?.dailyCostLimit)}</span>
-          <span className={css.secondary}>{quotaLine(t('takoWeeklyUsage'), takoUsage?.weeklyCost, takoPlan?.weeklyCostLimit)}</span>
-          <span className={css.secondary}>{quotaLine(t('takoMonthlyUsage'), takoUsage?.monthlyCost, takoPlan?.monthlyCostLimit)}</span>
-        </div>
+      {takoPlanTitles.length > 0 ? (
+        <>
+          <div className={css.divider} />
+          <div className={css.row} data-testid="tako-plan-row">
+            <span>{t('takoPlan')}</span>
+            <span className={css.planList}>
+              {takoPlanTitles.map(title => <span key={title} className={css.planBadge}>{title}</span>)}
+            </span>
+          </div>
+        </>
       ) : null}
-      {takoAccount !== undefined && (takoAccount.balance !== undefined || (takoAccount.plans?.length ?? 0) > 0) ? (
-        <div className={css.row} data-testid="tako-account-breakdown">
-          <span className={css.secondary}>{t('takoBalance')} {takoAccount.balance == null ? t('takoQuotaNoData') : takoAccount.balance}</span>
-          <span className={css.secondary}>{t('takoPlan')} {(takoAccount.plans ?? []).map(plan => plan.title).filter((title): title is string => title !== undefined).join(', ') || t('takoQuotaNoData')}</span>
-        </div>
+      {takoQuota?.status === 'ready' ? (
+        <>
+          <div className={css.divider} />
+          <div className={css.row} data-testid="tako-usage-breakdown">
+            <span className={css.secondary}>{quotaLine(t('takoDailyUsage'), takoUsage?.dailyCost, takoPlan?.dailyCostLimit)}</span>
+            <span className={css.secondary}>{quotaLine(t('takoWeeklyUsage'), takoUsage?.weeklyCost, takoPlan?.weeklyCostLimit)}</span>
+            <span className={css.secondary}>{quotaLine(t('takoMonthlyUsage'), takoUsage?.monthlyCost, takoPlan?.monthlyCostLimit)}</span>
+          </div>
+        </>
       ) : null}
       <div className={css.row}>
         <span className={css.secondary}>{t('takoAccountHint')}</span>
