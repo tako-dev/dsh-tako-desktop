@@ -91,6 +91,6 @@ describe('installNpmDshTakoPlugin', () => {
     expect(args).toContain('plugin --profile desktop add')
     expect(args).toContain('--registry=https://registry.npmjs.org/')
     expect(args).toContain('--config.minimum-release-age=0')
-    expect(args).toContain('dsh-tako@0.5.0')
+    expect(args).toContain(`dsh-tako@${NPM_DSH_TAKO_VERSION}`)
   })
 })
