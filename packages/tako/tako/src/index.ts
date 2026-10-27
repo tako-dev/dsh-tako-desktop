@@ -305,12 +305,19 @@ function record(value: unknown): value is Record<string, unknown> {
 export function pluginOwnsTakoRoute(ctx: Context): boolean {
   const settings = ctx.get('settings') as { describe?: () => unknown } | undefined
   if (settings?.describe === undefined) return false
-  let namespaces: unknown
-  try { namespaces = settings.describe() }
+  let described: unknown
+  try { described = settings.describe() }
   catch { return false }
-  if (!Array.isArray(namespaces)) return false
-  const piAi = namespaces.find(entry => record(entry) && entry.ns === 'llm-pi-ai')
-  if (!record(piAi)) return false
+  if (!Array.isArray(described)) return false
+  const namespaces: readonly unknown[] = described
+  let piAi: Record<string, unknown> | undefined
+  for (const entry of namespaces) {
+    if (record(entry) && entry.ns === 'llm-pi-ai') {
+      piAi = entry
+      break
+    }
+  }
+  if (piAi === undefined) return false
   for (const layer of [piAi.user, piAi.value]) {
     if (record(layer) && record(layer.providers) && record(layer.providers.tako)) return true
   }
