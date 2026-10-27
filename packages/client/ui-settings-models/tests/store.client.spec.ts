@@ -229,7 +229,9 @@ describe('ModelsSettingsStore', () => {
     })
     const { ctx, mirror } = api({
       providers: () => Promise.resolve(ok({ providers })),
-      describeSettings: () => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces })),
+      describeSettings: () => Promise.resolve(remoteOk({
+        writable: true, hasDocument: false, namespaces: namespaces as typeof NAMESPACES,
+      })),
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     await store.load()
