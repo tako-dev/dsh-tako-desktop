@@ -46,7 +46,7 @@ export function ensureTakoDefaultModel(profileDir: string): boolean {
   // the comments; appending after `[]` is invalid YAML.
   if (trimmed === '' || trimmed === '[]' || /^\s*\[\]\s*$/m.test(body)) {
     const replaced = body.replace(/^\s*\[\]\s*$/m, SNIPPET.trimEnd())
-    const next = replaced === body ? SNIPPET : `${replaced.endsWith('\n') ? replaced : `${replaced}\n`}`
+    const next = replaced === body ? SNIPPET : replaced.endsWith('\n') ? replaced : `${replaced}\n`
     writeFileSync(path, next, { mode: 0o600 })
     return true
   }
