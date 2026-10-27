@@ -123,7 +123,7 @@ describe('desktop external plugin profile', () => {
     expect(manifest.dsh.profile.bundles).not.toContain('plugin')
     expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-web-app')
     await manager.applyRelease()
-    expect(readFileSync(patch, 'utf8')).toContain('[]')
+    expect(readFileSync(patch, 'utf8')).toContain('model: deepseek-v4.1-flash')
   })
 
   it('needs no runtime or package manifest when no plugins have been installed', async () => {
