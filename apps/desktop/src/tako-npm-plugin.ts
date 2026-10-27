@@ -13,7 +13,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const NPM_DSH_TAKO = 'dsh-tako'
-export const NPM_DSH_TAKO_VERSION = '0.5.10'
+export const NPM_DSH_TAKO_VERSION = '0.5.11'
 export const FORKED_TAKO_BUNDLE = '@deepseek-ai/dsh-tako'
 export const NPM_REGISTRY = 'https://registry.npmjs.org'
 const AGE_FLAG = '--config.minimum-release-age=0'
