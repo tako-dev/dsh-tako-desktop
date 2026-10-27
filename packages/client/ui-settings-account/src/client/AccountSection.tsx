@@ -174,6 +174,21 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
       target="_blank" rel="noreferrer" onClick={openUsage}>{label}</a>
   )
   const takoLink = 'https://tako.shiroha.tech/wallet'
+  if (takoMode === true) return (
+    <section className={css.section} aria-label={t('nav')}>
+      <div className={css.balanceCard} data-testid="tako-account-card">
+        <div className={css.row}>
+          <span>{t('takoQuota')}</span>
+          <span className={css.secondary}>{t('takoAccountHint')}</span>
+        </div>
+        <div className={css.row}>
+          <a className={`${css.linkButton} ${css.primary}`} href={takoLink} target="_blank" rel="noreferrer">
+            {t('takoManage')}
+          </a>
+        </div>
+      </div>
+    </section>
+  )
   const takoUsage = takoQuota?.status === 'ready' ? takoQuota.value?.usage : undefined
   const takoPlan = takoQuota?.status === 'ready' ? takoQuota.value?.plan : undefined
   const takoAccount = takoQuota?.status === 'ready' ? takoQuota.value?.account : undefined
@@ -231,11 +246,6 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         </a>
       </div>
     </div>
-  )
-  if (takoMode === true) return (
-    <section className={css.section} aria-label={t('nav')}>
-      {takoCard}
-    </section>
   )
   const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
     : attempt?.phase === 'expired' ? t('expired')

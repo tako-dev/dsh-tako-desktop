@@ -22,7 +22,6 @@ import { AccountPlatformHost, type AccountPlatformHostInjected } from './Account
 import { AccountMenu } from './AccountMenu.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
-import { TakoQuotaAction } from './TakoQuotaAction.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
 import { accountClientMetadata } from './client-metadata.ts'
 import { en, zh, type AccountKey } from './locales.ts'
@@ -122,29 +121,7 @@ export function apply(ctx: Context): void {
     void request.finally(() => { if (refreshing === request) refreshing = undefined })
     return request
   }
-  /** Read Tako's API-key quota independently of the DeepSeek account session. */
-  const refreshTakoQuota = async (): Promise<void> => {
-    if (snapshot.takoMode !== true) return
-    try {
-      const result = await ctx.remote.account.getTakoQuota()
-      if (result.ok) publish({ ...snapshot, takoQuota: result.value })
-      else publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
-    } catch {
-      publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
-    }
-  }
-  // The Tako profile has no DeepSeek account stream to trigger the normal
-  // account refresh path. Start the independent quota read as soon as the
-  // profile is mounted so the sidebar never remains in its loading state.
-  if (takoMode) void refreshTakoQuota()
-  ctx.effect(() => {
-    const refresh = () => { if (snapshot.takoMode === true) void refreshTakoQuota() }
-    const disposers = [
-      ctx.remote.$on('credentials/reference-updated', refresh),
-      ctx.remote.$on('llm/adapters-updated', refresh),
-    ]
-    return () => { for (const dispose of disposers) dispose() }
-  }, 'account: Tako quota refresh')
+
   ctx.effect(() => () => { revision++ }, 'account: details request lifetime')
   // A Tako profile has its own credential and quota path. Do not even open
   // the official DeepSeek account stream in that profile; it is unrelated to
@@ -191,7 +168,7 @@ export function apply(ctx: Context): void {
   // reads are independent, and a concurrent refresh shares the in-flight request.
   const refreshAccount = async (): Promise<void> => {
     avatar.retry()
-    await Promise.all([refresh(), notices.refresh(), snapshot.takoMode === true ? refreshTakoQuota() : Promise.resolve()])
+    await Promise.all([refresh(), notices.refresh()])
   }
   /**
    * Narrow the shared channel to one surface's post-return read: only a viewer
@@ -344,14 +321,10 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu))
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action', id: 'tako-quota', locale: 'settings.account', inject: () => operations,
-  }, TakoQuotaAction))
   ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {
-      if ((snapshot.takoMode === true && snapshot.takoQuota !== undefined)
-        || (snapshot.takoMode !== true && snapshot.view?.status === 'credential-stored')) {
+      if (snapshot.takoMode === true || snapshot.view?.status === 'credential-stored') {
         unregister ??= ctx.slots.register({
           name: 'settings.section', id: 'account', order: -10, label: () => t('nav'),
           locale: 'settings.account', inject: () => operations,

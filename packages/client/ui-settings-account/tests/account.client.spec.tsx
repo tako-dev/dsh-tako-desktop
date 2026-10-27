@@ -119,15 +119,13 @@ it.each([en, zh])('renders account cards without inventing profile or balance da
   await expect(`${screen.getByRole('region').textContent}\n`).toMatchFileSnapshot(`./expected/account-${copy === en ? 'en' : 'zh'}.txt`)
 })
 
-it('renders the redacted Tako quota card and official account action', () => {
+it('points Tako settings at the official wallet; quota lives in the plugin footer', () => {
   mount({ status: 'credential-stored', attempt: null }, en, undefined, undefined, undefined, {
-    status: 'ready', value: { account: { balance: 20, plans: [{ title: 'Tako Pro' }] }, usage: { dailyCost: 2, weeklyCost: 5, monthlyCost: 8 }, plan: { dailyCostLimit: 10, weeklyCostLimit: 30, monthlyCostLimit: 100 } },
-  })
-  expect(screen.getByTestId('tako-account-card').textContent).toContain('Daily usage 2 / 10')
-  expect(screen.getByTestId('tako-usage-breakdown').textContent).toContain('Weekly usage 5 / 30')
-  expect(screen.getByTestId('tako-balance-row').querySelector(`.${css.amount}`)?.textContent).toBe('$20.00')
-  expect(screen.getByTestId('tako-plan-row').querySelector(`.${css.planBadge}`)?.textContent).toBe('Tako Pro')
+    status: 'ready', value: { account: { balance: 20, plans: [{ title: 'Tako Pro' }] } },
+  }, true)
+  expect(screen.getByTestId('tako-account-card').textContent).toContain(en.takoAccountHint)
   expect(screen.getByRole('link', { name: en.takoManage }).getAttribute('href')).toBe('https://tako.shiroha.tech/wallet')
+  expect(screen.queryByTestId('tako-usage-breakdown')).toBeNull()
 })
 
 it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (copy) => {
@@ -146,15 +144,7 @@ it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (
   expect(openSettings).toHaveBeenCalledOnce()
 })
 
-it('shows usage when Tako does not return a topped-up balance', () => {
-  mount({ status: 'credential-stored', attempt: null }, en, undefined, undefined, undefined, {
-    status: 'ready', value: { usage: { dailyCost: 84.133808, weeklyCost: 420.845118 }, plan: { dailyCostLimit: 0, weeklyCostLimit: 930 } },
-  })
-  const card = screen.getByTestId('tako-account-card')
-  expect(card.textContent).toContain('Daily usage 84.133808')
-  expect(card.textContent).toContain('Weekly usage 420.845118 / 930')
-  expect(card.textContent).not.toContain('/ 0')
-})
+
 
 it('starts sign-in and disables cancellation during persistence', async () => {
   const operations = mount({ status: 'signed-out', attempt: null })
