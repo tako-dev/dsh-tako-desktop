@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react'
 import { IconGaugeOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { AccountSectionInjected } from './AccountSection.tsx'
+import type { AccountSectionInjected, TakoQuotaView } from './AccountSection.tsx'
 import { formatBalance } from './formatBalance.ts'
 import { TakoLogo } from './TakoLogo.tsx'
 import css from './TakoQuotaAction.module.css'
@@ -20,6 +20,23 @@ function usageText(label: string, value: string | undefined, limit: string | und
   return `${label} ${value}${limit === undefined || limit === '0' ? '' : ` / ${limit}`}`
 }
 
+/** Tako subscription windows are typically 300 minutes; fall back to 5h when the server omits it. */
+function windowHoursLabel(minutes: number | null | undefined): string {
+  const mins = minutes == null || minutes <= 0 ? 300 : minutes
+  const hours = mins / 60
+  const shown = Number.isInteger(hours) ? String(hours) : String(Math.round(hours * 10) / 10)
+  return `${shown}h`
+}
+
+function hasActivePlan(value: TakoQuotaView['value']): boolean {
+  if (value === undefined) return false
+  const titled = (value.account?.plans ?? []).some(plan => plan.title !== undefined && plan.title !== '')
+  if (titled) return true
+  const weekly = value.plan?.weeklyCostLimit
+  const windowLimit = value.plan?.windowCostLimit
+  return (weekly != null && weekly > 0) || (windowLimit != null && windowLimit > 0)
+}
+
 /** @param props - sidebar geometry, localized copy, and the shared Tako quota snapshot. */
 export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): ReactNode {
   const account = useAccount(snapshot => snapshot)
@@ -32,26 +49,30 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
   const balance = rawBalance === undefined || rawBalance === null || !Number.isFinite(rawBalance)
     ? undefined
     : formatBalance(String(rawBalance), takoAccount?.currency === 'CNY' ? '¥' : '$')
-  const plan = takoAccount?.plans?.map(item => item.title).find(Boolean)
-  const planLine = plan === undefined ? undefined : `${t('takoPlan')} ${plan}`
-  const daily = valueText(snapshot?.value?.usage?.dailyCost)
-  const dailyLimit = valueText(snapshot?.value?.plan?.dailyCostLimit)
-  const weekly = valueText(snapshot?.value?.usage?.weeklyCost)
-  const weeklyLimit = valueText(snapshot?.value?.plan?.weeklyCostLimit)
-  const dailyText = usageText(t('takoDailyUsage'), daily, dailyLimit, t('takoQuotaNoData'))
-  const weeklyText = usageText(t('takoWeeklyUsage'), weekly, weeklyLimit, t('takoQuotaNoData'))
+  const onPlan = hasActivePlan(snapshot?.value)
+  const windowText = usageText(
+    windowHoursLabel(snapshot?.value?.plan?.windowMinutes),
+    valueText(snapshot?.value?.usage?.windowCost),
+    valueText(snapshot?.value?.plan?.windowCostLimit),
+    t('takoQuotaNoData'),
+  )
+  const weeklyText = usageText(
+    t('takoWeeklyUsage'),
+    valueText(snapshot?.value?.usage?.weeklyCost),
+    valueText(snapshot?.value?.plan?.weeklyCostLimit),
+    t('takoQuotaNoData'),
+  )
   const summary = quota === undefined
     ? t('loading')
     : ready
-      ? balance === undefined ? dailyText : `${t('takoBalance')} ${balance}`
+      ? onPlan ? windowText : balance === undefined ? t('takoQuotaNoData') : `${t('takoBalance')} ${balance}`
       : t('takoQuotaUnavailable')
-  const detail = ready
-    ? planLine ?? weeklyText
-    : t('takoAccountHint')
   const status = quota === undefined ? t('loading') : ready ? t('takoConnected') : t('takoQuotaUnavailable')
-  // The summary or plan line may already carry the daily or weekly usage; each line renders once.
-  // Without quota data the status badge already says so, leaving the account hint as the only detail.
-  const details = ready ? [...new Set([detail, dailyText, weeklyText])].filter(line => line !== summary) : [detail]
+  const details = quota === undefined
+    ? [t('takoAccountHint')]
+    : ready
+      ? onPlan ? [weeklyText] : []
+      : [t('takoAccountHint')]
   const label = `${t('takoQuota')} · ${summary}`
   const openAccount = (): void => { window.open('https://tako.shiroha.tech/wallet', '_blank', 'noopener,noreferrer') }
   const content = (
@@ -63,9 +84,7 @@ export function TakoQuotaAction({ wide, t, useAccount }: TakoQuotaActionProps): 
         <span className={css.copy}>
           <span className={css.title}><span>{t('takoBrand')}</span><span className={ready ? css.connected : css.muted}>{status}</span></span>
           {ready ? <span className={css.summary}>{summary}</span> : null}
-          {details.map(line => (
-            <span key={line} className={line === planLine ? css.plan : css.detail}>{line}</span>
-          ))}
+          {details.map(line => <span key={line} className={css.detail}>{line}</span>)}
         </span>
       ) : null}
     </button>

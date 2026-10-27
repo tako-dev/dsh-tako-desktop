@@ -47,27 +47,39 @@ describe('TakoQuotaAction', () => {
     expect(lines(view)).toEqual(['Tako', 'Loading…', 'Plan, recharge, and renewal are managed on Tako'])
   })
 
-  it('renders balance, plan, daily and weekly usage once each when the quota is ready', () => {
+  it('shows the 5h window and weekly quota when a plan is active, not the wallet balance', () => {
     const view = mount({
       status: 'ready',
       value: {
         account: { balance: 12, plans: [{ title: 'Pro' }] },
-        plan: { dailyCostLimit: 10, weeklyCostLimit: 50 },
-        usage: { dailyCost: 3, weeklyCost: 7 },
+        plan: { windowCostLimit: 200, windowMinutes: 300, weeklyCostLimit: 50 },
+        usage: { windowCost: 0.05, weeklyCost: 7 },
       },
     })
-    expect(lines(view)).toEqual(['Tako', '已连接', '余额 $12.00', '套餐 Pro', '今日用量 3 / 10', '本周用量 7 / 50'])
-    const plan = [...view.container.querySelectorAll('button span')].find(node => node.textContent === '套餐 Pro')
-    expect(plan?.className).toMatch(/plan/)
+    expect(lines(view)).toEqual(['Tako', '已连接', '5h 0.05 / 200', '本周用量 7 / 50'])
+    const windowLine = [...view.container.querySelectorAll('button span')].find(node => node.textContent === '5h 0.05 / 200')
+    expect(windowLine?.className).toMatch(/summary/)
+    expect(view.container.textContent).not.toContain('余额')
+  })
+
+  it('shows the wallet balance when there is no plan', () => {
+    const view = mount({
+      status: 'ready',
+      value: { account: { balance: 12, currency: 'USD' }, usage: { dailyCost: 3, weeklyCost: 7 } },
+    })
+    expect(lines(view)).toEqual(['Tako', '已连接', '余额 $12.00'])
     const balance = [...view.container.querySelectorAll('button span')].find(node => node.textContent === '余额 $12.00')
     expect(balance?.className).toMatch(/summary/)
   })
 
-  it('does not repeat usage lines that already serve as the summary and plan line', () => {
+  it('treats a weekly or window limit as a plan even without a plan title', () => {
     const view = mount({
       status: 'ready',
-      value: { usage: { dailyCost: 3, weeklyCost: 7 } },
+      value: {
+        plan: { weeklyCostLimit: 930, windowCostLimit: 200, windowMinutes: 300 },
+        usage: { weeklyCost: 420, windowCost: 1 },
+      },
     })
-    expect(lines(view)).toEqual(['Tako', '已连接', '今日用量 3', '本周用量 7'])
+    expect(lines(view)).toEqual(['Tako', '已连接', '5h 1 / 200', '本周用量 420 / 930'])
   })
 })

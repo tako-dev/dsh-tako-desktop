@@ -23,8 +23,8 @@ export interface TakoQuotaView {
       currency?: string
       plans?: readonly { id?: number; title?: string; expiresAt?: number }[]
     }
-    usage?: { dailyCost?: number | null; weeklyCost?: number | null; monthlyCost?: number | null }
-    plan?: { dailyCostLimit?: number | null; weeklyCostLimit?: number | null; monthlyCostLimit?: number | null }
+    usage?: { windowCost?: number | null; dailyCost?: number | null; weeklyCost?: number | null; monthlyCost?: number | null }
+    plan?: { windowCostLimit?: number | null; windowMinutes?: number | null; dailyCostLimit?: number | null; weeklyCostLimit?: number | null; monthlyCostLimit?: number | null }
   }
   code?: string
 }
