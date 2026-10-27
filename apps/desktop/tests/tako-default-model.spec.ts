@@ -25,6 +25,16 @@ describe('ensureTakoDefaultModel', () => {
     expect(body).not.toContain('[]')
   })
 
+  it('replaces a commented empty array instead of appending after it', () => {
+    const dir = profile()
+    writeFileSync(join(dir, 'cordis.patch.yml'), '# overlay\n[]\n')
+    expect(ensureTakoDefaultModel(dir)).toBe(true)
+    const body = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
+    expect(body).toContain('# overlay')
+    expect(body).toContain(`model: ${TAKO_DEFAULT_MODEL}`)
+    expect(body).not.toMatch(/^\[\]$/m)
+  })
+
   it('replaces the factory official default and leaves a user selection', () => {
     const dir = profile()
     writeFileSync(join(dir, 'cordis.patch.yml'), `- id: agent-default-model

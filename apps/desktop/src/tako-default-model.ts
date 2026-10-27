@@ -42,9 +42,15 @@ export function ensureTakoDefaultModel(profileDir: string): boolean {
     return true
   }
   const trimmed = body.trim()
-  const next = trimmed === '' || trimmed === '[]'
-    ? SNIPPET
-    : `${body.endsWith('\n') ? body : `${body}\n`}${SNIPPET}`
+  // initProfile writes comments plus `[]`. Replacing that empty array keeps
+  // the comments; appending after `[]` is invalid YAML.
+  if (trimmed === '' || trimmed === '[]' || /^\s*\[\]\s*$/m.test(body)) {
+    const replaced = body.replace(/^\s*\[\]\s*$/m, SNIPPET.trimEnd())
+    const next = replaced === body ? SNIPPET : `${replaced.endsWith('\n') ? replaced : `${replaced}\n`}`
+    writeFileSync(path, next, { mode: 0o600 })
+    return true
+  }
+  const next = `${body.endsWith('\n') ? body : `${body}\n`}${SNIPPET}`
   writeFileSync(path, next, { mode: 0o600 })
   return true
 }
