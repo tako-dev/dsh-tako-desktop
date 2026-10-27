@@ -64,6 +64,9 @@ describe('tako profile invariants (do not break)', () => {
     expect(bundles).toContain(FORKED_TAKO_BUNDLE)
     expect(bundles.indexOf(FORKED_TAKO_BUNDLE)).toBe(bundles.indexOf('@deepseek-ai/dsh-web-app') + 1)
     expect(dependencies[NPM_DSH_TAKO]).toBeUndefined()
+    const patch = readFileSync(join(profile, 'cordis.patch.yml'), 'utf8')
+    expect(patch).toContain('provider: tako')
+    expect(patch).toContain('model: deepseek-v4.1-flash')
   })
 
   it('applyRelease restores a profile that had the bundled Tako provider stripped', async () => {

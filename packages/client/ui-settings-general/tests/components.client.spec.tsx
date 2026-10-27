@@ -242,6 +242,14 @@ describe('current version', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
+  it('offers a check-for-updates action when the Desktop updater is present', () => {
+    vi.stubEnv('DSH_CLIENT_VERSION', '0.1.21')
+    const openDesktopUpdate = vi.fn()
+    render(<CurrentVersionRow {...kit} t={t} openDesktopUpdate={openDesktopUpdate} />)
+    fireEvent.click(screen.getByRole('button', { name: en['general.checkUpdates'] }))
+    expect(openDesktopUpdate).toHaveBeenCalledOnce()
+  })
+
   it('omits the row when a partial build has no version metadata', () => {
     vi.stubEnv('DSH_CLIENT_VERSION', undefined)
     const view = render(<CurrentVersionRow {...kit} t={t} />)
