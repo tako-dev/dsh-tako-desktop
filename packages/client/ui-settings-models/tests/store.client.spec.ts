@@ -4,7 +4,7 @@ import type { RpcResponse } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { settingsSchema } from './settings-schema.client.ts'
-import { deriveKeyRef, joinProviderDirectory, ModelsSettingsStore, providerUsable } from '../src/client/store.ts'
+import { deriveKeyRef, isRequiredTakoProvider, joinProviderDirectory, ModelsSettingsStore, providerUsable } from '../src/client/store.ts'
 
 it.each([
   ['anthropic', 'ANTHROPIC_API_KEY'],
@@ -35,6 +35,14 @@ it.each([false, true])('retains configuration diagnostics when the route is acti
     provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
     active, error: 'catalog unavailable',
   }])
+})
+
+it.each([
+  [{ provider: 'tako' }, true],
+  [{ provider: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tako'] }, true],
+  [{ provider: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] }, false],
+] as const)('locks the Tako provider: %j', (entry, locked) => {
+  expect(isRequiredTakoProvider(entry)).toBe(locked)
 })
 
 it('places account and official before third-party providers', () => {
@@ -204,6 +212,30 @@ describe('ModelsSettingsStore', () => {
     expect(byProvider.get('anthropic')?.apiKeyEnv).toBeUndefined()
     expect(byProvider.get('ghost')).toMatchObject({ configured: false, removable: false })
     expect(state.namespaces.get('llm-pi-ai')?.ns).toBe('llm-pi-ai')
+  })
+
+  it('does not mark the Tako route as removable even when it lives in the user layer', async () => {
+    const providers = [
+      ...DIRECTORY,
+      { provider: 'tako', displayName: 'Tako', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tako'], active: true },
+    ]
+    const namespaces = NAMESPACES.map((namespace) => {
+      if (namespace.ns !== 'llm-pi-ai') return namespace
+      return {
+        ...namespace,
+        value: { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' }, tako: { apiKeyEnv: 'TAKO_API_KEY' } } },
+        user: { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' }, tako: { apiKeyEnv: 'TAKO_API_KEY' } } },
+      }
+    })
+    const { ctx, mirror } = api({
+      providers: () => Promise.resolve(ok({ providers })),
+      describeSettings: () => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces })),
+    })
+    const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
+    await store.load()
+    const byProvider = new Map(store.store.getSnapshot().rows.map(row => [row.entry.provider, row]))
+    expect(byProvider.get('tako')).toMatchObject({ configured: true, removable: false })
+    expect(byProvider.get('openai')).toMatchObject({ removable: true })
   })
 
   it('degrades the credential badge, not the page, when the credential domain fails', async () => {

@@ -75,6 +75,18 @@ export function joinProviderDirectory(
       - (right.provider === 'deepseek-account' ? 0 : right.provider === 'deepseek-official' ? 1 : 2))
 }
 
+/** The Tako route is the product's required provider and cannot be deleted. */
+export function isRequiredTakoProvider(entry: {
+  readonly provider: string
+  readonly settingsNs?: string
+  readonly settingsPath?: readonly string[]
+}): boolean {
+  if (entry.provider === 'tako') return true
+  return entry.settingsNs === 'llm-pi-ai'
+    && entry.settingsPath?.[0] === 'providers'
+    && entry.settingsPath[1] === 'tako'
+}
+
 /** One provider row the page renders. */
 export interface ProviderRow {
   /** Account route has usable credentials for the configured inference origin. */
@@ -252,7 +264,8 @@ export class ModelsSettingsStore {
       const namespace = namespaces.get(entry.settingsNs)
       const configured = namespace !== undefined
         && (entry.settingsPath.length === 0 || this.schema.getPath(namespace.value, entry.settingsPath) !== undefined)
-      const removable = namespace !== undefined
+      const removable = !isRequiredTakoProvider(entry)
+        && namespace !== undefined
         && entry.settingsPath.length > 0
         && this.schema.hasPath(namespace.user, entry.settingsPath)
         && !this.schema.hasPath(namespace.base, entry.settingsPath)

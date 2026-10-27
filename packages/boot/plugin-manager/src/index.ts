@@ -68,8 +68,10 @@ const REGISTRY_URL = /^https?:\/\/\S+$/
 const protectedModules = new Set([
   // The Tako profile is the product's core bundle; its optional market and
   // companion plugins may be removed, but the provider/skill bundle itself
-  // must remain recoverable through the installation.
+  // must remain recoverable through the installation. npm `dsh-tako` is the
+  // same provider on Desktop and cannot be uninstalled from the manager.
   '@deepseek-ai/dsh-tako',
+  'dsh-tako',
   '@deepseek-ai/dsh-plugin-manager', '@deepseek-ai/cordis-plugin-loader',
   '@deepseek-ai/cordis-plugin-include', '@deepseek-ai/dsh-api-gateway',
   '@deepseek-ai/dsh-host-webserver', '@deepseek-ai/dsh-client-modules',

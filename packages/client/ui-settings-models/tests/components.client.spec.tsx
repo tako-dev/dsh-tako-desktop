@@ -2061,6 +2061,16 @@ describe('ModelsSection', () => {
     await screen.findByText('DeepSeek')
   })
 
+  it('refuses to remove the Tako provider', async () => {
+    const { face, mutate, controller } = await mountSection()
+    await expect(removeProviderProfile(
+      operationsWith(face),
+      controller,
+      { provider: 'tako', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tako'] },
+    )).resolves.toBeUndefined()
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
   it('removes by unsetting the profile path, never by rebuilding the section', async () => {
     // The page only needs to name the profile path; rebuilding the section
     // would widen the write for no benefit.

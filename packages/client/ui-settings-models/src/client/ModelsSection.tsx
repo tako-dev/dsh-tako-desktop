@@ -29,7 +29,7 @@ import type { LlmNativeAuth, SettingsNamespaceView } from '@deepseek-ai/dsh-api-
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
 import type {} from './slot-contract.ts'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
-import { deriveKeyRef, protocolChoices, providerUsable, reasoningLevelChoices } from './store.ts'
+import { deriveKeyRef, isRequiredTakoProvider, protocolChoices, providerUsable, reasoningLevelChoices } from './store.ts'
 import type { ModelsSettingsStore, ProviderRow } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
@@ -153,8 +153,15 @@ function renderProviderEditor({ target, row, ...props }: ProviderEditorRenderPro
 export async function removeProviderProfile(
   operations: ModelsOperations,
   controller: ModelsSettingsStore,
-  target: { settingsNs: string; settingsPath: readonly string[]; credentialRef?: string },
+  target: { provider?: string; settingsNs: string; settingsPath: readonly string[]; credentialRef?: string },
 ): Promise<string | undefined> {
+  if (isRequiredTakoProvider({
+    provider: target.provider ?? (target.settingsPath[1] ?? ''),
+    settingsNs: target.settingsNs,
+    settingsPath: target.settingsPath,
+  })) {
+    return undefined
+  }
   if (target.credentialRef !== undefined) {
     const credential = await operations.removeCredential(target.credentialRef)
     if (credential !== undefined) return credential
