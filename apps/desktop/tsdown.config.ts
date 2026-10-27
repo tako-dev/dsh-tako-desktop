@@ -32,6 +32,14 @@ if (clientVersion === undefined) throw new Error('desktop build: the client envi
 /** Inline the one public build value the Node entry reads; every other variable stays a runtime lookup. */
 const clientVersionDefine = { 'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion) }
 
+/**
+ * tsc emits src/ into lib/types/, so `../scripts/tako-desktop-identity.mjs` would
+ * resolve under lib/scripts/; point the bundle at the identity module.
+ */
+const takoDesktopIdentityAlias = {
+  '../scripts/tako-desktop-identity.mjs': fileURLToPath(new URL('./scripts/tako-desktop-identity.mjs', import.meta.url)),
+}
+
 export default defineConfig([
   {
     entry: ['lib/types/command-manager-entry.js'],
@@ -49,6 +57,7 @@ export default defineConfig([
   {
     entry: ['lib/types/main.js'],
     plugins: [packagedImportsPlugin(mainProcessImports)],
+    alias: takoDesktopIdentityAlias,
     define: clientVersionDefine,
     onSuccess: async () => {
       await build({
@@ -94,6 +103,7 @@ export default defineConfig([
     // Sandboxed Electron preloads run as CommonJS even though the application package is ESM.
     entry: { [name]: `lib/types/${name}.js` },
     plugins: [packagedImportsPlugin(preloadImports)],
+    alias: takoDesktopIdentityAlias,
     outDir: 'lib',
     format: 'cjs' as const,
     codeSplitting: false,

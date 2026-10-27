@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  TAKO_CLI_COMMAND, TAKO_CLI_COMMAND_DESTINATION, applyTakoDesktopHome, isTakoOpenUrl, takoWindowTitle,
+  TAKO_CLI_COMMAND, TAKO_CLI_COMMAND_DESTINATION, applyTakoDesktopHome, isTakoOpenUrl,
+  takoDesktopProductVersion, takoWindowTitle,
 } from '../src/tako-identity.ts'
 import {
   TAKO_DESKTOP_APP_ID, TAKO_DESKTOP_CLI_COMMAND, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_VERSION,
@@ -39,5 +40,10 @@ describe('DSH Tako identity', () => {
     expect(TAKO_CLI_COMMAND).toBe('dsh-tako')
     expect(TAKO_DESKTOP_CLI_COMMAND).toBe(TAKO_CLI_COMMAND)
     expect(TAKO_CLI_COMMAND_DESTINATION).toBe('/usr/local/bin/dsh-tako')
+  })
+
+  it('reports the packaged application version, and the source identity when unpackaged', () => {
+    expect(takoDesktopProductVersion({ isPackaged: true, getVersion: () => '9.9.9' })).toBe('9.9.9')
+    expect(takoDesktopProductVersion({ isPackaged: false, getVersion: () => '9.9.9' })).toBe(TAKO_DESKTOP_VERSION)
   })
 })

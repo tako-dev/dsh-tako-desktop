@@ -227,17 +227,20 @@ it('reports a failed developer-tool write and allows retry', async () => {
 })
 
 describe('current version', () => {
+  function translate(dictionary: Record<string, string>): TriggerContentProps['t'] {
+    return (key, params) => {
+      let text = dictionary[key] ?? key
+      for (const [name, value] of Object.entries(params ?? {})) text = text.replace(`{${name}}`, String(value))
+      return text
+    }
+  }
+
   it.each([
     ['Current version: 1.2.3-rc.4', en],
     ['当前版本：1.2.3-rc.4', zh],
   ])('renders the localized release label %s', (expected, dictionary) => {
     vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
-    const translate: TriggerContentProps['t'] = (key, params) => {
-      let text = (dictionary as Record<string, string>)[key] ?? key
-      for (const [name, value] of Object.entries(params ?? {})) text = text.replace(`{${name}}`, String(value))
-      return text
-    }
-    render(<CurrentVersionRow {...kit} t={translate} />)
+    render(<CurrentVersionRow {...kit} t={translate(dictionary)} />)
     expect(screen.getByText(expected)).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
   })
@@ -254,6 +257,35 @@ describe('current version', () => {
     vi.stubEnv('DSH_CLIENT_VERSION', undefined)
     const view = render(<CurrentVersionRow {...kit} t={t} />)
     expect(view.container.textContent).toBe('')
+  })
+
+  it.each([
+    ['DSH Tako: 0.1.29', 'DSH kernel: 0.2.1-rc.2', en],
+    ['DSH Tako：0.1.29', 'DSH 内核：0.2.1-rc.2', zh],
+  ])('renders desktop product and kernel labels %s', (product, kernel, dictionary) => {
+    vi.stubEnv('DSH_CLIENT_VERSION', '0.2.1-rc.2')
+    const openDesktopUpdate = vi.fn()
+    render(<CurrentVersionRow {...kit} t={translate(dictionary)} productVersion="0.1.29"
+      openDesktopUpdate={openDesktopUpdate} />)
+    expect(screen.getByText(product)).toBeTruthy()
+    expect(screen.getByText(kernel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: dictionary['general.checkUpdates'] }))
+    expect(openDesktopUpdate).toHaveBeenCalledOnce()
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+  })
+
+  it('omits the kernel row when only the packaged product version is present', () => {
+    vi.stubEnv('DSH_CLIENT_VERSION', undefined)
+    render(<CurrentVersionRow {...kit} t={translate(en)} productVersion="0.1.29" />)
+    expect(screen.getByText('DSH Tako: 0.1.29')).toBeTruthy()
+    expect(screen.queryByText(/DSH kernel/)).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('keeps the web current-version row when productVersion is empty', () => {
+    vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
+    render(<CurrentVersionRow {...kit} t={translate(en)} productVersion="" />)
+    expect(screen.getByText('Current version: 1.2.3-rc.4')).toBeTruthy()
   })
 })
 

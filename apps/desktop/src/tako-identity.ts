@@ -6,6 +6,7 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { TAKO_DESKTOP_VERSION } from '../scripts/tako-desktop-identity.mjs'
 
 /** Product name shown in the About panel and menus. */
 export const TAKO_DESKTOP_PRODUCT_NAME = 'DSH Tako'
@@ -57,4 +58,14 @@ export function isTakoOpenUrl(url: string): boolean {
 export function takoWindowTitle(title: string): string {
   const trimmed = title.replace(/(?:DeepSeek Harness|DSH Local Build)$/u, TAKO_DESKTOP_PRODUCT_NAME)
   return trimmed === '' ? TAKO_DESKTOP_PRODUCT_NAME : trimmed
+}
+
+/**
+ * Packaged DSH Tako application version, not the DSH kernel.
+ * Unpackaged Electron `app.getVersion()` is apps/desktop/package.json (the kernel).
+ * @param app - Electron application.
+ * @returns The product version electron-updater publishes.
+ */
+export function takoDesktopProductVersion(app: { isPackaged: boolean; getVersion(): string }): string {
+  return app.isPackaged ? app.getVersion() : TAKO_DESKTOP_VERSION
 }

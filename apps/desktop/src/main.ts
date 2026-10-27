@@ -64,7 +64,8 @@ import { DesktopBackgroundNotice } from './background-notice.ts'
 import { startTakoBrowserLogin, type TakoBrowserLoginHandle } from './tako-login.ts'
 import { createTakoDesktopUpdateCompatibilityGate, takoDesktopUpdateManifestUrl } from './tako-update-gate.ts'
 import {
-  TAKO_DESKTOP_ATTRIBUTION, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_PROTOCOL, applyTakoDesktopHome, isTakoOpenUrl, takoWindowTitle,
+  TAKO_DESKTOP_ATTRIBUTION, TAKO_DESKTOP_PRODUCT_NAME, TAKO_DESKTOP_PROTOCOL, applyTakoDesktopHome,
+  isTakoOpenUrl, takoDesktopProductVersion, takoWindowTitle,
 } from './tako-identity.ts'
 
 let focusPrimaryWindow = (): void => {}
@@ -400,7 +401,11 @@ async function main(): Promise<void> {
   // chrome and its content never mix languages.
   const showAbout = async (): Promise<void> => {
     await ordinaryMessageBox({ type: 'info', title: locale.messages.aboutMenu, message: locale.messages.aboutProduct,
-      detail: `${formatDesktopMessage(locale.messages.aboutVersion, { version: app.getVersion() })}\n${TAKO_DESKTOP_ATTRIBUTION}`,
+      detail: [
+        formatDesktopMessage(locale.messages.aboutVersion, { version: takoDesktopProductVersion(app) }),
+        formatDesktopMessage(locale.messages.aboutKernelVersion, { version: desktopClientVersion() }),
+        TAKO_DESKTOP_ATTRIBUTION,
+      ].join('\n'),
       buttons: [locale.messages.updateAcknowledge], cancelId: 0 })
   }
   const commandManager = new DesktopCommandManager({
@@ -868,7 +873,7 @@ async function main(): Promise<void> {
         if (state.phase === 'idle') {
           await ordinaryMessageBox({ type: 'info', title: locale.messages.updateCheckTitle,
             message: locale.messages.updateCurrent,
-            detail: formatDesktopMessage(locale.messages.updateCurrentDetail, { version: app.getVersion() }) })
+            detail: formatDesktopMessage(locale.messages.updateCurrentDetail, { version: takoDesktopProductVersion(app) }) })
           return
         }
         if (state.phase === 'ready' || (state.phase === 'error' && state.failedOperation === 'install')) {

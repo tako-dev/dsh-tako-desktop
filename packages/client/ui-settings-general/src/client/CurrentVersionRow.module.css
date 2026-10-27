@@ -10,6 +10,24 @@
   overflow-wrap: anywhere;
 }
 
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 0;
+}
+
+.stack > .row {
+  padding: 0;
+}
+
+.kernel {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
 .check {
   flex: none;
   padding: 4px 12px;

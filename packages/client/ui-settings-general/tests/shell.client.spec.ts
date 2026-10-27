@@ -9,6 +9,7 @@ import { describe, expect, onTestFinished, vi } from 'vitest'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import { inject } from '../src/client/index.ts'
+import type { CurrentVersionRowInjected } from '../src/client/CurrentVersionRow.tsx'
 import type { SettingsRootInjected } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import type { DesktopUpdatePresentation } from '../src/types.ts'
@@ -74,6 +75,24 @@ describe('ui-settings-general shell', () => {
     expect(c.ctx.slots.entries('sidebar.toggle.badge')).toHaveLength(0)
     publish!({ phase: 'error', version: status.version, failure: 'install' })
     expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
+  }, COLD_BOOT_TIMEOUT_MS)
+
+  it('injects the packaged product version next to check-for-updates on the Desktop carrier', async ({ start }) => {
+    const initial = Promise.withResolvers<DesktopUpdatePresentation>()
+    const open = vi.fn(async () => {})
+    vi.stubGlobal('dshDesktop', {
+      protocolVersion: 1,
+      productVersion: '0.1.29',
+      updates: { status: () => initial.promise, subscribe: () => () => {}, open },
+    })
+    onTestFinished(() => { vi.unstubAllGlobals(); initial.resolve({ phase: 'idle' }) })
+    const c = await start()
+    const entry = c.ctx.slots.entries('settings.general.item').find(row => row.options.id === 'current-version')!
+    const injected = (entry.inject as () => CurrentVersionRowInjected)()
+    expect(injected.productVersion).toBe('0.1.29')
+    injected.openDesktopUpdate?.()
+    await c.flush()
+    expect(open).toHaveBeenCalledOnce()
   }, COLD_BOOT_TIMEOUT_MS)
 
   it('declares its services', () => {

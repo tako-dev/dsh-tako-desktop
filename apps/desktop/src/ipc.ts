@@ -73,6 +73,8 @@ export interface DesktopUpdatePresentation {
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface DshDesktopProductApi {
   readonly protocolVersion: 1
+  /** Packaged DSH Tako application version, not the DSH kernel. */
+  readonly productVersion?: string
   readonly browser: DesktopBrowserBridge
   readonly keyboard: DesktopKeyboardApi
   readonly shortcuts: DesktopShortcutsApi

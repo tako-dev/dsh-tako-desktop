@@ -86,14 +86,29 @@ export function apply(ctx: ClientContext): void {
   }, DeveloperToolsRow))
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
-  const carrier = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).dshDesktop
+  const carrier = (globalThis as typeof globalThis & {
+    dshDesktop?: {
+      protocolVersion: number
+      updates?: DesktopUpdateBridge
+      productVersion?: string
+    }
+  }).dshDesktop
   const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : undefined)
   ctx.effect(() => () => { desktopUpdate.dispose() }, 'ui-settings-general: desktop update carrier')
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,
-    inject: (): CurrentVersionRowInjected => carrier?.protocolVersion === 1 && carrier.updates !== undefined
-      ? { openDesktopUpdate: () => { desktopUpdate.open() } }
-      : {},
+    inject: (): CurrentVersionRowInjected => {
+      if (carrier?.protocolVersion !== 1) return {}
+      const productVersion = typeof carrier.productVersion === 'string' && carrier.productVersion !== ''
+        ? carrier.productVersion
+        : undefined
+      return {
+        ...(productVersion === undefined ? {} : { productVersion }),
+        ...(carrier.updates === undefined
+          ? {}
+          : { openDesktopUpdate: () => { desktopUpdate.open() } }),
+      }
+    },
   }, CurrentVersionRow))
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({
     name: 'sidebar.toggle.badge', locale: NS,
