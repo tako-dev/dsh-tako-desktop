@@ -47,7 +47,16 @@ describe('desktop release metadata', () => {
 const coordinators: InstanceType<typeof DesktopUpdateCoordinator>[] = []
 afterEach(() => { for (const item of coordinators.splice(0)) item.dispose() })
 
-function fixture(channel: 'nightly' | 'latest' = 'nightly', version = '1.1.0-alpha.1', compatibilityGate?: (candidateVersion: string) => Promise<void>) {
+function unreachable(code: string, message = code): Error {
+  return Object.assign(new Error(message), { code })
+}
+
+function fixture(
+  channel: 'nightly' | 'latest' = 'nightly',
+  version = '1.1.0-alpha.1',
+  compatibilityGate?: (candidateVersion: string) => Promise<void>,
+  mirrorUrl?: string,
+) {
   const events = new EventEmitter()
   const checkForUpdates = vi.fn(async () => ({
     isUpdateAvailable: true,
@@ -60,16 +69,23 @@ function fixture(channel: 'nightly' | 'latest' = 'nightly', version = '1.1.0-alp
     return ['verified-package']
   })
   const quitAndInstall = vi.fn()
+  const setFeedURL = vi.fn()
   const beforeRestart = vi.fn(async () => true)
   const downloadResult = vi.fn()
   const states: DesktopUpdateState[] = []
-  const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
+  const updater = Object.assign(events, {
+    checkForUpdates, downloadUpdate, quitAndInstall, setFeedURL,
+  }) as unknown as AppUpdater
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
     beforeRestart, updater, () => true, () => version, downloadResult, channel, compatibilityGate,
+    mirrorUrl,
   )
   coordinators.push(coordinator)
-  return { coordinator, updater, events, states, checkForUpdates, downloadUpdate, quitAndInstall, beforeRestart, downloadResult }
+  return {
+    coordinator, updater, events, states, checkForUpdates, downloadUpdate, quitAndInstall,
+    setFeedURL, beforeRestart, downloadResult,
+  }
 }
 
 describe('desktop update coordinator', () => {
@@ -252,6 +268,80 @@ it.each([new DesktopUpdatePreparationError('stop-failed', 'private diagnostic'),
   expect(JSON.stringify(f.downloadResult.mock.calls)).not.toContain('private')
 })
 
+
+describe('GitHub to Tako mirror fallback', () => {
+  it('retries a GitHub-unreachable check against the Tako generic mirror once', async () => {
+    const f = fixture()
+    f.checkForUpdates.mockRejectedValueOnce(unreachable('ENOTFOUND', 'getaddrinfo ENOTFOUND github.com'))
+    expect(await f.coordinator.check()).toEqual({ phase: 'available', version: '1.1.0-rc.2' })
+    expect(f.setFeedURL).toHaveBeenCalledExactlyOnceWith({
+      provider: 'generic',
+      url: 'https://tako.shiroha.tech/dsh/updates/',
+      channel: 'nightly',
+    })
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not switch feeds when the GitHub check fails with an invalid version', async () => {
+    const f = fixture()
+    f.checkForUpdates.mockRejectedValueOnce(new Error('invalid desktop'))
+    expect(await f.coordinator.check()).toMatchObject({
+      phase: 'error', failedOperation: 'check', message: 'invalid desktop',
+    })
+    expect(f.setFeedURL).not.toHaveBeenCalled()
+    expect(f.checkForUpdates).toHaveBeenCalledOnce()
+  })
+
+  it('switches to the Tako mirror when a GitHub download times out', async () => {
+    const f = fixture()
+    f.downloadUpdate.mockRejectedValueOnce(unreachable('ETIMEDOUT', 'connect ETIMEDOUT'))
+    await f.coordinator.check()
+    expect(await f.coordinator.download('1.1.0-rc.2')).toEqual({ phase: 'ready', version: '1.1.0-rc.2' })
+    expect(f.setFeedURL).toHaveBeenCalledExactlyOnceWith({
+      provider: 'generic',
+      url: 'https://tako.shiroha.tech/dsh/updates/',
+      channel: 'nightly',
+    })
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
+    expect(f.downloadUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the Tako mirror for later checks after a GitHub fallback', async () => {
+    const f = fixture()
+    f.checkForUpdates.mockRejectedValueOnce(unreachable('ENOTFOUND', 'getaddrinfo ENOTFOUND github.com'))
+    await f.coordinator.check()
+    expect(f.setFeedURL).toHaveBeenCalledOnce()
+    expect(await f.coordinator.check(true)).toEqual({ phase: 'available', version: '1.1.0-rc.2' })
+    expect(f.setFeedURL).toHaveBeenCalledOnce()
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(3)
+  })
+
+  it('uses a constructor-supplied mirror URL', async () => {
+    const f = fixture('nightly', '1.1.0-alpha.1', undefined, 'https://updates.example.test/dsh')
+    f.checkForUpdates.mockRejectedValueOnce(unreachable('ENOTFOUND', 'getaddrinfo ENOTFOUND github.com'))
+    await f.coordinator.check()
+    expect(f.setFeedURL).toHaveBeenCalledExactlyOnceWith({
+      provider: 'generic',
+      url: 'https://updates.example.test/dsh/',
+      channel: 'nightly',
+    })
+  })
+
+  it('accepts a newer mirror candidate after a GitHub download failure', async () => {
+    const f = fixture()
+    f.downloadUpdate
+      .mockRejectedValueOnce(unreachable('ETIMEDOUT', 'connect ETIMEDOUT'))
+      .mockImplementationOnce(async () => {
+        f.events.emit('update-downloaded', { version: '1.2.0' })
+        return ['verified-package']
+      })
+    await f.coordinator.check()
+    f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version: '1.2.0' } })
+    expect(await f.coordinator.download('1.1.0-rc.2')).toEqual({ phase: 'ready', version: '1.2.0' })
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
+    expect(f.downloadUpdate).toHaveBeenCalledTimes(2)
+  })
+})
 
 it('keeps a stable-version nightly installation on nightly and rejects prereleases on latest', async () => {
   const nightly = fixture('nightly', '1.0.0')

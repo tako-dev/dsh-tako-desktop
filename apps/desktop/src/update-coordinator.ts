@@ -3,9 +3,12 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
-import electronUpdater, { type AppUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
+import electronUpdater, {
+  type AppUpdater, type ProgressInfo, type UpdateCheckResult, type UpdateInfo,
+} from 'electron-updater'
 import { gt, valid } from 'semver'
 import type { DesktopUpdateState } from './ipc.ts'
+import { githubFeedUnreachable, resolveTakoDesktopUpdateMirrorUrl } from './tako-update-feed.ts'
 import { DesktopUpdateHttpExecutor } from './update-http-executor.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
 
@@ -20,6 +23,8 @@ export class DesktopUpdateCoordinator {
   private checkOperation: Promise<DesktopUpdateState> | undefined
   private downloadOperation: Promise<DesktopUpdateState> | undefined
   private installOperation: Promise<DesktopUpdateState> | undefined
+  private mirrorActive = false
+  private readonly mirrorUrl: string
 
   private readonly onProgress = (progress: ProgressInfo): void => {
     if (this.downloadOperation === undefined || this.downloaded) return
@@ -48,6 +53,7 @@ export class DesktopUpdateCoordinator {
    * @param channel - Installed package channel; omitted test/local callers retain nightly.
    * @param downloadResult - Once per completed download attempt, including platform preparation failures.
    * @param compatibilityGate - Optional fail-closed check for a Tako-compatible release manifest.
+   * @param mirrorUrl - Generic HTTPS feed used when GitHub Releases cannot be reached.
    */
   constructor(
     private readonly publish: (state: DesktopUpdateState) => DesktopUpdateState,
@@ -58,7 +64,9 @@ export class DesktopUpdateCoordinator {
     private readonly downloadResult?: (success: boolean, reason?: string) => void,
     private readonly channel: 'nightly' | 'latest' = 'nightly',
     private readonly compatibilityGate?: (candidateVersion: string) => Promise<void>,
+    mirrorUrl: string = resolveTakoDesktopUpdateMirrorUrl(),
   ) {
+    this.mirrorUrl = mirrorUrl.endsWith('/') ? mirrorUrl : `${mirrorUrl}/`
     if (updater === autoUpdater) {
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
@@ -112,10 +120,10 @@ export class DesktopUpdateCoordinator {
       if (version !== this.candidate) throw new Error('desktop update: download confirmation is stale')
       this.setState({ phase: 'downloading', version, percent: 0 })
       try {
-        await this.updater.downloadUpdate()
+        const readyVersion = await this.downloadFromCurrentFeed(version)
         if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
         this.downloadResult?.(true)
-        return this.setState({ phase: 'ready', version })
+        return this.setState({ phase: 'ready', version: readyVersion })
       } catch (error) {
         this.downloaded = false
         this.downloadResult?.(false, error instanceof DesktopUpdatePreparationError ? error.kind : 'download_failed')
@@ -183,20 +191,58 @@ export class DesktopUpdateCoordinator {
     return this.candidate === undefined ? {} : { version: this.candidate }
   }
 
+  private switchToMirror(): void {
+    if (this.mirrorActive) return
+    this.updater.setFeedURL({ provider: 'generic', url: this.mirrorUrl, channel: this.channel })
+    this.mirrorActive = true
+  }
+
+  private async checkFromCurrentFeed(): Promise<UpdateCheckResult | null> {
+    try {
+      return await this.updater.checkForUpdates()
+    } catch (error) {
+      if (this.mirrorActive || !githubFeedUnreachable(error)) throw error
+      this.switchToMirror()
+      return await this.updater.checkForUpdates()
+    }
+  }
+
+  private async applyCheckResult(result: UpdateCheckResult | null): Promise<DesktopUpdateState> {
+    if (result === null) throw new Error('desktop update: no check result was returned')
+    const version = result.updateInfo.version
+    if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
+    if (this.channel === 'latest' && version.includes('-')) {
+      throw new Error('desktop update: latest feed contains a prerelease')
+    }
+    const candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
+    this.candidate = undefined
+    if (candidate !== undefined) await this.compatibilityGate?.(candidate)
+    this.candidate = candidate
+    return this.candidate === undefined ? { phase: 'idle' } : { phase: 'available', version }
+  }
+
+  private async downloadFromCurrentFeed(version: string): Promise<string> {
+    try {
+      await this.updater.downloadUpdate()
+      return version
+    } catch (error) {
+      if (this.mirrorActive || !githubFeedUnreachable(error)) throw error
+      this.switchToMirror()
+      const checked = await this.applyCheckResult(await this.updater.checkForUpdates())
+      if (checked.phase !== 'available') throw error
+      const next = this.candidate
+      if (next === undefined) throw error
+      this.setState({ phase: 'downloading', version: next, percent: 0 })
+      await this.updater.downloadUpdate()
+      return next
+    }
+  }
+
   private async doCheck(): Promise<DesktopUpdateState> {
     try {
       this.assertLive()
       if (!this.enabled()) throw new Error('desktop update: this application has no packaged update source')
-      const result = await this.updater.checkForUpdates()
-      if (result === null) throw new Error('desktop update: no check result was returned')
-      const version = result.updateInfo.version
-      if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
-      if (this.channel === 'latest' && version.includes('-')) throw new Error('desktop update: latest feed contains a prerelease')
-      const candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
-      this.candidate = undefined
-      if (candidate !== undefined) await this.compatibilityGate?.(candidate)
-      this.candidate = candidate
-      return this.setState(this.candidate === undefined ? { phase: 'idle' } : { phase: 'available', version })
+      return this.setState(await this.applyCheckResult(await this.checkFromCurrentFeed()))
     } catch (error) {
       return this.failure(error, 'check')
     }
