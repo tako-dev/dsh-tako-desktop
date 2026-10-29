@@ -128,7 +128,8 @@ describe('release assets', () => {
     expect(readdirSync(output).sort()).toEqual(expected)
   })
 
-  it('writes sha256sum-compatible checksums for every release file', () => {    const directory = temporary()
+  it('writes sha256sum-compatible checksums for every release file', () => {
+    const directory = temporary()
     writeFileSync(join(directory, 'b.txt'), 'b')
     writeFileSync(join(directory, 'a.txt'), 'a')
     expect(writeTakoReleaseChecksums(directory)).toBe([
@@ -183,35 +184,5 @@ describe('release artifact sizes', () => {
     expect(renderTakoReleaseSizeReport(rows, 5).text).toContain('::warning title=Release artifact grew past 5%::')
     expect(renderTakoReleaseSizeReport(rows, 25).regressions).toEqual([])
     expect(renderTakoReleaseSizeReport(rows, 25).text).not.toContain('::warning')
-  })
-})
-
-describe('release size report', () => {
-  it('matches artifacts across releases by their version-independent name', () => {
-    expect(takoReleaseAssetRole('DSH-Tako-0.1.36-win-x64.exe')).toBe('DSH-Tako-<version>-win-x64.exe')
-    const rows = compareTakoReleaseSizes(
-      [
-        { name: 'DSH-Tako-0.1.35-win-x64.exe', size: 100 },
-        { name: 'DSH-Tako-0.1.35-win-x64.exe.blockmap', size: 0 },
-      ],
-      [
-        { name: 'DSH-Tako-0.1.36-win-x64.exe', size: 120 },
-        { name: 'DSH-Tako-0.1.36-win-x64.exe.blockmap', size: 40 },
-        { name: 'latest-mac.yml', size: 10 },
-      ],
-    )
-    expect(rows).toEqual([
-      { name: 'DSH-Tako-0.1.36-win-x64.exe', previous: 100, current: 120, growth: expect.closeTo(0.2, 10) },
-      { name: 'DSH-Tako-0.1.36-win-x64.exe.blockmap', previous: 0, current: 40, growth: undefined },
-      { name: 'latest-mac.yml', previous: undefined, current: 10, growth: undefined },
-    ])
-  })
-
-  it('warns only when an artifact grows past the threshold', () => {
-    const rows = compareTakoReleaseSizes(
-      [{ name: 'DSH-Tako-0.1.35-win-x64.exe', size: 100 }],
-      [{ name: 'DSH-Tako-0.1.36-win-x64.exe', size: 120 }],
-    )
-    expect(renderTakoReleasizeReport(rows, 5)).toBe(undefined)
   })
 })
