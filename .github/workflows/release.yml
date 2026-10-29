@@ -21,6 +21,10 @@ on:
         description: '缺少 Apple 签名 secrets 时发布未签名 mac 包（文件名带 -unsigned，无自动更新）/ Allow an unsigned macOS build'
         type: boolean
         default: false
+      ref:
+        description: 'dry run 时改从某个 git ref 构建（例如 refs/heads/main），用于打 tag 前的预演 / Git ref to build instead of the tag; dry runs only'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -33,6 +37,8 @@ env:
   NODE_VERSION: '24'
   DSH_TELEMETRY_DISABLED: '1'
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  # A dry run may build a branch that is not tagged yet; everything else builds the tag that is being released.
+  RELEASE_SOURCE_REF: ${{ inputs.ref || format('refs/tags/{0}', inputs.tag || github.ref_name) }}
 
 jobs:
   plan:
@@ -42,10 +48,16 @@ jobs:
     outputs:
       version: ${{ steps.plan.outputs.version }}
     steps:
+      - name: Refuse an untagged build that would publish
+        if: inputs.ref != '' && inputs.dry_run != true
+        run: |
+          echo "::error title=--ref needs dry_run::A published release must be built from its tag; clear the ref input or enable dry_run."
+          exit 1
+
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ env.RELEASE_SOURCE_REF }}
           sparse-checkout: apps/desktop/scripts
 
       - uses: actions/setup-node@v7.0.0
@@ -67,7 +79,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ env.RELEASE_SOURCE_REF }}
 
       # Secrets cannot appear in `if:`; this step reads them only to test presence.
       - name: Select the signing mode
@@ -225,7 +237,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ env.RELEASE_SOURCE_REF }}
 
       - uses: pnpm/action-setup@v5.0.0
 
@@ -315,7 +327,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ env.RELEASE_SOURCE_REF }}
           sparse-checkout: |
             .github
             apps/desktop/scripts

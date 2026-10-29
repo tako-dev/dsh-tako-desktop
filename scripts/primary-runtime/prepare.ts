@@ -210,6 +210,9 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
         await cp(dirname(pnpmManifest), join(dependencies, 'pnpm'), { recursive: true, dereference: true })
       }
     }
+    // Python ships with pip, venv and site-packages intact on purpose: the runtime contract creates a
+    // virtual environment and runs `python -m pip check` (scripts/primary-runtime/smoke.py), so those
+    // directories are load-bearing behaviour, not install weight to trim.
     await extractTar({ file: await pythonArchive(target, paths.downloads), cwd: dependencies })
     const manifest: PrimaryRuntimeManifest = {
       desktopVersion: options.version,

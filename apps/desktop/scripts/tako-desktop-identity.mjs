@@ -32,7 +32,7 @@ export const TAKO_DESKTOP_PACKAGE_NAME = 'dsh-tako-desktop'
  * (apps/desktop/package.json keeps the official version, which the runtime tree
  * and workspace checks compare against).
  */
-export const TAKO_DESKTOP_VERSION = '0.1.36'
+export const TAKO_DESKTOP_VERSION = '0.1.37'
 
 /** Environment override for one build's application version, e.g. from a release tag. */
 export const TAKO_DESKTOP_VERSION_ENV = 'DSH_TAKO_DESKTOP_VERSION'
