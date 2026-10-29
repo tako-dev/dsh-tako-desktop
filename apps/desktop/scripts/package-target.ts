@@ -14,6 +14,7 @@ import { prepareWindowsSignatureCacheDirectory, resolveWindowsSignatureCacheDire
 import { withMacOSSigningKeychain } from './macos-signing-keychain.mjs'
 import { macOSDownloadEnvironment, resolveMacOSPackageSettings } from './macos-package-settings.mjs'
 import { packagingErrorDetails, packagingStep } from './packaging-step.mjs'
+import { reportPackageSize } from './package-size-report.ts'
 import { notarizeMacOS } from './notarize-macos.mjs'
 import { resolveStapleRetryPolicy } from './macos-staple-retry.mjs'
 import { resolveMacOSNotarizationEnvironment } from './desktop-release-environment.mjs'
@@ -546,6 +547,7 @@ export async function packageTarget(
   if (!invocation.directory && !invocation.unsigned && !invocation.skipNotarization) {
     writeReleaseRecord(target, electronBuilderEnv, buildPaths.artifacts)
   }
+  reportPackageSize(artifactsRoot)
   if (journal) recordPackagingEvent(journal, { type: 'artifacts', directory: artifactsRoot })
 }
 

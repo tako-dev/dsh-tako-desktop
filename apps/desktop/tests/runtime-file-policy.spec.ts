@@ -25,6 +25,8 @@ it('omits development artifacts while preserving executable modules, assets and 
     'node-pty/prebuilds/win32-arm64/conpty.node',
     'node-pty/prebuilds/linux-x64/pty.node', 'node-pty/prebuilds/darwin-x64/pty.node',
     'node-pty/prebuilds/win32-x64/conpty.pdb',
+    'node-pty/third_party/conpty/1.25.260303002/win10-arm64/OpenConsole.exe',
+    'example/README.md', 'example/README.zh.md', 'example/README.i18n.yaml',
     '@koromix/koffi-win32-x64/win32_x64/koffi.lib',
     '@mixmark-io/domino/test/entities.html',
     '@mixmark-io/domino/.yarn/plugins/@yarnpkg/plugin-version.cjs',
@@ -37,7 +39,7 @@ it('omits development artifacts while preserving executable modules, assets and 
     'example/index.js', 'example/index.cjs', 'example/index.mjs', 'example/worker.js',
     'example/source.ts', 'example/src/entry.ts', 'example/test/runtime-fixture.json',
     'example/locale.json', 'example/data.map', 'example/module.wasm',
-    'example/package.json', 'example/LICENSE', 'example/NOTICE', 'example/README.md',
+    'example/package.json', 'example/LICENSE', 'example/NOTICE',
     'example/native.lib', 'example/native.obj', 'example/symbols.pdb',
     'fs-ext/build/Release/fs_ext.node', 'fs-ext/build/Release/runtime.dll',
     'node-pty/prebuilds/win32-x64/conpty.node',
@@ -131,11 +133,11 @@ it.each([
       },
     })
     for (const prefix of prefixes) {
-      expect(existsSync(join(output, prefix, 'node-pty/third_party/conpty'))).toBe(platform === 'win32')
+      const ownConpty = platform === 'win32' ? `win10-${arch}` : undefined
       for (const path of conpty) {
-        expect(existsSync(join(output, prefix, path)), `${prefix}${path}`).toBe(platform === 'win32')
+        expect(existsSync(join(output, prefix, path)), `${prefix}${path}`).toBe(ownConpty !== undefined && path.includes(`/${ownConpty}/`))
       }
-      for (const path of [...retained, ...(platform === 'win32' ? conpty : [])]) {
+      for (const path of [...retained, ...conpty.filter(path => ownConpty !== undefined && path.includes(`/${ownConpty}/`))]) {
         expect(readFileSync(join(output, prefix, path), 'utf8')).toBe(`payload:${prefix}${path}`)
       }
       for (const path of conpty) {

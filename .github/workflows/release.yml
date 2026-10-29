@@ -113,6 +113,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-node-${{ env.NODE_VERSION }}-pnpm-
 
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            apps/desktop/.desktop-build/downloads
+            ~/Library/Caches/electron
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-${{ hashFiles('scripts/primary-runtime/lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-
+
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
@@ -179,6 +188,8 @@ jobs:
           path: ${{ runner.temp }}/release-assets/*
           if-no-files-found: error
           retention-days: 14
+          # Installers are already compressed; storing them avoids re-deflating 600 MB per run.
+          compression-level: 0
 
       - name: Retain packaging diagnostics
         if: always()
@@ -234,6 +245,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-node-${{ env.NODE_VERSION }}-pnpm-
 
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            apps/desktop/.desktop-build/downloads
+            ~/AppData/Local/electron/Cache
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-${{ hashFiles('scripts/primary-runtime/lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-
+
       - name: Install (frozen lockfile)
         run: |
           pnpm install --frozen-lockfile
@@ -265,6 +285,8 @@ jobs:
           path: ${{ runner.temp }}/release-assets/*
           if-no-files-found: error
           retention-days: 14
+          # The installer is a compressed NSIS executable; storing it avoids re-deflating it per run.
+          compression-level: 0
 
       - name: Retain packaging diagnostics
         if: always()
@@ -314,6 +336,13 @@ jobs:
           node apps/desktop/scripts/tako-release.mjs notes --template .github/tako-release-notes.md \
             --version "$VERSION" --mode "$MAC_MODE" --output "$RUNNER_TEMP/release-notes.md"
           ls -l "$RUNNER_TEMP/release-assets"
+
+      # Every already-compressed artifact is compared with the previous release, so a size
+      # regression shows up in the run summary instead of silently inflating user downloads.
+      - name: Compare artifact sizes with the previous release
+        run: |
+          node apps/desktop/scripts/tako-release.mjs size --directory "$RUNNER_TEMP/release-assets" \
+            --tag "$RELEASE_TAG" --threshold 5
 
       - name: Create or update the release
         if: env.DRY_RUN != 'true'
