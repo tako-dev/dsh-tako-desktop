@@ -35,8 +35,16 @@ export function desktopRuntimeFileExclusion(
   }
   if (name === '@mixmark-io/domino' && (entry === 'test' || entry.startsWith('test/'))) return 'Domino test fixtures'
   if (name === '@mixmark-io/domino' && (entry === '.yarn' || entry.startsWith('.yarn/'))) return 'Domino development tooling'
-  if (name === 'node-pty' && target.platform !== 'win32' && /^third_party\/conpty(?:\/|$)/u.test(entry)) {
-    return 'node-pty Windows ConPTY sources'
+  if (name === 'node-pty') {
+    // ConPTY sources are keyed by the Windows build they target, so a packaged tree only ever runs one of them.
+    const conpty = /^third_party\/conpty(?:\/[^/]+)*?\/(win10-[^/]+)(?:\/|$)/u.exec(entry)
+    const ownPlatform = target.platform === 'win32' ? `win10-${target.arch}` : undefined
+    if (conpty !== null && conpty[1] !== ownPlatform) return 'node-pty ConPTY for another platform'
+  }
+  // Package readmes and their translation records are documentation, never packaged runtime input.
+  const packageEntry = parts.slice(parts.lastIndexOf('node_modules') + 1 + nameParts)
+  if (packageEntry.length === 1 && (/^README(?:\.[\w-]+)*\.md$/u.test(entry) || entry.endsWith('.i18n.yaml'))) {
+    return 'package documentation'
   }
   if (name === 'node-pty' && entry.startsWith('prebuilds/')) {
     const platform = packageParts[nameParts + 1]

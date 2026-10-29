@@ -134,6 +134,8 @@ export function createElectronBuilderConfig(
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
     productName: TAKO_DESKTOP_PRODUCT_NAME,
+    // The application ships its own zh/en UI; Electron's remaining locale packs would never be loaded.
+    electronLanguages: ['en-US', 'zh-CN'],
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
     artifactName: `${TAKO_DESKTOP_ARTIFACT_PREFIX}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },

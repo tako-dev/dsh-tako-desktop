@@ -5,11 +5,14 @@ import { parseEnv } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   collectTakoReleaseAssets,
+  compareTakoReleaseSizes,
   readTakoDesktopVersionSource,
   renderTakoMacOSReleaseEnvironment,
   renderTakoReleaseNotes,
+  renderTakoReleaseSizeReport,
   resolveTakoReleaseVersion,
   takoMacOSSigningIdentity,
+  takoReleaseAssetRole,
   takoReleaseAssets,
   takoUpdateMetadataReferences,
   writeTakoReleaseChecksums,
@@ -148,5 +151,39 @@ describe('release notes', () => {
     expect(signed).not.toContain('{{')
     expect(renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'unsigned')).toContain(`\`${base}-mac-arm64-unsigned.dmg\``)
     expect(() => renderTakoReleaseNotes('{{UNKNOWN}}', TAKO_DESKTOP_VERSION, 'signed')).toThrow('unknown placeholder')
+  })
+})
+
+describe('release artifact sizes', () => {
+  it('matches artifacts across releases by their version-independent name', () => {
+    expect(takoReleaseAssetRole('DSH-Tako-0.1.36-win-x64.exe')).toBe('DSH-Tako-<version>-win-x64.exe')
+    const rows = compareTakoReleaseSizes(
+      [
+        { name: 'DSH-Tako-0.1.35-win-x64.exe', size: 100 },
+        { name: 'DSH-Tako-0.1.35-win-x64.exe.blockmap', size: 10 },
+      ],
+      [
+        { name: 'DSH-Tako-0.1.36-win-x64.exe', size: 120 },
+        { name: 'DSH-Tako-0.1.36-win-x64.exe.blockmap', size: 10 },
+        { name: 'latest-mac.yml', size: 1 },
+      ],
+    )
+    expect(rows).toEqual([
+      { name: 'DSH-Tako-0.1.36-win-x64.exe', previous: 100, current: 120, growth: 0.2 },
+      { name: 'DSH-Tako-0.1.36-win-x64.exe.blockmap', previous: 10, current: 10, growth: 0 },
+      { name: 'latest-mac.yml', previous: undefined, current: 1, growth: undefined },
+    ])
+    expect(rows[0]!.growth).toBeCloseTo(0.2, 10)
+  })
+
+  it('warns only when an artifact grows past the threshold', () => {
+    const rows = compareTakoReleaseSizes(
+      [{ name: 'DSH-Tako-0.1.35-win-x64.exe', size: 100 }],
+      [{ name: 'DSH-Tako-0.1.36-win-x64.exe', size: 120 }],
+    )
+    expect(renderTakoReleaseSizeReport(rows, 5).regressions).toEqual(['DSH-Tako-0.1.36-win-x64.exe +20.0%'])
+    expect(renderTakoReleaseSizeReport(rows, 5).text).toContain('::warning title=Release artifact grew past 5%::')
+    expect(renderTakoReleaseSizeReport(rows, 25).regressions).toEqual([])
+    expect(renderTakoReleaseSizeReport(rows, 25).text).not.toContain('::warning')
   })
 })

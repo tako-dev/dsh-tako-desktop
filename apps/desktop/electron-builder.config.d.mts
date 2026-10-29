@@ -14,6 +14,7 @@ export interface DesktopElectronBuilderConfig {
     { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
   ]
   readonly productName: 'DSH Tako'
+  readonly electronLanguages: readonly ['en-US', 'zh-CN']
   readonly extraMetadata: {
     readonly dshDesktopAppId: string
     readonly dshDesktopUpdateChannel: 'nightly' | 'latest'

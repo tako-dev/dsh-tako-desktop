@@ -1,6 +1,6 @@
 /** Desktop resource locations and signing-aware verification for the shared runtime builder. */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { preparePrimaryRuntime as preparePayload, smokePrimaryRuntime as smokePayload } from '../../../scripts/primary-runtime/prepare.ts'
 import { parsePrimaryRuntime, workspaceDependencyPaths } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
@@ -14,9 +14,27 @@ import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
  */
 export async function preparePrimaryRuntime(options: { deferSmoke?: boolean } = {}): Promise<void> {
   const paths = resolveDesktopTargetBuildPaths()
+  const target = resolveDesktopBuildTarget()
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
-  await preparePayload({ target: resolveDesktopBuildTarget(), output: paths.runtime, cache: paths.downloads, version })
+  await preparePayload({ target, output: paths.runtime, cache: paths.downloads, version })
+  prunePrimaryRuntime(join(paths.runtime, 'primary-runtime'), target)
   if (!options.deferSmoke) smokePrimaryRuntime(join(paths.runtime, 'primary-runtime'))
+}
+
+/**
+ * Drop vendored helper binaries the packaged architecture can never execute.
+ * pnpm ships one `fastlist` executable per Windows word size; only the one matching the payload runs.
+ * @param root - Prepared `primary-runtime` directory.
+ * @param target - Packaged Desktop target.
+ * @returns Names of the removed vendored binaries.
+ */
+export function prunePrimaryRuntime(root: string, target: string): string[] {
+  const vendor = join(root, 'dependencies', 'pnpm', 'dist', 'vendor')
+  if (!existsSync(vendor)) return []
+  const foreign = target.endsWith('-x64') ? '-x86.exe' : '-x64.exe'
+  const removed = readdirSync(vendor).filter(name => name.endsWith(foreign))
+  for (const name of removed) rmSync(join(vendor, name), { force: true })
+  return removed
 }
 
 /**

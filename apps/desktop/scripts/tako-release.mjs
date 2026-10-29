@@ -88,6 +88,56 @@ export function renderTakoMacOSReleaseEnvironment(settings) {
 }
 
 /**
+ * Replace the release version in an asset name so the same artifact can be compared across releases.
+ * @param {string} name - Release asset name, for example `DSH-Tako-0.1.36-win-x64.exe`.
+ * @returns {string} The name with its version segment replaced by `<version>`.
+ */
+export function takoReleaseAssetRole(name) {
+  return name.replace(/\d+\.\d+\.\d+/gu, '<version>')
+}
+
+/**
+ * Compare the assets one release publishes against the same artifacts of the previous release.
+ * @param {{ name: string, size: number }[]} previous - Assets of the previous release.
+ * @param {{ name: string, size: number }[]} current - Assets about to be published.
+ * @returns {{ name: string, previous: number | undefined, current: number, growth: number | undefined }[]} One row per current asset.
+ */
+export function compareTakoReleaseSizes(previous, current) {
+  const sizes = new Map(previous.map(asset => [takoReleaseAssetRole(asset.name), asset.size]))
+  return current.map(asset => {
+    const size = sizes.get(takoReleaseAssetRole(asset.name))
+    return {
+      name: asset.name,
+      previous: size,
+      current: asset.size,
+      growth: size === undefined || size === 0 ? undefined : (asset.size - size) / size,
+    }
+  })
+}
+
+/**
+ * Render the size comparison as release-log lines, warning when an artifact grew past the threshold.
+ * @param {{ name: string, previous: number | undefined, current: number, growth: number | undefined }[]} rows - Comparison rows.
+ * @param {number} thresholdPercent - Growth percentage that counts as a regression.
+ * @returns {{ text: string, regressions: string[] }} Report text and the artifacts that exceeded the threshold.
+ */
+export function renderTakoReleaseSizeReport(rows, thresholdPercent) {
+  const megabytes = bytes => `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  const lines = ['release artifact sizes against the previous release:']
+  const regressions = []
+  for (const row of rows) {
+    const growth = row.growth === undefined ? 'new' : `${row.growth >= 0 ? '+' : ''}${(row.growth * 100).toFixed(1)}%`
+    const previous = row.previous === undefined ? '     -' : megabytes(row.previous).padStart(9)
+    lines.push(`  ${previous} -> ${megabytes(row.current).padStart(9)}  ${growth.padStart(7)}  ${row.name}`)
+    if (row.growth !== undefined && row.growth * 100 > thresholdPercent) regressions.push(`${row.name} ${growth}`)
+  }
+  if (regressions.length > 0) {
+    lines.push(`::warning title=Release artifact grew past ${thresholdPercent}%::${regressions.join('; ')}`)
+  }
+  return { text: `${lines.join('\n')}\n`, regressions }
+}
+
+/**
  * Name the files one platform job publishes and the build directory that holds them.
  * @param {'mac-arm64' | 'win-x64'} target - Release target.
  * @param {string} version - Application version.
@@ -181,6 +231,31 @@ export function renderTakoReleaseNotes(template, version, macMode) {
   return rendered
 }
 
+/** Regular-file sizes in one flat release directory, ignoring the checksum file it will regenerate. */
+function releaseDirectorySizes(directory) {
+  return readdirSync(directory)
+    .filter(name => name !== 'SHA256SUMS.txt' && statSync(join(directory, name)).isFile())
+    .map(name => ({ name, size: statSync(join(directory, name)).size }))
+}
+
+/**
+ * Assets of the most recent published release other than the one being built.
+ * @param {string} repository - `owner/repo` from GH_REPO.
+ * @param {string} tag - Tag being released, excluded from the comparison.
+ * @returns {Promise<{ name: string, size: number }[]>} Previous assets, or an empty list for a first release.
+ */
+async function previousReleaseAssets(repository, tag) {
+  const headers = { accept: 'application/vnd.github+json', 'user-agent': 'dsh-tako-release' }
+  const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+  if (token !== undefined && token !== '') headers.authorization = `Bearer ${token}`
+  const response = await fetch(`https://api.github.com/repos/${repository}/releases?per_page=20`, { headers })
+  if (!response.ok) throw new Error(`tako release: GitHub released list failed with ${String(response.status)}`)
+  const releases = await response.json()
+  const previous = releases.find(release => release.draft !== true && release.tag_name !== tag)
+  if (previous === undefined) return []
+  return previous.assets.map(asset => ({ name: asset.name, size: asset.size }))
+}
+
 function output(values) {
   const file = process.env.GITHUB_OUTPUT
   const lines = Object.entries(values).map(([name, value]) => `${name}=${value}\n`).join('')
@@ -194,11 +269,12 @@ function requiredEnvironment(name) {
   return value
 }
 
-function main(argv) {
+async function main(argv) {
   const [command, ...rest] = argv
   const { values } = parseArgs({ args: rest, allowPositionals: false, options: {
     tag: { type: 'string' }, target: { type: 'string' }, version: { type: 'string' }, mode: { type: 'string' },
     output: { type: 'string' }, directory: { type: 'string' }, template: { type: 'string' },
+    threshold: { type: 'string' },
   } })
   const mode = values.mode === 'unsigned' ? 'unsigned' : 'signed'
   if (values.mode !== undefined && values.mode !== 'signed' && values.mode !== 'unsigned') throw new Error('tako release: --mode must be signed or unsigned')
@@ -234,13 +310,26 @@ function main(argv) {
     case 'notes':
       writeFileSync(values.output ?? '', renderTakoReleaseNotes(readFileSync(values.template ?? '', 'utf8'), values.version ?? '', mode))
       return
+    case 'size': {
+      const threshold = Number(values.threshold ?? '5')
+      if (!Number.isFinite(threshold) || threshold < 0) throw new Error('tako release: --threshold must be a non-negative number')
+      const rows = compareTakoReleaseSizes(
+        await previousReleaseAssets(requiredEnvironment('GH_REPO'), values.tag ?? ''),
+        releaseDirectorySizes(values.directory ?? ''),
+      )
+      const report = renderTakoReleaseSizeReport(rows, threshold)
+      process.stdout.write(report.text)
+      const summary = process.env.GITHUB_STEP_SUMMARY
+      if (summary !== undefined && summary !== '') appendFileSync(summary, `### Release artifact sizes\n\n\`\`\`\n${report.text}\`\`\`\n`)
+      return
+    }
     default:
-      throw new Error('tako release: expected plan, macos-env, collect, checksums, or notes')
+      throw new Error('tako release: expected plan, macos-env, collect, checksums, notes, or size')
   }
 }
 
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) {
-  try { main(process.argv.slice(2)) } catch (error) {
+  try { await main(process.argv.slice(2)) } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exitCode = 1
   }
