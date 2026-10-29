@@ -37,7 +37,7 @@ export function desktopRuntimeFileExclusion(
   if (name === '@mixmark-io/domino' && (entry === '.yarn' || entry.startsWith('.yarn/'))) return 'Domino development tooling'
   if (name === 'node-pty') {
     // ConPTY sources are keyed by the Windows build they target, so a packaged tree only ever runs one of them.
-    const conpty = /^third_party\/conpty\/[^/]+\/([^/]+)(?:\/|$)/u.exec(entry)
+    const conpty = /^third_party\/conpty(?:\/[^/]+)*?\/(win10-[^/]+)(?:\/|$)/u.exec(entry)
     const ownPlatform = target.platform === 'win32' ? `win10-${target.arch}` : undefined
     if (conpty !== null && conpty[1] !== ownPlatform) return 'node-pty ConPTY for another platform'
   }
