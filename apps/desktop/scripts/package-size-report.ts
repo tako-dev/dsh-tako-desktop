@@ -44,7 +44,7 @@ function megabytes(bytes: number): string {
  * @returns `size  name` rows, largest first.
  */
 function largestPackages(root: string, limit: number): string[] {
-  const rows: { name: string, size: number }[] = []
+  const rows: { name: string; size: number }[] = []
   for (const entry of entriesOf(root)) {
     if (!entry.isDirectory()) continue
     const path = join(root, entry.name)

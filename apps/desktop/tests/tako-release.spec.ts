@@ -169,10 +169,11 @@ describe('release artifact sizes', () => {
       ],
     )
     expect(rows).toEqual([
-      { name: 'DSH-Tako-0.1.36-win-x64.exe', previous: 100, current: 120, growth: expect.closeTo(0.2, 10) },
+      { name: 'DSH-Tako-0.1.36-win-x64.exe', previous: 100, current: 120, growth: expect.any(Number) },
       { name: 'DSH-Tako-0.1.36-win-x64.exe.blockmap', previous: 10, current: 10, growth: 0 },
       { name: 'latest-mac.yml', previous: undefined, current: 1, growth: undefined },
     ])
+    expect(rows[0]!.growth).toBeCloseTo(0.2, 10)
   })
 
   it('warns only when an artifact grows past the threshold', () => {
