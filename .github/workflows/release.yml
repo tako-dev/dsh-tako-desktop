@@ -286,6 +286,15 @@ jobs:
           pnpm run package:desktop:win:x64:unsigned-release
           exit $LASTEXITCODE
 
+      # The release artifact itself is installed and removed here: the UI-driven `pnpm test:installer`
+      # builds its own throwaway installer, so nothing else in CI ever ran the published bytes.
+      - name: Install, launch, and uninstall the built installer
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File apps/desktop/tests/windows-release-install-smoke.ps1 `
+            -Installer "apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/DSH-Tako-$env:VERSION-win-x64.exe" `
+            -Version $env:VERSION
+          exit $LASTEXITCODE
+
       - name: Collect release files
         run: |
           node apps/desktop/scripts/tako-release.mjs collect --target win-x64 --version "$env:VERSION" --mode signed --output "$env:RUNNER_TEMP/release-assets"
