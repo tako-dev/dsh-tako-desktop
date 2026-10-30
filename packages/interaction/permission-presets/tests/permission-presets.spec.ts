@@ -361,13 +361,13 @@ describe('new-session default', () => {
     ])
   })
 
-  it('preserves composition defaults when an empty stored session resumes', async () => {
+  it('applies the current user default when an empty stored session resumes', async () => {
     const ctx = await mountedStore()
     await configurations.get(ctx)!.update({
       defaultPreset: 'danger-full-access',
     })
     const resumed = ctx.sessions.create(SessionId('empty-resumed'), { seed: [] })
-    expect(ctx.permissionPresets.current(resumed)).toBe('workspace-write')
+    expect(ctx.permissionPresets.current(resumed)).toBe('danger-full-access')
     expect(resumed.snapshotEvents().map(event => event.type)).toEqual([
       'session/end-seed', 'permission/preset', 'sandbox/mode', 'approval/policy',
     ])

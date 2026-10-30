@@ -248,6 +248,11 @@ export class PermissionPresetService extends TypertRemoteService {
     for (const session of ctx.sessions.list()) {
       this.pinInitialPermission(session)
     }
+    ctx.on('settings/document-updated', (ns) => {
+      if (ns !== 'permission') return
+      this.retargetUntouched()
+    })
+    this.retargetUntouched()
 
     // The /permission command: the one write path a web client uses (the
     // popup contribution submits the picked preset as this line). The child
@@ -427,19 +432,15 @@ export class PermissionPresetService extends TypertRemoteService {
    */
   private pinInitialPermission(session: Session): void {
     const state = this.permissionState(session)
-    const { preset, sandbox, approval, seeded } = state
+    const { preset, sandbox, approval } = state
     if (preset === AUTO_PRESET) {
       if (this.autoAdmit === undefined) {
         throw new Error('permission: cannot restore preset "auto" without its active integration')
       }
       this.autoAdmit()
     }
-    if (preset === null && sandbox === null && approval === null && !seeded) {
-      const name = this.defaultPreset
-      const spec = this.resolve(name)
-      session.append('permission/preset', { preset: name })
-      setSandboxMode(session, spec.sandbox)
-      setApprovalPolicy(session, spec.approval)
+    if (!this.hasTurn(session) && preset === null && sandbox === null && approval === null) {
+      this.applyDefault(session)
       return
     }
 
@@ -452,6 +453,39 @@ export class PermissionPresetService extends TypertRemoteService {
     }
     if (approval === null) {
       setApprovalPolicy(session, this.ctx.approval.config.policy ?? 'ask')
+    }
+  }
+
+  /** Apply the current user default to one session that has not started a turn. */
+  private applyDefault(session: Session): void {
+    const name = this.defaultPreset
+    const spec = this.resolve(name)
+    session.append('permission/preset', { preset: name })
+    setSandboxMode(session, spec.sandbox)
+    setApprovalPolicy(session, spec.approval)
+  }
+
+  /** Whether the session has already started a turn, so its permission is a past choice. */
+  private hasTurn(session: Session): boolean {
+    return session.snapshotEvents().some(event => event.type === 'turn/start')
+  }
+
+  /**
+   * Move every session that has not started a turn onto the current default.
+   * A new-session row created earlier otherwise keeps the old preset forever.
+   */
+  private retargetUntouched(): void {
+    let name: string
+    try {
+      name = this.defaultPreset
+    } catch {
+      return
+    }
+    for (const session of this.ctx.sessions.list()) {
+      if (this.hasTurn(session)) continue
+      const current = this.current(session)
+      if (current === name || current === CUSTOM_PRESET) continue
+      this.set(session, name)
     }
   }
 
