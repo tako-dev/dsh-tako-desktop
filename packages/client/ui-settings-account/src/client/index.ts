@@ -30,6 +30,7 @@ import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboar
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
+import { TAKO_CREDENTIAL_REF, takoCredentialConfigured, type TakoCredentialDescribe } from './tako-credential.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 import { AccountAvatarLoader } from './account-avatar.ts'
 
@@ -281,6 +282,24 @@ export function apply(ctx: Context): void {
       if (result.ok) return
       throw result.error
     },
+  }
+  if (takoMode) {
+    // Plugin login writes TAKO_API_KEY after the workbench is already open.
+    // The official account stream is intentionally off; this is the desktop-internal read.
+    const refreshTakoCredential = () => {
+      const describe = (ctx.remote as { credentials?: TakoCredentialDescribe }).credentials?.describe
+      if (describe === undefined) return
+      void describe([TAKO_CREDENTIAL_REF]).then(described => {
+        const configured = takoCredentialConfigured(described)
+        if (snapshot.takoSignedIn !== configured) publish({ ...snapshot, takoSignedIn: configured })
+      }, () => undefined)
+    }
+    ctx.effect(() => {
+      refreshTakoCredential()
+      return ctx.remote.$on('credentials/reference-updated', (ref) => {
+        if (ref === TAKO_CREDENTIAL_REF) refreshTakoCredential()
+      })
+    }, 'account: tako credential')
   }
   if (desktop && !takoMode) {
     const controller = new DesktopOnboardingController(

@@ -124,8 +124,19 @@ it('points Tako settings at the official wallet; quota lives in the plugin foote
     status: 'ready', value: { account: { balance: 20, plans: [{ title: 'Tako Pro' }] } },
   }, true)
   expect(screen.getByTestId('tako-account-card').textContent).toContain(en.takoAccountHint)
+  expect(screen.getByTestId('tako-credential-state').textContent).toBe(en.takoSignInForQuota)
   expect(screen.getByRole('link', { name: en.takoManage }).getAttribute('href')).toBe('https://tako.shiroha.tech/wallet')
   expect(screen.queryByTestId('tako-usage-breakdown')).toBeNull()
+})
+
+it('shows the desktop-internal Tako credential after the plugin stores the key', () => {
+  const operations = operationsOf({ status: 'signed-out', attempt: null }, undefined, undefined, undefined, undefined, true)
+  const snapshot = () => ({ ...operations.hooks.account.getSnapshot(), takoSignedIn: true })
+  render(<AccountSection {...({} as GlobalStandardProps)} {...operations}
+    useAccount={selector => selector(snapshot())}
+    useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
+    close={() => {}} t={key => key in en ? en[key as AccountKey] : key} />)
+  expect(screen.getByTestId('tako-credential-state').textContent).toBe(en.takoConnected)
 })
 
 it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (copy) => {
