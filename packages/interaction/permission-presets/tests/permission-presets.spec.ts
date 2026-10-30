@@ -7,6 +7,7 @@ import SessionStore, {
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { ApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import PermissionPresetService, {
   AUTO_PRESET, CUSTOM_PRESET,
 } from '@deepseek-ai/dsh-permission-presets'
@@ -62,10 +63,34 @@ async function mountedStore(options: { approvalDefault?: ApprovalPolicy | undefi
 }
 
 describe('permission preset fold', () => {
+  it('retains the first turn start through completion and seeded replay', async () => {
+    const ctx = await mounted()
+    const session = freshSession('turn-history')
+    const initial = ctx.sessionProjections.stateOf(session, 'permissions')!
+    expect(initial.turnStarted).toBe(false)
+    expect(initial.seeded).toBe(false)
+    session.append('turn/start', { turn: 1 })
+    session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    const completed = ctx.sessionProjections.stateOf(session, 'permissions')!
+    expect(completed.turnStarted).toBe(true)
+    expect(completed.knobs).toBe(initial.knobs)
+    session.append('turn/start', { turn: 2 })
+    expect(ctx.sessionProjections.stateOf(session, 'permissions')).toBe(completed)
+    const resumed = Session.create(SessionId('turn-history-resumed'), session.snapshotEvents())
+    expect(ctx.sessionProjections.stateOf(resumed, 'permissions')).toMatchObject({
+      seeded: true, turnStarted: true,
+    })
+    const emptySeed = Session.create(SessionId('turn-history-empty-seed'), [])
+    expect(ctx.sessionProjections.stateOf(emptySeed, 'permissions')).toMatchObject({
+      seeded: true, turnStarted: false,
+    })
+    expect(ctx.sessionProjections.checkpoint(session).permissions?.ver).toBe(3)
+  })
+
   it('folds the latest preset selection and steps over unrelated events', async () => {
     const ctx = await mounted()
     const session = freshSession('sess-fold')
-    const presetOf = () => ctx.sessionProjections.stateOf(session, 'permissions')?.preset ?? null
+    const presetOf = () => ctx.sessionProjections.stateOf(session, 'permissions')?.knobs.preset ?? null
     expect(presetOf()).toBeNull()
     session.append('permission/preset', { preset: 'danger-full-access' })
     session.append('permission/preset', { preset: 'workspace-write' })
@@ -297,6 +322,23 @@ describe('PermissionPresetService', () => {
 })
 
 describe('new-session default', () => {
+  it('retargets untouched sessions but preserves completed and seeded turn history', async () => {
+    const ctx = await mountedStore()
+    const untouched = ctx.sessions.create(SessionId('untouched-default'))
+    const completed = ctx.sessions.create(SessionId('completed-default'))
+    completed.append('turn/start', { turn: 1 })
+    completed.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    const resumed = ctx.sessions.create(SessionId('seeded-default'), { seed: completed.snapshotEvents() })
+    const emptySeed = ctx.sessions.create(SessionId('empty-seeded-default'), { seed: [] })
+
+    await configurations.get(ctx)!.update({ defaultPreset: 'danger-full-access' })
+    ctx.emit('settings/document-updated', 'permission' as SettingsNamespace, 1)
+    expect(ctx.permissionPresets.current(untouched)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(emptySeed)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(completed)).toBe('workspace-write')
+    expect(ctx.permissionPresets.current(resumed)).toBe('workspace-write')
+  })
+
   it('rejects persisted Auto before publication when its integration is absent', async () => {
     const ctx = await mounted()
     const source = freshSession('auto-source')

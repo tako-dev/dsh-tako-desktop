@@ -43,7 +43,7 @@ declare module '@deepseek-ai/cordis' {
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
-    /** Latest logged permission overrides and constructor-seed status. */
+    /** Latest logged permission overrides, constructor-seed status, and turn history. */
     permissions: PermissionProjectionState
   }
 }
@@ -104,21 +104,28 @@ export interface KnobState {
   approval: ApprovalPolicy | null
 }
 
-/** Projection state for permission overrides and constructor-seed status. */
-interface PermissionProjectionState extends KnobState {
+/** Projection state for permission overrides, constructor-seed status, and turn history. */
+interface PermissionProjectionState {
+  /** Permission overrides; the reference is stable across internal-only events. */
+  knobs: KnobState
   /** Whether the log contains a constructor-seed boundary. */
   seeded: boolean
+  /** Whether any `turn/start` has occurred, including in inherited history. */
+  turnStarted: boolean
 }
 
 const permissionStateSchema: zod.ZodType<PermissionProjectionState> = zod.object({
-  preset: zod.string().nullable(),
-  sandbox: zod.union([
-    zod.literal('read-only'),
-    zod.literal('workspace-write'),
-    zod.literal('danger-full-access'),
-  ]).nullable(),
-  approval: zod.union([zod.literal('ask'), zod.literal('never')]).nullable(),
+  knobs: zod.object({
+    preset: zod.string().nullable(),
+    sandbox: zod.union([
+      zod.literal('read-only'),
+      zod.literal('workspace-write'),
+      zod.literal('danger-full-access'),
+    ]).nullable(),
+    approval: zod.union([zod.literal('ask'), zod.literal('never')]).nullable(),
+  }).strict(),
   seeded: zod.boolean(),
+  turnStarted: zod.boolean(),
 }).strict()
 
 /** State for the empty log: every knob at its composition default. */
@@ -127,7 +134,7 @@ const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
 /**
  * One-event permission-state transition (the projection unit's `apply`). Unrelated
  * events return the same reference — the registry's change gate.
- * @param state - the folded knob state before `event`.
+ * @param state - the folded permission state before `event`.
  * @param event - one committed session event.
  * @returns the next state; the same reference when the event is unrelated.
  */
@@ -137,13 +144,15 @@ function applyPermissionEvent(
 ): PermissionProjectionState {
   switch (event.type) {
     case 'permission/preset':
-      return { ...state, preset: event.data.preset }
+      return { ...state, knobs: { ...state.knobs, preset: event.data.preset } }
     case 'sandbox/mode':
-      return { ...state, sandbox: event.data.mode }
+      return { ...state, knobs: { ...state.knobs, sandbox: event.data.mode } }
     case 'approval/policy':
-      return { ...state, approval: event.data.policy }
+      return { ...state, knobs: { ...state.knobs, approval: event.data.policy } }
     case 'session/end-seed':
       return { ...state, seeded: true }
+    case 'turn/start':
+      return state.turnStarted ? state : { ...state, turnStarted: true }
     default:
       return state
   }
@@ -201,6 +210,7 @@ export class PermissionPresetService extends TypertRemoteService {
   static inject = ['shell', 'approval', 'sessions', 'sessionProjections']
 
   private readonly presets: Record<string, PresetSpec>
+  private readonly permissionViews = new WeakMap<KnobState, PermissionSelection>()
   private autoAdmit: (() => void) | undefined
   private defaultSettings: () => PermissionSettings
 
@@ -236,11 +246,11 @@ export class PermissionPresetService extends TypertRemoteService {
     }) as zod.ZodType<PermissionSelection>
     ctx.sessionProjections.register({
       key: 'permissions',
-      stateVersion: 2,
+      stateVersion: 3,
       stateSchema: permissionStateSchema,
-      init: () => ({ ...EMPTY_KNOBS, seeded: false }),
+      init: () => ({ knobs: { ...EMPTY_KNOBS }, seeded: false, turnStarted: false }),
       apply: applyPermissionEvent,
-      wire: { viewSchema: selectionSchema, view: state => ({ currentValue: this.derive(state) }) },
+      wire: { viewSchema: selectionSchema, view: state => this.permissionView(state.knobs) },
     })
     ctx.on('session/created', (session) => {
       this.pinInitialPermission(session)
@@ -346,7 +356,17 @@ export class PermissionPresetService extends TypertRemoteService {
    * @returns the effective preset name, or `custom` when nothing matches.
    */
   current(session: Session): string {
-    return this.derive(this.permissionState(session))
+    return this.derive(this.permissionState(session).knobs)
+  }
+
+  /** Reuse the wire value across internal-only events without caching Auto availability. */
+  private permissionView(knobs: KnobState): PermissionSelection {
+    const currentValue = this.derive(knobs)
+    const previous = this.permissionViews.get(knobs)
+    if (previous?.currentValue === currentValue) return previous
+    const value = { currentValue }
+    this.permissionViews.set(knobs, value)
+    return value
   }
 
   /** Resolve the preset for one folded knob state (the shared mathematics of `current` and the projection unit). */
@@ -409,7 +429,7 @@ export class PermissionPresetService extends TypertRemoteService {
     const spec = this.resolve(name)
     if (name === AUTO_PRESET) this.autoAdmit?.()
     const current = this.current(session)
-    const knobs = this.permissionState(session)
+    const knobs = this.permissionState(session).knobs
     const updateKnobs = (): void => {
       if (spec.sandbox !== (knobs.sandbox ?? this.ctx.shell.sandboxMode)) {
         setSandboxMode(session, spec.sandbox)
@@ -431,8 +451,8 @@ export class PermissionPresetService extends TypertRemoteService {
    * publication.
    */
   private pinInitialPermission(session: Session): void {
-    const state = this.permissionState(session)
-    const { preset, sandbox, approval } = state
+    const { knobs } = this.permissionState(session)
+    const { preset, sandbox, approval } = knobs
     if (preset === AUTO_PRESET) {
       if (this.autoAdmit === undefined) {
         throw new Error('permission: cannot restore preset "auto" without its active integration')
@@ -444,7 +464,7 @@ export class PermissionPresetService extends TypertRemoteService {
       return
     }
 
-    const effective = this.derive(state)
+    const effective = this.derive(knobs)
     if (preset === null && effective !== CUSTOM_PRESET) {
       session.append('permission/preset', { preset: effective })
     }
@@ -467,7 +487,7 @@ export class PermissionPresetService extends TypertRemoteService {
 
   /** Whether the session has already started a turn, so its permission is a past choice. */
   private hasTurn(session: Session): boolean {
-    return session.snapshotEvents().some(event => event.type === 'turn/start')
+    return this.permissionState(session).turnStarted
   }
 
   /**
