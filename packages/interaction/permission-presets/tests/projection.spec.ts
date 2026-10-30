@@ -75,7 +75,11 @@ describe('permissions projection unit', () => {
     expect(permissionChanges).toHaveLength(3)
     expect(permissionChanges.at(-1)).toMatchObject({ key: 'permissions', value: { currentValue: 'danger-full-access' } })
     session.append('turn/start', { turn: 1 })
+    session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    session.append('turn/start', { turn: 2 })
     expect(changes).toHaveLength(3)
+    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: 'danger-full-access' })
   })
 
   it('projects custom as a current value when the knobs match no preset', async () => {
@@ -114,6 +118,20 @@ describe('permissions projection unit', () => {
     expect(notifications).toEqual([1, 2, 3, 4])
   })
 
+  it('rederives a cached current value when Auto availability changes', async () => {
+    const { ctx, session } = await harness()
+    const fiber = await mountAuto(ctx)
+    ctx.permissionPresets.set(session, AUTO_PRESET)
+    expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: AUTO_PRESET })
+    const beforeSeq = session.seq
+    await fiber.dispose()
+    expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: 'custom' })
+    expect(session.seq).toBe(beforeSeq)
+    await mountAuto(ctx)
+    expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: AUTO_PRESET })
+    expect(session.seq).toBe(beforeSeq)
+  })
+
   it('contains synchronous and asynchronous catalog notification failures', async () => {
     const { ctx } = await harness()
     const warned = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
@@ -130,6 +148,22 @@ describe('permissions projection unit', () => {
     expect(warned).toHaveBeenCalledWith('permission: catalog-changed listener failed: async non-error failed')
     expect(ctx.permissionPresets.names).toContain(AUTO_PRESET)
     await fiber.dispose()
+  })
+
+  it('rebuilds prior turn history on remount without replacing its permissions', async () => {
+    const { ctx, session } = await harness({ withPermission: false })
+    session.append('turn/start', { turn: 1 })
+    session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    const config = { defaultPreset: 'danger-full-access' }
+    const fiber = await ctx.plugin(PermissionPresetService, config)
+    expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
+    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    const before = session.snapshotEvents()
+    await fiber.dispose()
+    await ctx.plugin(PermissionPresetService, config)
+    expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
+    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    expect(session.snapshotEvents()).toEqual(before)
   })
 
   it('has no permissions key without the service, and drops it on unload (HMR safety)', async () => {

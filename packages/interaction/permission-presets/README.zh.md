@@ -88,6 +88,8 @@ kind: "package-reference"
 
 `current(session)` 读取必需的 `permissions` 投影；该单元在组合默认值（`ctx.shell.sandboxMode` 与审批配置）之上折叠三个全量值旋钮事件。host 状态还会保留 `session/end-seed` 是否已经出现，使会话固定无需重扫日志即可区分显式为空的恢复 seed 与真正的新会话。仍匹配的最近选择在共享捆绑时胜出，已记录的 Auto 选择在 `never` 审批策略下也匹配；否则配置表中的第一个匹配项胜出；否则返回推导出的 `CUSTOM_PRESET`。投影 key 缺失时会显式失败。
 
+Host 还会折叠是否出现过任何 `turn/start`（包括继承历史中的事件），使会话固定与未开始轮次的会话默认值更新使用投影，而非读取历史日志。seed 与轮次标记仅保留在 Host；它们不会改变 `currentValue`，也不会发布权限帧。
+
 `optionOf(name)` 返回配置条目、存活的 Auto 条目或仅供显示的 `custom` 条目。只有名称不匹配这三者时才抛错；已撤回的 Auto 条目不可用。
 
 ### 会话固定与空白复用
