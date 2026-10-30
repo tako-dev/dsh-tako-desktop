@@ -6,6 +6,8 @@ English | [中文](README.zh.md)
 
 DSH Tako is a desktop agent application with Tako models and five Tako tools (search, image generation, speech recognition, speech synthesis, and quota query) built in. It supports browser sign-in to Tako, shows the Tako quota, and installs beside the official DSH desktop.
 
+> **Issues are handled by a bot.** It replies as the maintainer, with a `bot` mark, says it received the report, then tries to fix, merge, and release. Status stays on the issue. Do not paste API keys. [Open an issue](https://github.com/tako-dev/dsh-tako-desktop/issues/new/choose).
+
 ![DSH Tako welcome screen](docs/tako/images/01-welcome.png)
 
 ![DSH Tako workspace](docs/tako/images/02-workspace.png)
