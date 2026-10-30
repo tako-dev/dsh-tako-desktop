@@ -63,6 +63,8 @@ export interface AccountSnapshot {
   takoQuota?: TakoQuotaView | null
   /** Whether this Desktop profile is Tako-backed; undefined while settings are loading. */
   takoMode?: boolean
+  /** Plugin login wrote TAKO_API_KEY into the desktop host. Absent until the first read. */
+  takoSignedIn?: boolean
   /** Desktop introduction covers the workspace during loading, saving, and exit animation.
    * True on Desktop until shell.overlay reports visibility, false in browsers; Desktop layouts must render that slot.
    */
@@ -122,7 +124,7 @@ export type AccountSectionProps =
   PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 /** @param props - localized actions, account subscription, and the shared Platform page channel. @returns account settings UI. */
 export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed }: AccountSectionProps) {
-  const { view: state, details, avatar, failed: streamFailed, takoQuota, takoMode } = useAccount(value => value)
+  const { view: state, details, avatar, failed: streamFailed, takoQuota, takoMode, takoSignedIn } = useAccount(value => value)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
   // The shared host owns the native view; this page holds only its own request,
   // and only while it is the latest owner.
@@ -178,7 +180,12 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
     <section className={css.section} aria-label={t('nav')}>
       <div className={css.balanceCard} data-testid="tako-account-card">
         <div className={css.row}>
-          <span>{t('takoQuota')}</span>
+          <span>{t('takoBrand')}</span>
+          <span className={css.secondary} data-testid="tako-credential-state">
+            {takoSignedIn === true ? t('takoConnected') : t('takoSignInForQuota')}
+          </span>
+        </div>
+        <div className={css.row}>
           <span className={css.secondary}>{t('takoAccountHint')}</span>
         </div>
         <div className={css.row}>
