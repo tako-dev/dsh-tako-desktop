@@ -218,6 +218,7 @@ const harness = await vi.hoisted(async () => {
     set publishUpdate(value: (state: DesktopUpdateState) => DesktopUpdateState) { publishUpdate = value },
     dialog: { showOpenDialog: vi.fn(), showErrorBox: vi.fn(), showMessageBox: vi.fn() },
     openExternal: vi.fn(async () => {}),
+    copyText: vi.fn(),
     protocolHandle: vi.fn<(scheme: string, handler: (request: Request) => Response | Promise<Response>) => void>(),
     applyRelease: vi.fn(() => { preparing.resolve(); return prepared.promise }),
     installTakoPlugin: vi.fn(async () => {}),
@@ -280,6 +281,7 @@ vi.mock('electron', () => ({
   app: harness.app,
   BrowserWindow: harness.FakeWindow,
   dialog: harness.dialog,
+  clipboard: { writeText: harness.copyText },
   shell: { openExternal: harness.openExternal },
   nativeTheme: harness.nativeTheme,
   net: { fetch: vi.fn() },
@@ -2053,6 +2055,23 @@ describe('desktop main startup', () => {
     expect(window.urls).toEqual(['dsh-app://app/'])
   })
 
+  it('copies the complete crash report path from native recovery without restarting', async () => {
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    const copied = Promise.withResolvers<undefined>()
+    harness.copyText.mockImplementation((path: string) => {
+      expect(path).toBe('desktop-test-logs/crash-test.log')
+      copied.resolve(undefined)
+    })
+    harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 3, checkboxChecked: false })
+      .mockImplementationOnce(() => new Promise(() => {}))
+    harness.prepared.reject(new Error('runtime resources missing'))
+    await copied.promise
+    expect(harness.copyText).toHaveBeenCalledWith('desktop-test-logs/crash-test.log')
+    expect(harness.app.relaunch).not.toHaveBeenCalled()
+    expect(harness.disableAllPlugins).not.toHaveBeenCalled()
+  })
+
   it('ignores subresource failures and navigation cancellation but reports a failed main document', async () => {
     await import('../src/main.ts')
     await harness.preparing.promise
@@ -2072,7 +2091,9 @@ describe('desktop main startup', () => {
     harness.prepared.reject(new Error('runtime resources missing'))
     await harness.dialogShown.promise
     expect((harness.dialog.showMessageBox.mock.calls[0]![0] as MessageBoxOptions).detail).toContain('runtime resources missing')
-    expect((harness.dialog.showMessageBox.mock.calls[0]![0] as MessageBoxOptions).buttons).toEqual(['Exit', 'Restart', 'Disable third-party plugins, back up profile patch, and restart'])
+    expect((harness.dialog.showMessageBox.mock.calls[0]![0] as MessageBoxOptions).buttons).toEqual([
+      'Exit', 'Restart', 'Disable third-party plugins, back up profile patch, and restart', 'Copy diagnostic report path',
+    ])
     expect(harness.windows[0]!.urls).toEqual(['dsh-app://app/'])
   })
 

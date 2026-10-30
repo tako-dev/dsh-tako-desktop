@@ -12,6 +12,8 @@ interface RecoveryOperations {
   disablePlugins(): Promise<void>
   exit(): void
   restart(): void
+  /** Copy the complete report path without changing the application or profile. */
+  copyReportPath(path: string): Promise<void>
   /** Persist the complete diagnostic; resolves with the file path, or `undefined` when nothing was written. */
   writeReport(error: unknown, source: CrashReportSource): Promise<string | undefined>
 }
@@ -71,6 +73,11 @@ export class DesktopFatalRecovery {
     let message = messages.fatalSummary
     for (;;) {
       const addressInUse = /\blisten EADDRINUSE\b/u.test(detail)
+      const buttons = addressInUse
+        ? [messages.exitApplication, messages.restartApplication]
+        : [messages.exitApplication, messages.restartApplication, messages.disableThirdPartyPlugins]
+      const copyIndex = buttons.length
+      if (reportPath !== undefined) buttons.push(messages.copyReportPath)
       const { response } = await this.operations.show({
         type: 'error',
         title: messages.startupFailed,
@@ -78,13 +85,21 @@ export class DesktopFatalRecovery {
         detail: addressInUse
           ? `${messages.startupAddressInUse}${reportLine(messages, reportPath)}`
           : dialogDetail(detail, messages, reportPath),
-        buttons: addressInUse
-          ? [messages.exitApplication, messages.restartApplication]
-          : [messages.exitApplication, messages.restartApplication, messages.disableThirdPartyPlugins],
+        buttons,
         defaultId: 1,
         cancelId: 0,
         noLink: true,
       })
+      if (reportPath !== undefined && response === copyIndex) {
+        try {
+          await this.operations.copyReportPath(reportPath)
+          message = messages.reportPathCopied
+        } catch (failure) {
+          console.error(failure)
+          message = messages.reportPathCopyFailed
+        }
+        continue
+      }
       if (response === 0) {
         try { await this.operations.stop() } catch (failure) { console.error(failure) }
         this.operations.exit()
