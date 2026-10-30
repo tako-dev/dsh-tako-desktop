@@ -14,7 +14,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { remoteDefaultResponses } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/remote-default-responses.ts'
-import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
+import { ok, RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CommandDecoration, PopupSelectSpec } from '@deepseek-ai/dsh-client-ui-commands/client'
 import { PopupSelectController } from '@deepseek-ai/dsh-client-ui-commands/client'
@@ -30,6 +30,30 @@ import { apply, inject } from '../src/client/index.ts'
 import { accessEn, accessZh } from '../src/client/locales.ts'
 
 const sid = (k: string): SessionId => k as SessionId
+
+const PERMISSION_SCHEMA = {
+  uid: 5,
+  refs: {
+    1: { type: 'const', value: 'read-only' },
+    2: { type: 'const', value: 'workspace-write' },
+    3: { type: 'const', value: 'danger-full-access' },
+    4: { type: 'union', list: [1, 2, 3] },
+    5: { type: 'object', dict: { defaultPreset: 4 } },
+  },
+}
+
+function permissionView(defaultPreset: string, revision = 0) {
+  return {
+    ns: 'permission',
+    schema: PERMISSION_SCHEMA,
+    value: { defaultPreset },
+    base: { defaultPreset: 'read-only' },
+    autoGenerate: true,
+    applies: 'live',
+    secrets: [],
+    revision,
+  }
+}
 
 const CATALOG: PermissionCatalog = {
   defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'workspace-write' }, { value: 'danger-full-access', name: 'danger-full-access' }],
@@ -51,7 +75,21 @@ async function bench() {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('en')
   ctx.provide('locale', locale)
-  const mock = RemoteMock.create().load(remoteDefaultResponses)
+  const mutates: unknown[][] = []
+  const mock = RemoteMock.create().load(remoteDefaultResponses).load({
+    unary: {
+      'settings/describe': ok({
+        writable: true,
+        hasDocument: false,
+        namespaces: [permissionView('read-only', 0)],
+      }),
+      'settings/mutate': (...args: unknown[]) => {
+        mutates.push(args)
+        const ops = args[1] as { value: string }[] | undefined
+        return ok(permissionView(ops?.[0]?.value ?? 'danger-full-access', 1))
+      },
+    },
+  })
   onTestFinished(() => { mock.assertNoUnmatched() })
   let catalog = CATALOG
   let catalogCalls = 0
@@ -125,7 +163,7 @@ async function bench() {
   await fiber.await()
   await vi.waitFor(() => { expect(catalogCalls).toBe(1) })
   return {
-    ctx, fiber, locale, values, commands, remote, dismissed,
+    ctx, fiber, locale, values, commands, mutates, remote, dismissed,
     catalogCalls: () => catalogCalls,
     setCatalog: (value: PermissionCatalog) => {
       catalog = value
@@ -183,8 +221,10 @@ describe('ui-permission browser plugin', () => {
     b.values.set(sid('s1'), { currentValue: 'workspace-write' })
     const selectInjected = injectSelect(sid('s1'))
     expect(selectInjected?.hooks.permissionCatalog.getSnapshot().value).toEqual(CATALOG)
+    const mutatesBeforeAuto = b.mutates.length
     await expect(selectInjected.select('auto')).resolves.toBe(true)
     expect(b.commands).toEqual(['/permission auto'])
+    expect(b.mutates).toHaveLength(mutatesBeforeAuto)
     expect(b.catalogCalls()).toBe(1)
   })
 
@@ -318,13 +358,22 @@ describe('ui-permission browser plugin', () => {
     b.values.set(sid('s1'), { currentValue: 'workspace-write' })
     await b.popup().onSelect({ id: 'danger-full-access', label: 'danger-full-access' }, proj)
     expect(b.commands).toEqual(['/permission danger-full-access'])
+    expect(b.mutates).toContainEqual([
+      'permission',
+      [{ op: 'set', path: ['defaultPreset'], value: 'danger-full-access' }],
+      0,
+    ])
+    const mutatesAfterPick = b.mutates.length
     b.setResult({ ok: false })
     await expect(b.popup().onSelect({ id: 'read-only', label: 'read-only' }, proj)).rejects.toThrow(/permission switch failed/)
+    expect(b.mutates).toHaveLength(mutatesAfterPick)
     b.setResult({ ok: true, matched: false })
     await expect(b.popup().onSelect({ id: 'read-only', label: 'read-only' }, proj)).rejects.toThrow(/no \/permission command/)
+    expect(b.mutates).toHaveLength(mutatesAfterPick)
     // An unmaterialized session throws before any submit.
     await expect(b.popup().onSelect({ id: 'read-only', label: 'read-only' }, { sessionId: sid('ghost') }))
       .rejects.toThrow(/not materialized/)
+    expect(b.mutates).toHaveLength(mutatesAfterPick)
   })
 
   it('disposal removes the decoration (HMR safety)', async () => {
