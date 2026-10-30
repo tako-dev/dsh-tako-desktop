@@ -131,6 +131,25 @@ export function apply(ctx: Context): void {
   })
   let disposed = false
   ctx.effect(() => () => { disposed = true; return stream?.dispose() }, 'account: state stream')
+  if (takoMode) {
+    const loadTakoQuota = async (): Promise<void> => {
+      try {
+        const result = await ctx.remote.account.getTakoQuota()
+        if (!result.ok) {
+          publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+          return
+        }
+        publish({ ...snapshot, takoQuota: result.value })
+      } catch {
+        publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+      }
+    }
+    void loadTakoQuota()
+    ctx.effect(
+      () => ctx.remote.$on('credentials/reference-updated', () => { void loadTakoQuota() }),
+      'account: refresh Tako quota after plugin login',
+    )
+  }
   if (stream !== undefined) void (async () => {
     for await (const frame of stream) {
       revision++
