@@ -30,7 +30,7 @@ import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboar
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
-import { TAKO_CREDENTIAL_REF, takoCredentialConfigured, type TakoCredentialDescribe } from './tako-credential.ts'
+import { TAKO_CREDENTIAL_REF, takoCredentialConfigured } from './tako-credential.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 import { AccountAvatarLoader } from './account-avatar.ts'
 
@@ -45,7 +45,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by account settings. */
-export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.session', 'theme', 'configForms']
+export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.credentials', 'remote.session', 'theme', 'configForms']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
   const desktop = 'dshDesktop' in globalThis
@@ -287,9 +287,8 @@ export function apply(ctx: Context): void {
     // Plugin login writes TAKO_API_KEY after the workbench is already open.
     // The official account stream is intentionally off; this is the desktop-internal read.
     const refreshTakoCredential = () => {
-      const describe = (ctx.remote as { credentials?: TakoCredentialDescribe }).credentials?.describe
-      if (describe === undefined) return
-      void describe([TAKO_CREDENTIAL_REF]).then(described => {
+      void ctx.remote.credentials.describe([TAKO_CREDENTIAL_REF]).then((described) => {
+        if (disposed) return
         const configured = takoCredentialConfigured(described)
         if (snapshot.takoSignedIn !== configured) publish({ ...snapshot, takoSignedIn: configured })
       }, () => undefined)

@@ -63,6 +63,26 @@ beforeEach(() => {
 })
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks() })
 
+it('starts the Tako account page and refreshes its credential after plugin login and reload', async ({ start, remote, mock }) => {
+  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('__DSH_TAKO_PROFILE__', true)
+  remote.account.getTakoQuota.mockResolvedValue(ok({ status: 'failed', code: 'MISSING_CREDENTIAL' }))
+  remote.credentials.describe.mockResolvedValue(ok({ TAKO_API_KEY: { configured: false, writable: true } }))
+  const c = await start()
+  expect(operations(c).hooks.account.getSnapshot().takoMode).toBe(true)
+  await vi.waitFor(() => { expect(operations(c).hooks.account.getSnapshot().takoSignedIn).toBe(false) })
+  expect(remote.account.watch).not.toHaveBeenCalled()
+  for (const reload of [false, true]) {
+    if (reload) await c.reload(SELF)
+    remote.credentials.describe.mockResolvedValue(ok({ TAKO_API_KEY: { configured: true, writable: true } }))
+    mock.streams.push('$events', { type: 'emit', event: 'credentials/reference-updated', args: ['TAKO_API_KEY'] })
+    await vi.waitFor(() => { expect(operations(c).hooks.account.getSnapshot().takoSignedIn).toBe(true) })
+    remote.credentials.describe.mockResolvedValue(ok({ TAKO_API_KEY: { configured: false, writable: true } }))
+    mock.streams.push('$events', { type: 'emit', event: 'credentials/reference-updated', args: ['TAKO_API_KEY'] })
+    await vi.waitFor(() => { expect(operations(c).hooks.account.getSnapshot().takoSignedIn).toBe(false) })
+  }
+}, 60_000)
+
 it('registers account sign-in in a plain browser without the Desktop-only surfaces, including after reload', async ({ start }) => {
   const c = await start()
   for (const reload of [false, true]) {
