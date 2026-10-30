@@ -12,8 +12,9 @@
  * write through one path and the pushed projection frame is the one
  * confirmation. The Full access row carries the same explicit risk gate as
  * the composer chip; the shared popup shell owns the modal mechanics.
- * The General-settings row separately writes the default preset for sessions
- * created later through the host Settings API.
+ * A current-session pick (except Auto) also writes Settings `defaultPreset`
+ * so the next session follows. The General-settings row still writes that
+ * default without switching the current session.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -120,16 +121,6 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(PERMISSION_ACCESS_NS)
   const sessionFor = (session: ClientSessionContext): SessionFace | undefined =>
     sessions.binding(session.sessionId)?.session
-  const submit = async (sessionId: SessionId, preset: string): Promise<boolean> => {
-    const live = sessions.binding(sessionId)?.session
-    if (live === undefined) throw new Error('this session is not materialized yet')
-    const result = await live.command(`/permission ${preset}`)
-    if (!result.ok) {
-      throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
-    }
-    if (!result.value.matched) throw new Error('the host offers no /permission command')
-    return true
-  }
 
   const catalog = new PermissionCatalogDirectory(ctx)
   ctx.effect(() => () => { catalog.dispose() }, 'ui-permission: process catalog directory')
@@ -148,6 +139,26 @@ export function apply(ctx: ClientContext): void {
     ctx.configForms.describe(), ctx, catalog)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
+  const persistDefault = async (preset: string): Promise<void> => {
+    if (preset === AUTO_REVIEW_PRESET) return
+    try {
+      await controller.load()
+      await controller.select(preset)
+    } catch {
+      // The current session already switched; later sessions keep the old default.
+    }
+  }
+  const submit = async (sessionId: SessionId, preset: string): Promise<boolean> => {
+    const live = sessions.binding(sessionId)?.session
+    if (live === undefined) throw new Error('this session is not materialized yet')
+    const result = await live.command(`/permission ${preset}`)
+    if (!result.ok) {
+      throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
+    }
+    if (!result.value.matched) throw new Error('the host offers no /permission command')
+    await persistDefault(preset)
+    return true
+  }
   const injected = (): PermissionRowInjected => ({
     hooks: { permission: controller.store },
     load,
