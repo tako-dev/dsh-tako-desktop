@@ -6,6 +6,8 @@
 
 DSH Tako 是内置 Tako 模型和五个 Tako 工具（搜索、生图、语音识别、语音合成、额度查询）的桌面 Agent 应用，支持浏览器登录 Tako、显示 Tako 额度，并可与官方 DSH 桌面版同时安装。
 
+> **Issue 由机器人处理。** 它用维护者账号回复，评论带 `bot` 标记。收到后会说「收到，会改。」，能修的会改、合并、发版，状态写在这条 issue 上。不要贴 API key。[开一个 issue](https://github.com/tako-dev/dsh-tako-desktop/issues/new/choose)。
+
 ![DSH Tako 欢迎页](docs/tako/images/01-welcome.png)
 
 ![DSH Tako 工作台](docs/tako/images/02-workspace.png)
