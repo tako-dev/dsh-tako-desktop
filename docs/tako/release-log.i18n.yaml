@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for release-log.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/tako/release-log.md
+/dsh-tako-release-history:
+  en: 88773a78589801b9
+  zh: 955b1f8c9e464983
+/dsh-tako-release-history/v0-1-45-2026-10-31:
+  en: 1daced023e6f1b17
+  zh: 9f76b35ea25054de
+/dsh-tako-release-history/v0-1-44-2026-10-30:
+  en: 127895c81610a5b8
+  zh: a81a969e43111318
+/dsh-tako-release-history/v0-1-41-2026-10-30:
+  en: 3a50a1714fd5f678
+  zh: 5cc93e9bea45d069
+/dsh-tako-release-history/v0-1-39-2026-10-30:
+  en: 4a160182f42dc44a
+  zh: 00c56f0360cd85c8

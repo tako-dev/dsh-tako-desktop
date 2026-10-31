@@ -83,9 +83,23 @@ export function writeTakoReleaseChecksums(directory: string): string
  * @param template - .github/tako-release-notes.md text with {{VERSION}} and {{MAC_DOWNLOAD}} placeholders.
  * @param version - Application version.
  * @param macMode - Whether the macOS installer is signed and notarized.
+ * @param details - Version-specific changes and exact build sources.
  * @returns Release notes Markdown.
  */
-export function renderTakoReleaseNotes(template: string, version: string, macMode: 'signed' | 'unsigned'): string
+export function renderTakoReleaseNotes(template: string, version: string, macMode: 'signed' | 'unsigned', details?: string): string
+
+/**
+ * Request GitHub's version-specific PR/changelog summary for the exact built commit.
+ * @param source - Checked-out release identity.
+ * @param fetchImpl - HTTP implementation for isolated tests.
+ * @returns Change summary and source references, without credentials; failures stop publication.
+ */
+export function generateTakoReleaseDetails(source: {
+  repository: string
+  version: string
+  commit: string
+  runtimeVersion: string
+}, fetchImpl?: typeof fetch): Promise<string>
 
 /**
  * Replace the release version in an asset name so the same artifact can be compared across releases.

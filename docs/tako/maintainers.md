@@ -46,6 +46,8 @@ Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is 
    - `publish`, after both platforms succeed, writes `SHA256SUMS.txt` and the release notes (template [.github/tako-release-notes.md](../../.github/tako-release-notes.md)) and creates the release with `gh release create <tag> --verify-tag`; when the release already exists it replaces the assets with `gh release upload --clobber` and leaves the notes alone. Only this job has `contents: write`.
 4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, `.exe.blockmap`, `latest.yml`, and `SHA256SUMS.txt`.
 
+Release notes include GitHub's version-specific merged-PR summary and changelog comparison, the exact built commit, and the bundled DSH version with its build manifest and upstream project. Missing change details stop publication; reruns do not rewrite existing release descriptions. Stable installations update directly to the latest compatible stable release, without intermediate versions; compatibility checks, package verification, explicit download/install approvals and downgrade rejection still apply.
+
 Running Release manually from the Actions page (`workflow_dispatch`) takes an existing tag and these options:
 
 - `dry_run` builds and keeps the Actions artifacts (`release-mac-arm64`, `release-win-x64`), shows the checksums and notes in the run summary, and creates or changes no release.
