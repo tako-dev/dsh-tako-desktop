@@ -1221,7 +1221,7 @@ async function main(): Promise<void> {
             return { ok: true }
           }
           if (takoLogin !== undefined) return { ok: false, reason: 'failed' }
-          const login = await startTakoBrowserLogin()
+          const login = await startTakoBrowserLogin({ locale: locale.id })
           takoLogin = login
           try {
             await shell.openExternal(login.authorizeUrl)

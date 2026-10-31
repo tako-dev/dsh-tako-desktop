@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { hostname as osHostname } from 'node:os'
+import { resolveDesktopLocale } from './locale.ts'
 
 const MAX_BODY_BYTES = 8 * 1024
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -51,6 +52,8 @@ export interface TakoBrowserLoginHandle {
 }
 
 export interface TakoBrowserLoginOptions {
+  /** Desktop UI language for the local callback result; defaults to English. */
+  readonly locale?: string
   /** Public origin that owns the login page and token endpoint. */
   readonly websiteOrigin?: string
   /** Test-only timeout override; production uses ten minutes. */
@@ -142,6 +145,7 @@ async function exchangeCode(
 
 /** Start one authenticated browser handoff and consume exactly one callback. */
 export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {}): Promise<TakoBrowserLoginHandle> {
+  const messages = resolveDesktopLocale(options.locale ?? 'en').messages
   const websiteOrigin = options.websiteOrigin ?? 'https://tako.shiroha.tech'
   const parsedOrigin = new URL(websiteOrigin)
   if (parsedOrigin.protocol !== 'https:' && parsedOrigin.protocol !== 'http:') {
@@ -219,7 +223,7 @@ export async function startTakoBrowserLogin(options: TakoBrowserLoginOptions = {
       finish({ ok: false, reason: 'failed' })
       return
     }
-    textResponse(response, 200, 'Tako login completed. Return to the DSH window.')
+    textResponse(response, 200, messages.takoLoginComplete)
     finish({ ok: true, apiKey })
   }
   const server = createServer((request, response) => {

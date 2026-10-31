@@ -45,6 +45,23 @@ describe('Tako browser login callback', () => {
     expect(fetchImpl).toHaveBeenCalledOnce()
   })
 
+  it.each([
+    ['zh-CN', 'Tako 登录成功，请返回 DSH Tako 窗口。'],
+    ['en', 'Tako login completed. Return to the DSH Tako window.'],
+  ])('returns the Desktop locale after a successful callback in %s', async (locale, expected) => {
+    const handle = await startTakoBrowserLogin({ locale,
+      websiteOrigin: 'https://tako.example.test', fetchImpl: async () => Response.json({ key: 'fixture-callback-key' }),
+    })
+    try {
+      const callback = parseCallback(handle)
+      callback.searchParams.set('state', new URL(handle.authorizeUrl).searchParams.get('state')!)
+      callback.searchParams.set('code', 'fixture-code')
+      const response = await fetch(callback)
+      expect(await response.text()).toBe(expected)
+      await expect(handle.wait).resolves.toEqual({ ok: true, apiKey: 'fixture-callback-key' })
+    } finally { handle.cancel() }
+  })
+
   it('rejects a wrong state and lets the user cancel the pending handoff', async () => {
     const handle = await startTakoBrowserLogin({ websiteOrigin: 'https://tako.example.test' })
     const callback = parseCallback(handle)
