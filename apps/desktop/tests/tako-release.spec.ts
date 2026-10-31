@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   collectTakoReleaseAssets,
   compareTakoReleaseSizes,
+  generateTakoReleaseDetails,
   readTakoDesktopVersionSource,
   renderTakoMacOSReleaseEnvironment,
   renderTakoReleaseNotes,
@@ -151,6 +152,37 @@ describe('release notes', () => {
     expect(signed).not.toContain('{{')
     expect(renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'unsigned')).toContain(`\`${base}-mac-arm64-unsigned.dmg\``)
     expect(() => renderTakoReleaseNotes('{{UNKNOWN}}', TAKO_DESKTOP_VERSION, 'signed')).toThrow('unknown placeholder')
+  })
+})
+
+describe('version-specific release details', () => {
+  const source = { repository: 'tako-dev/dsh-tako-desktop', version: '0.1.46', commit: 'a'.repeat(40), runtimeVersion: '0.2.1-rc.5' }
+
+  it('uses the exact build commit and includes change links and runtime source', async () => {
+    const calls: { url: string; body: string }[] = []
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (typeof input !== 'string' || typeof init?.body !== 'string') throw new Error('expected JSON request')
+      calls.push({ url: input, body: init.body })
+      return Response.json({ body: "## What's Changed\n* Copy report path in https://github.com/tako-dev/dsh-tako-desktop/pull/31" })
+    }
+    const details = await generateTakoReleaseDetails(source, fetchImpl)
+    expect(calls).toEqual([{ url: 'https://api.github.com/repos/tako-dev/dsh-tako-desktop/releases/generate-notes',
+      body: JSON.stringify({ tag_name: 'v0.1.46', target_commitish: source.commit }) }])
+    expect(details).toBe(readFileSync(join(APP_ROOT, 'tests/expected/tako-release-details.txt'), 'utf8'))
+    expect(details).toContain('/pull/31')
+    expect(details).toContain(`/commit/${source.commit}`)
+    expect(details).toContain('0.2.1-rc.5')
+    expect(details).toContain(`/blob/${source.commit}/package.json`)
+    const template = readFileSync(join(REPOSITORY_ROOT, '.github/tako-release-notes.md'), 'utf8')
+    expect(renderTakoReleaseNotes(template, source.version, 'signed', details)).toContain(details)
+  })
+
+  it('stops rather than publishing missing or invalid change details', async () => {
+    const failed: typeof fetch = async () => Response.json({}, { status: 403 })
+    await expect(generateTakoReleaseDetails(source, failed)).rejects.toThrow('403')
+    const empty: typeof fetch = async () => Response.json({ body: '' })
+    await expect(generateTakoReleaseDetails(source, empty)).rejects.toThrow('no version-specific change summary')
+    await expect(generateTakoReleaseDetails({ ...source, commit: 'HEAD' }, empty)).rejects.toThrow('invalid release source identity')
   })
 })
 

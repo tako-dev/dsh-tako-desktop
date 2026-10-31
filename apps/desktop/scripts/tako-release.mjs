@@ -5,6 +5,7 @@
  * credential values.
  */
 
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { appendFileSync, copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
@@ -219,16 +220,52 @@ export function writeTakoReleaseChecksums(directory) {
  * @param {string} template - .github/tako-release-notes.md text with {{VERSION}} and {{MAC_DOWNLOAD}} placeholders.
  * @param {string} version - Application version.
  * @param {'signed' | 'unsigned'} macMode - Whether the macOS installer is signed and notarized.
+ * @param {string} [details] - Version-specific changes and exact build sources.
  * @returns {string} Release notes Markdown.
  */
-export function renderTakoReleaseNotes(template, version, macMode) {
+export function renderTakoReleaseNotes(template, version, macMode, details = '') {
   const base = `${ARTIFACT_PREFIX}-${version}`
   const mac = macMode === 'signed'
     ? `\`${base}-mac-arm64.dmg\` — Apple Silicon，已签名并公证 / signed and notarized`
     : `\`${base}-mac-arm64-unsigned.dmg\` — Apple Silicon，**未签名**：首次打开需在“系统设置 → 隐私与安全性”中点“仍要打开”，且不会自动更新 / **unsigned**: approve it under System Settings → Privacy & Security; no automatic updates`
   const rendered = template.replaceAll('{{VERSION}}', version).replaceAll('{{MAC_DOWNLOAD}}', mac)
+    .replaceAll('{{RELEASE_DETAILS}}', details)
   if (/\{\{[A-Z_]+\}\}/u.test(rendered)) throw new Error('tako release: the release notes template has an unknown placeholder')
   return rendered
+}
+
+/**
+ * Request GitHub's version-specific PR/changelog summary for the exact built commit.
+ * Failures stop publication instead of producing a release with missing change sources.
+ * @param {{ repository: string, version: string, commit: string, runtimeVersion: string }} source - Checked-out release identity.
+ * @param {typeof fetch} [fetchImpl] - HTTP implementation for isolated tests.
+ * @returns {Promise<string>} Change summary and source references, without credentials.
+ */
+export async function generateTakoReleaseDetails(source, fetchImpl = fetch) {
+  if (!/^[\w.-]+\/[\w.-]+$/u.test(source.repository)
+    || !STABLE_VERSION.test(source.version) || !/^[a-f\d]{40}$/u.test(source.commit)
+    || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/u.test(source.runtimeVersion)) {
+    throw new Error('tako release: invalid release source identity')
+  }
+  const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+  const headers = { accept: 'application/vnd.github+json', 'content-type': 'application/json', 'user-agent': 'dsh-tako-release',
+    ...(token ? { authorization: `Bearer ${token}` } : {}) }
+  const response = await fetchImpl(`https://api.github.com/repos/${source.repository}/releases/generate-notes`, {
+    method: 'POST', headers, redirect: 'error', signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({ tag_name: `v${source.version}`, target_commitish: source.commit }),
+  })
+  if (!response.ok) throw new Error(`tako release: change summary request failed with ${String(response.status)}`)
+  const generated = await response.json()
+  if (typeof generated?.body !== 'string' || generated.body.trim() === '') {
+    throw new Error('tako release: GitHub returned no version-specific change summary')
+  }
+  const repositoryUrl = `https://github.com/${source.repository}`
+  return [
+    '## 本次变更与来源 / Changes and sources', '', generated.body.trim(), '',
+    `- Tako 源码 / Source: [v${source.version}](${repositoryUrl}/tree/${source.commit}) · [commit ${source.commit.slice(0, 12)}](${repositoryUrl}/commit/${source.commit})`,
+    `- 内置 DSH / Bundled runtime: **${source.runtimeVersion}** · [构建时版本 / build manifest](${repositoryUrl}/blob/${source.commit}/package.json) · [上游项目 / upstream](https://github.com/deepseek-ai/deepseek-harness)`,
+    '',
+  ].join('\n')
 }
 
 /** Regular-file sizes in one flat release directory, ignoring the checksum file it will regenerate. */
@@ -307,9 +344,17 @@ async function main(argv) {
     case 'checksums':
       process.stdout.write(writeTakoReleaseChecksums(values.directory ?? ''))
       return
-    case 'notes':
-      writeFileSync(values.output ?? '', renderTakoReleaseNotes(readFileSync(values.template ?? '', 'utf8'), values.version ?? '', mode))
+    case 'notes': {
+      const repositoryRoot = resolve(APP_ROOT, '..', '..')
+      const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()
+      // git show works in the publication job's sparse checkout without loading runtime code.
+      const manifest = JSON.parse(execFileSync('git', ['show', 'HEAD:package.json'], { cwd: repositoryRoot, encoding: 'utf8' }))
+      const details = await generateTakoReleaseDetails({
+        repository: requiredEnvironment('GH_REPO'), version: values.version ?? '', commit, runtimeVersion: manifest.version,
+      })
+      writeFileSync(values.output ?? '', renderTakoReleaseNotes(readFileSync(values.template ?? '', 'utf8'), values.version ?? '', mode, details))
       return
+    }
     case 'size': {
       const threshold = Number(values.threshold ?? '5')
       if (!Number.isFinite(threshold) || threshold < 0) throw new Error('tako release: --threshold must be a non-negative number')

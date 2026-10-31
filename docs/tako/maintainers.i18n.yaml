@@ -15,8 +15,8 @@
   en: d49c7505edee8c32
   zh: 8ec1d8117ea6b7da
 /dsh-tako-maintainer-guide/release-process:
-  en: d57ef39ad4701fd8
-  zh: e77c0878ebb31e05
+  en: 9a4f575fa8bf09f4
+  zh: 3d019f401b3e31db
 /dsh-tako-maintainer-guide/secrets:
   en: 6d9a1da32fa52d69
   zh: 45dc61c99d0c74ff
@@ -29,6 +29,9 @@
 /dsh-tako-maintainer-guide/branding-and-isolation-points:
   en: 45befb0ba336c657
   zh: ffc80da347e49e66
+/dsh-tako-maintainer-guide/cannot-break-profile-invariants-2026-10-26:
+  en: 07d43ea8deeb05db
+  zh: aacbc0a8e2407f59
 /dsh-tako-maintainer-guide/known-limitations:
   en: 53f6c62ccdffd95a
   zh: 718aa12ea72cbf7e

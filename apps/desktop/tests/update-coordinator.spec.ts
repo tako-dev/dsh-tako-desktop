@@ -201,6 +201,24 @@ describe('desktop update coordinator', () => {
     expect(f.downloadUpdate).not.toHaveBeenCalled()
   })
 
+  it.each(['0.1.5', '0.1.41', '0.1.44'])('updates directly from %s to the latest compatible stable release', async (installed) => {
+    const gate = vi.fn(async () => {})
+    const f = fixture('latest', installed, gate)
+    f.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '0.1.46' } })
+    f.downloadUpdate.mockImplementation(async () => {
+      f.events.emit('update-downloaded', { version: '0.1.46' })
+      return ['verified-latest-installer']
+    })
+    expect(await f.coordinator.check()).toEqual({ phase: 'available', version: '0.1.46' })
+    expect(gate).toHaveBeenCalledExactlyOnceWith('0.1.46')
+    expect(await f.coordinator.download('0.1.46')).toEqual({ phase: 'ready', version: '0.1.46' })
+    await f.coordinator.install('0.1.46')
+    expect(f.checkForUpdates).toHaveBeenCalledOnce()
+    expect(f.downloadUpdate).toHaveBeenCalledOnce()
+    expect(f.quitAndInstall).toHaveBeenCalledExactlyOnceWith(true, true)
+    expect(f.updater.allowDowngrade).toBe(false)
+  })
+
   it('does not present a DSH update until the Tako compatibility gate accepts it', async () => {
     const gate = vi.fn(async () => { throw new Error('Tako bundle is not published for this DSH version') })
     const f = fixture('nightly', '1.1.0-alpha.1', gate)

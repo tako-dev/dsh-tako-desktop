@@ -1,0 +1,7 @@
+## 本次变更与来源 / Changes and sources
+
+## What's Changed
+* Copy report path in https://github.com/tako-dev/dsh-tako-desktop/pull/31
+
+- Tako 源码 / Source: [v0.1.46](https://github.com/tako-dev/dsh-tako-desktop/tree/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) · [commit aaaaaaaaaaaa](https://github.com/tako-dev/dsh-tako-desktop/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
+- 内置 DSH / Bundled runtime: **0.2.1-rc.5** · [构建时版本 / build manifest](https://github.com/tako-dev/dsh-tako-desktop/blob/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/package.json) · [上游项目 / upstream](https://github.com/deepseek-ai/deepseek-harness)

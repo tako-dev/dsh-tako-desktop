@@ -1,5 +1,7 @@
 DSH Tako {{VERSION}} — 非官方桌面应用，基于 DeepSeek Harness 构建 / an unofficial desktop app built on DeepSeek Harness.
 
+{{RELEASE_DETAILS}}
+
 ## 下载哪个文件 / Which file to download
 
 | 系统 / System | 文件 / File |
@@ -8,6 +10,12 @@ DSH Tako {{VERSION}} — 非官方桌面应用，基于 DeepSeek Harness 构建 
 | Windows（x64） | `DSH-Tako-{{VERSION}}-win-x64.exe` — 未做代码签名 / not code-signed |
 
 `latest*.yml`、`.zip`、`.blockmap` 供应用内自动更新使用，无需手动下载；`SHA256SUMS.txt` 可用于校验下载文件。The `latest*.yml`, `.zip`, and `.blockmap` files feed in-app updates; `SHA256SUMS.txt` verifies downloads.
+
+## 从旧版本更新 / Updating from an older version
+
+已安装版本可在“设置 → 通用”直接更新到最新兼容稳定版，无需逐个安装中间版本。安装前会下载并校验目标包，确认后再重启。Older installations can update directly to the latest compatible stable version in Settings → General, without installing intermediate releases; the target package is downloaded and verified before a separate restart confirmation.
+
+无法打开应用时，完全退出应用（包括托盘），下载目标系统的最新安装包覆盖安装，保留账号和任务数据。If the app cannot open, quit it completely (including the tray), then install the latest package for your system over the existing installation without deleting account or task data.
 
 ## 首次打开 / First launch
 

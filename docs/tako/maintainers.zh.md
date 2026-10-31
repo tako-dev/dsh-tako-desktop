@@ -46,6 +46,8 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
    - `publish`：两个平台都成功后，生成 `SHA256SUMS.txt` 和发布说明（模板 [.github/tako-release-notes.md](../../.github/tako-release-notes.md)），用 `gh release create <tag> --verify-tag` 创建 Release；Release 已存在时改用 `gh release upload --clobber` 替换附件，不改动已有说明。只有这个 job 拥有 `contents: write`。
 4. 检查 Release 附件：`DSH-Tako-<版本>-mac-arm64.dmg`、`.zip`、`.zip.blockmap`、`latest-mac.yml`、`DSH-Tako-<版本>-win-x64.exe`、`.exe.blockmap`、`latest.yml`、`SHA256SUMS.txt`。
 
+发布说明包含 GitHub 生成的本次合并 PR 清单与版本比较链接、实际构建提交、内置 DSH 版本及其构建清单和上游项目。缺少变更详情时停止发布；重跑不改写已有发布说明。稳定版客户端可直接更新到最新兼容稳定版，无需逐版安装；兼容性检查、包校验、下载和安装的独立确认及禁止降级仍然生效。
+
 在 Actions 页面手动运行 Release（`workflow_dispatch`）可以输入已有 tag，并选择：
 
 - `dry_run`：只构建并保留 Actions artifact（`release-mac-arm64`、`release-win-x64`），在运行摘要中显示校验和与发布说明，不创建或修改 Release。
