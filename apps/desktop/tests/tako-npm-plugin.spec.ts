@@ -78,9 +78,9 @@ describe('installNpmDshTakoPlugin', () => {
       writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: NPM_DSH_TAKO, version: '0.5.13' }))
       const spawnAdd = vi.fn<SpawnAdd>(async () => ({ status: 0, stdout: '', stderr: '' }))
       await installNpmDshTakoPlugin({ profileDir: root, dshDir: dsh, spawnAdd })
-      expect(NPM_DSH_TAKO_VERSION).toBe('0.5.14')
+      expect(NPM_DSH_TAKO_VERSION).toBe('0.5.15')
       expect(spawnAdd).toHaveBeenCalledOnce()
-      expect(spawnAdd.mock.calls[0]![0].args).toContain('dsh-tako@0.5.14')
+      expect(spawnAdd.mock.calls[0]![0].args).toContain('dsh-tako@0.5.15')
     } finally { rmSync(root, { recursive: true, force: true }) }
   })
 
