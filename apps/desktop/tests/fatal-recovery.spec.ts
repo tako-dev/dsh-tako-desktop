@@ -17,6 +17,7 @@ function fixture(
     disablePlugins: vi.fn(async () => {}),
     exit: vi.fn(),
     restart: vi.fn(),
+    copyReportPath: vi.fn(async (_path: string) => {}),
     writeReport: vi.fn(writeReport),
   }
   return { operations, choice, stopped, recovery: new DesktopFatalRecovery(operations) }
@@ -188,11 +189,63 @@ it('names the report file in the listener-conflict dialog too', async () => {
   await shown(operations)
   await vi.waitFor(() => { expect(operations.show).toHaveBeenCalledOnce() })
   const options = operations.show.mock.calls[0]![0]
-  expect(options.buttons).toHaveLength(2)
+  expect(options.buttons).toEqual([
+    operations.messages().exitApplication, operations.messages().restartApplication, operations.messages().copyReportPath,
+  ])
   expect(options.detail).toBe(`${operations.messages().startupAddressInUse}\n${operations.messages().reportWrittenTo.replace('{path}', REPORT_PATH)}`)
   choice.resolve({ response: 0, checkboxChecked: false })
   stopped.resolve(undefined)
   await pending
+})
+
+it.each(['en', 'zh-CN'])('copies the complete report path without stopping or changing plugins in %s', async (locale) => {
+  const { operations, stopped, recovery } = fixture(locale, async () => REPORT_PATH)
+  operations.show.mockResolvedValueOnce({ response: 3, checkboxChecked: false })
+    .mockResolvedValueOnce({ response: 0, checkboxChecked: false })
+  operations.copyReportPath.mockImplementation(async () => {
+    expect(operations.stop).not.toHaveBeenCalled()
+    expect(operations.disablePlugins).not.toHaveBeenCalled()
+    expect(operations.restart).not.toHaveBeenCalled()
+  })
+  stopped.resolve(undefined)
+  await recovery.report(new Error('web boot: account failed'), 'web-boot')
+  expect(operations.copyReportPath).toHaveBeenCalledExactlyOnceWith(REPORT_PATH)
+  expect(operations.writeReport).toHaveBeenCalledOnce()
+  expect(operations.show.mock.calls[0]![0].buttons).toEqual([
+    operations.messages().exitApplication, operations.messages().restartApplication,
+    operations.messages().disableThirdPartyPlugins, operations.messages().copyReportPath,
+  ])
+  expect(operations.show.mock.calls[1]![0]).toMatchObject({
+    message: operations.messages().reportPathCopied, defaultId: 1, cancelId: 0,
+  })
+  expect(operations.show.mock.calls[1]![0].detail).toContain(REPORT_PATH)
+  expect(operations.exit).toHaveBeenCalledOnce()
+})
+
+it('copies a listener-conflict report without disabling plugins and still allows restart', async () => {
+  const { operations, stopped, recovery } = fixture('en', async () => REPORT_PATH)
+  operations.show.mockResolvedValueOnce({ response: 2, checkboxChecked: false })
+    .mockResolvedValueOnce({ response: 1, checkboxChecked: false })
+  stopped.resolve(undefined)
+  await recovery.report(new Error('listen EADDRINUSE: address already in use'), 'host')
+  expect(operations.copyReportPath).toHaveBeenCalledExactlyOnceWith(REPORT_PATH)
+  expect(operations.disablePlugins).not.toHaveBeenCalled()
+  expect(operations.restart).toHaveBeenCalledOnce()
+})
+
+it('keeps the report available for retry when copying fails', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  const { operations, stopped, recovery } = fixture('en', async () => REPORT_PATH)
+  operations.show.mockResolvedValueOnce({ response: 3, checkboxChecked: false })
+    .mockResolvedValueOnce({ response: 3, checkboxChecked: false })
+    .mockResolvedValueOnce({ response: 0, checkboxChecked: false })
+  operations.copyReportPath.mockRejectedValueOnce(new Error('clipboard unavailable'))
+  stopped.resolve(undefined)
+  await recovery.report(new Error('fatal'), 'main')
+  expect(operations.copyReportPath).toHaveBeenCalledTimes(2)
+  expect(operations.show.mock.calls[1]![0].message).toBe(operations.messages().reportPathCopyFailed)
+  expect(operations.show.mock.calls[2]![0].message).toBe(operations.messages().reportPathCopied)
+  expect(operations.exit).toHaveBeenCalledOnce()
 })
 
 it('shows the dialog without a path when the report write fails or returns nothing', async () => {

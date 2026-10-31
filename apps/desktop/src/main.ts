@@ -110,6 +110,7 @@ const recovery = new DesktopFatalRecovery({
   exit: () => { quitWithoutConfirmation() },
   restart: () => { app.relaunch(); quitWithoutConfirmation() },
   writeReport: (error, source) => persistCrashReport(error, source),
+  copyReportPath: path => clipboard.writeText(path),
 })
 
 function persistCrashReport(error: unknown, source: CrashReportSource): Promise<string | undefined> {
