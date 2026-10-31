@@ -83,6 +83,50 @@ it('starts the Tako account page and refreshes its credential after plugin login
   }
 }, 60_000)
 
+for (const oldFails of [false, true]) it(`keeps the latest Tako quota after an older read (failure: ${oldFails})`, async ({ start, remote, mock }) => {
+  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('__DSH_TAKO_PROFILE__', true)
+  remote.credentials.describe.mockResolvedValue(ok({ TAKO_API_KEY: { configured: true, writable: true } }))
+  const old = Promise.withResolvers<Awaited<ReturnType<typeof remote.account.getTakoQuota>>>()
+  remote.account.getTakoQuota.mockImplementationOnce(() => old.promise)
+  remote.account.getTakoQuota.mockResolvedValue(ok({ status: 'ready', value: {
+    account: { balance: 2 }, source: 'user-quota', fetchedAt: '2026-11-01T00:00:00Z',
+  } }))
+  const c = await start()
+  try {
+    await vi.waitFor(() => { expect(remote.account.getTakoQuota).toHaveBeenCalledOnce() })
+    mock.streams.push('$events', { type: 'emit', event: 'credentials/reference-updated', args: ['TAKO_API_KEY'] })
+    await vi.waitFor(() => { expect(operations(c).hooks.account.getSnapshot().takoQuota?.value?.account?.balance).toBe(2) })
+  } finally {
+    old.resolve(oldFails
+      ? { ok: false, error: new RemoteError('gateway/internal', 'obsolete fixture error', {}) }
+      : ok({ status: 'ready', value: { account: { balance: 1 }, source: 'user-quota', fetchedAt: '2026-10-31T23:00:00Z' } }))
+    await old.promise
+    await c.flush()
+  }
+  expect(operations(c).hooks.account.getSnapshot().takoQuota?.value?.account?.balance).toBe(2)
+}, 60_000)
+
+it('does not publish a Tako quota response after the account plugin unloads', async ({ start, remote }) => {
+  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('__DSH_TAKO_PROFILE__', true)
+  remote.credentials.describe.mockResolvedValue(ok({ TAKO_API_KEY: { configured: true, writable: true } }))
+  const old = Promise.withResolvers<Awaited<ReturnType<typeof remote.account.getTakoQuota>>>()
+  remote.account.getTakoQuota.mockImplementationOnce(() => old.promise)
+  const c = await start()
+  const account = operations(c).hooks.account
+  const before = account.getSnapshot()
+  try {
+    await vi.waitFor(() => { expect(remote.account.getTakoQuota).toHaveBeenCalledOnce() })
+    await c.unload(SELF)
+  } finally {
+    old.resolve(ok({ status: 'ready', value: { apiId: 'retired-account', source: 'user-quota', fetchedAt: '2026-11-01T00:00:00Z' } }))
+    await old.promise
+    await c.flush()
+  }
+  expect(account.getSnapshot()).toBe(before)
+}, 60_000)
+
 it('registers account sign-in in a plain browser without the Desktop-only surfaces, including after reload', async ({ start }) => {
   const c = await start()
   for (const reload of [false, true]) {
