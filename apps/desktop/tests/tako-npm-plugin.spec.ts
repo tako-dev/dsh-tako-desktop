@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   desktopProfileBundles, ensureNpmDshTakoManifest, FORKED_TAKO_BUNDLE, installNpmDshTakoPlugin,
-  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, restoreNpmDshTakoBundle, type SpawnAddRequest,
+  NPM_DSH_TAKO, NPM_DSH_TAKO_VERSION, restoreNpmDshTakoBundle, type SpawnAdd, type SpawnAddRequest,
 } from '../src/tako-npm-plugin.ts'
 
 describe('ensureNpmDshTakoManifest', () => {
@@ -64,6 +64,24 @@ describe('installNpmDshTakoPlugin', () => {
     const spawnAdd = vi.fn()
     await installNpmDshTakoPlugin({ profileDir: root, dshDir: '/opt/dsh', spawnAdd })
     expect(spawnAdd).not.toHaveBeenCalled()
+  })
+
+  it('upgrades the stale plugin shipped with desktop 0.1.45 to the reviewed login release', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-tako-plugin-upgrade-'))
+    try {
+      const pkg = join(root, 'node_modules', NPM_DSH_TAKO)
+      const dsh = join(root, 'dsh')
+      mkdirSync(pkg, { recursive: true })
+      const cli = join(dsh, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib')
+      mkdirSync(cli, { recursive: true })
+      writeFileSync(join(cli, 'cli.js'), '')
+      writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: NPM_DSH_TAKO, version: '0.5.13' }))
+      const spawnAdd = vi.fn<SpawnAdd>(async () => ({ status: 0, stdout: '', stderr: '' }))
+      await installNpmDshTakoPlugin({ profileDir: root, dshDir: dsh, spawnAdd })
+      expect(NPM_DSH_TAKO_VERSION).toBe('0.5.15')
+      expect(spawnAdd).toHaveBeenCalledOnce()
+      expect(spawnAdd.mock.calls[0]![0].args).toContain('dsh-tako@0.5.15')
+    } finally { rmSync(root, { recursive: true, force: true }) }
   })
 
   it('runs dsh plugin add against the official registry', async () => {

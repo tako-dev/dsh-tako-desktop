@@ -480,6 +480,7 @@ async function main(): Promise<void> {
           (input, init) => net.fetch(input, init),
           async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; '),
           (input, init) => net.fetch(input, init),
+          'tako',
         )
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
@@ -1221,7 +1222,7 @@ async function main(): Promise<void> {
             return { ok: true }
           }
           if (takoLogin !== undefined) return { ok: false, reason: 'failed' }
-          const login = await startTakoBrowserLogin()
+          const login = await startTakoBrowserLogin({ locale: locale.id })
           takoLogin = login
           try {
             await shell.openExternal(login.authorizeUrl)

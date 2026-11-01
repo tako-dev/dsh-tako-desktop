@@ -133,16 +133,17 @@ export function apply(ctx: Context): void {
   let disposed = false
   ctx.effect(() => () => { disposed = true; return stream?.dispose() }, 'account: state stream')
   if (takoMode) {
+    let quotaRevision = 0
     const loadTakoQuota = async (): Promise<void> => {
+      const generation = ++quotaRevision
       try {
         const result = await ctx.remote.account.getTakoQuota()
-        if (!result.ok) {
-          publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
-          return
-        }
-        publish({ ...snapshot, takoQuota: result.value })
+        if (disposed || generation !== quotaRevision) return
+        publish({ ...snapshot, takoQuota: result.ok ? result.value : { status: 'failed', code: 'UNAVAILABLE' } })
       } catch {
-        publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+        if (!disposed && generation === quotaRevision) {
+          publish({ ...snapshot, takoQuota: { status: 'failed', code: 'UNAVAILABLE' } })
+        }
       }
     }
     void loadTakoQuota()

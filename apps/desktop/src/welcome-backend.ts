@@ -64,6 +64,7 @@ export function takoCredentialSettings(namespaces: readonly unknown[]): { apiKey
  * Authenticate the native HTTP client through the Web application's launch URL.
  * @param authenticatedUrl - URL supplied by the running Desktop Host.
  * @param send - Electron session fetch, retaining the Web authentication cookie.
+ * @param expectedProvider - Product-owned family retained while credential metadata is unavailable.
  * @returns metadata reads and write-only credential operations over standard RPC.
  */
 export async function connectDesktopWelcome(
@@ -71,6 +72,7 @@ export async function connectDesktopWelcome(
   send: (input: string, init?: RequestInit) => Promise<Response>,
   cookies: () => Promise<string> = () => Promise.resolve(''),
   providerFetch: (input: string, init?: RequestInit) => Promise<Response> = fetch,
+  expectedProvider?: WelcomeProvider,
 ): Promise<DesktopWelcomeBackend> {
   const origin = new URL(authenticatedUrl).origin
   const authenticated = await send(authenticatedUrl, { credentials: 'include' })
@@ -110,6 +112,12 @@ export async function connectDesktopWelcome(
     if (tako !== undefined) {
       selectedProvider = 'tako'
       return { settings: { namespaces: settings.namespaces }, ref: tako.apiKeyEnv, provider: selectedProvider, baseURL: tako.baseURL }
+    }
+    if (expectedProvider === 'tako') {
+      // Product identity does not depend on the npm catalog finishing its first sync.
+      // Missing metadata cannot authorize a write to a guessed or official reference.
+      selectedProvider = 'tako'
+      return { settings: { namespaces: settings.namespaces }, ref: undefined, provider: selectedProvider, baseURL: undefined }
     }
     if (official === undefined) {
       selectedProvider = 'deepseek'
@@ -165,8 +173,8 @@ export async function connectDesktopWelcome(
       // account must not suppress Tako onboarding when the Tako profile is
       // mounted, so only the selected provider can satisfy the key step.
       loggedIn: provider === 'deepseek' && (await account.state()).status === 'credential-stored',
-      hasApiKey: selectedProvider === 'tako' && ref !== undefined
-        ? record(states[ref]) && states[ref].configured === true
+      hasApiKey: selectedProvider === 'tako'
+        ? ref !== undefined && record(states[ref]) && states[ref].configured === true
         : Object.values(states).some(value => record(value) && value.configured === true),
       writable: ref !== undefined && record(states[ref]) && states[ref].writable === true,
       localePreference: localePreference(namespaces),

@@ -99,6 +99,19 @@ describe('desktop welcome Web operations', () => {
     await expect(backend.read()).rejects.toThrow('Web RPC failed')
   })
 
+  it('retains Tako entry during pending plugin catalog sync without using official credentials', async () => {
+    const host = transport(undefined)
+    host.keys.set('CUSTOM_DEEPSEEK_KEY', 'official-fixture-key')
+    const backend = await connectDesktopWelcome(url, host.send, undefined, undefined, 'tako')
+    expect(await backend.read()).toMatchObject({ loggedIn: false, hasApiKey: false, writable: false })
+    expect(backend.provider).toBe('tako')
+    expect(await backend.save('fixture-tako-key')).toEqual({ ok: false })
+    expect(host.keys.get('CUSTOM_DEEPSEEK_KEY')).toBe('official-fixture-key')
+    host.namespaces.push({ ns: 'tako', value: { apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example' } })
+    expect(await backend.read()).toMatchObject({ writable: true })
+    expect(backend.provider).toBe('tako')
+  })
+
   it('validates a Tako key against its model endpoint before storing it', async () => {
     const host = transport(undefined, { tako: true })
     const providerFetch = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(

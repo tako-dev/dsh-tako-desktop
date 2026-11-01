@@ -1,6 +1,7 @@
 /** Typed English and Chinese copy owned by the Electron shell. */
 
 export const en = {
+  takoLoginComplete: 'Tako login completed. Return to the DSH Tako window.',
   cliCommandMenu: 'Manage dsh-tako Command…',
   cliCommandTitle: 'Manage dsh-tako Command',
   cliCommandLocation: 'DSH Tako command: {path}',
@@ -189,6 +190,7 @@ export const en = {
 export type DesktopMessages = { readonly [Key in keyof typeof en]: string }
 
 export const zh = {
+  takoLoginComplete: 'Tako 登录成功，请返回 DSH Tako 窗口。',
   cliCommandMenu: '管理 dsh-tako 命令…',
   cliCommandTitle: '管理 dsh-tako 命令',
   cliCommandLocation: 'DSH Tako 命令：{path}',
