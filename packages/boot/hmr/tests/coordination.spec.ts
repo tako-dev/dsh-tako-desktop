@@ -59,6 +59,45 @@ it('serializes mutations, rejects nesting and keeps the queue usable after failu
   expect(order).toEqual([1, 2])
 })
 
+it('allows deferred work from a settled transaction while rejecting it during the transaction', async () => {
+  const { hmr } = await fixture()
+  const release = Promise.withResolvers<undefined>()
+  onTestFinished(() => { release.resolve(undefined) })
+  let continuation: Promise<void> = Promise.resolve()
+  await hmr.runExclusive(async () => {
+    continuation = (async () => {
+      await release.promise
+      await hmr.runExclusive(async () => {})
+    })()
+    await expect(hmr.runExclusive(async () => {})).rejects.toThrow('cannot be nested')
+  })
+  release.resolve(undefined)
+  await expect(continuation).resolves.toBeUndefined()
+})
+
+it('expires a failed transaction marker without overlapping another queued operation', async () => {
+  const { hmr } = await fixture()
+  const deferred = Promise.withResolvers<undefined>()
+  const busy = Promise.withResolvers<undefined>()
+  const entered = Promise.withResolvers<undefined>()
+  onTestFinished(() => { deferred.resolve(undefined); busy.resolve(undefined) })
+  let continuation: Promise<void> = Promise.resolve()
+  const order: string[] = []
+  await expect(hmr.runExclusive(async () => {
+    continuation = (async () => { await deferred.promise; await hmr.runExclusive(async () => { order.push('deferred') }) })()
+    throw new Error('activation failed')
+  })).rejects.toThrow('activation failed')
+  const queued = hmr.runExclusive(async () => { order.push('busy'); entered.resolve(undefined); await busy.promise })
+  await entered.promise
+  deferred.resolve(undefined)
+  await Promise.resolve()
+  expect(order).toEqual(['busy'])
+  busy.resolve(undefined)
+  await queued
+  await continuation
+  expect(order).toEqual(['busy', 'deferred'])
+})
+
 it('holds configuration handlers behind configuration mutations', async () => {
   const { hmr, dir } = await fixture()
   const filename = join(dir, 'package.json')
