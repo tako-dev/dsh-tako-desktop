@@ -1,11 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { parseEnv } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   collectTakoReleaseAssets,
   compareTakoReleaseSizes,
+  createTakoWindowsManualArchive,
   generateTakoReleaseDetails,
   readTakoDesktopVersionSource,
   renderTakoMacOSReleaseEnvironment,
@@ -90,6 +91,7 @@ describe('release assets', () => {
     expectDirectory('mac-arm64', { unsigned: true }, unsigned.directory)
     const windows = takoReleaseAssets('win-x64', version, 'signed')
     expect(windows.files).toEqual([`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'latest.yml'])
+    expect(windows.manualArchive).toBe(`${base}-win-x64.zip`)
     expectDirectory('win-x64', { unsigned: true, unsignedRelease: true }, windows.directory)
   })
 
@@ -113,7 +115,8 @@ describe('release assets', () => {
     const directory = join(appRoot, '.desktop-build/targets/win-x64/unsigned-artifacts')
     mkdirSync(directory, { recursive: true })
     const artifact = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.exe`
-    const expected = [artifact, `${artifact}.blockmap`, 'latest.yml']
+    const archive = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.zip`
+    const expected = [artifact, `${artifact}.blockmap`, 'latest.yml', archive]
     writeFileSync(join(directory, artifact), 'installer')
     const output = join(appRoot, 'release')
     const request = { target: 'win-x64', version: TAKO_DESKTOP_VERSION, mode: 'signed', output, appRoot } as const
@@ -125,8 +128,35 @@ describe('release assets', () => {
     writeFileSync(join(directory, 'latest.yml'), `version: 0.0.9\nfiles:\n  - url: ${artifact}\n`)
     expect(() => collectTakoReleaseAssets(request)).toThrow('declares version 0.0.9')
     writeFileSync(join(directory, 'latest.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${artifact}\npath: ${artifact}\n`)
-    expect(collectTakoReleaseAssets(request)).toEqual(expected)
-    expect(readdirSync(output).sort()).toEqual(expected)
+    const createArchive = vi.fn((directory: string) => { writeFileSync(join(directory, archive), 'zip'); return archive })
+    expect(collectTakoReleaseAssets(request, createArchive)).toEqual(expected)
+    expect(createArchive).toHaveBeenCalledExactlyOnceWith(output, TAKO_DESKTOP_VERSION)
+    expect(readdirSync(output).sort()).toEqual([...expected].sort())
+  })
+
+  it('creates a manual Windows ZIP containing only the installer', () => {
+    const directory = temporary()
+    const installer = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.exe`
+    const archive = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.zip`
+    const run = vi.fn((_command: string, args: string[]) => {
+      if (args.includes('-cf')) { writeFileSync(join(directory, archive), 'archive'); return Buffer.alloc(0) }
+      return `${installer}\n`
+    })
+    expect(createTakoWindowsManualArchive(directory, TAKO_DESKTOP_VERSION, run)).toBe(archive)
+    expect(run.mock.calls.map(call => call[0])).toEqual(['tar', 'tar'])
+    expect(existsSync(join(directory, archive))).toBe(true)
+  })
+
+  it('rejects a manual Windows archive containing anything except the installer', () => {
+    const directory = temporary()
+    const archive = join(directory, `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.zip`)
+    const run = vi.fn((_command: string, args: string[]) => {
+      if (args.includes('-cf')) { writeFileSync(archive, 'archive'); return Buffer.alloc(0) }
+      return 'unexpected.exe\n'
+    })
+    expect(() => createTakoWindowsManualArchive(directory, TAKO_DESKTOP_VERSION, run))
+      .toThrow('archive contains unexpected files')
+    expect(existsSync(archive)).toBe(false)
   })
 
   it('writes sha256sum-compatible checksums for every release file', () => {
@@ -148,6 +178,7 @@ describe('release notes', () => {
     const base = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}`
     const signed = renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'signed')
     expect(signed).toContain(`\`${base}-mac-arm64.dmg\``)
+    expect(signed).toContain(`\`${base}-win-x64.zip\``)
     expect(signed).toContain(`\`${base}-win-x64.exe\``)
     expect(signed).not.toContain('{{')
     expect(renderTakoReleaseNotes(template, TAKO_DESKTOP_VERSION, 'unsigned')).toContain(`\`${base}-mac-arm64-unsigned.dmg\``)

@@ -7,9 +7,9 @@ DSH Tako {{VERSION}} — 非官方桌面应用，基于 DeepSeek Harness 构建 
 | 系统 / System | 文件 / File |
 |---|---|
 | macOS（Apple Silicon） | {{MAC_DOWNLOAD}} |
-| Windows（x64） | `DSH-Tako-{{VERSION}}-win-x64.exe` — 未做代码签名 / not code-signed |
+| Windows（x64） | {{WINDOWS_DOWNLOAD}} |
 
-`latest*.yml`、`.zip`、`.blockmap` 供应用内自动更新使用，无需手动下载；`SHA256SUMS.txt` 可用于校验下载文件。The `latest*.yml`, `.zip`, and `.blockmap` files feed in-app updates; `SHA256SUMS.txt` verifies downloads.
+Windows 手动下载 ZIP 后先解压，再运行其中的 exe。`latest*.yml`、macOS `.zip` 和 `.blockmap` 供应用内自动更新；Windows updater 仍使用 exe。`SHA256SUMS.txt` 可校验所有下载。Extract the Windows manual-download ZIP, then run its exe. The `latest*.yml`, macOS `.zip`, and `.blockmap` files feed in-app updates; Windows updater continues to use the exe. `SHA256SUMS.txt` verifies every download.
 
 ## 从旧版本更新 / Updating from an older version
 
