@@ -44,7 +44,7 @@ Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is 
    - `macos` (`macos-15`, arm64) imports the certificate, signs, and notarizes when all six Apple secrets exist, and fails listing the missing ones otherwise.
    - `windows` (`windows-latest`) builds the unsigned NSIS installer with the GitHub update feed.
    - `publish`, after both platforms succeed, writes `SHA256SUMS.txt` and the release notes (template [.github/tako-release-notes.md](../../.github/tako-release-notes.md)) and creates the release with `gh release create <tag> --verify-tag`; when the release already exists it replaces the assets with `gh release upload --clobber` and leaves the notes alone. Only this job has `contents: write`.
-4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, `.exe.blockmap`, `latest.yml`, and `SHA256SUMS.txt`.
+4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, its manual-download `.zip`, `.exe.blockmap`, `latest.yml`, and `SHA256SUMS.txt`. The Windows ZIP must contain exactly the EXE; updater metadata continues to name the EXE.
 
 Release notes include GitHub's version-specific merged-PR summary and changelog comparison, the exact built commit, and the bundled DSH version with its build manifest and upstream project. Missing change details stop publication; reruns do not rewrite existing release descriptions. Stable installations update directly to the latest compatible stable release, without intermediate versions; compatibility checks, package verification, explicit download/install approvals and downgrade rejection still apply.
 

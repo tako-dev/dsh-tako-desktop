@@ -49,6 +49,7 @@ export function takoReleaseAssets(target: 'mac-arm64' | 'win-x64', version: stri
   directory: string
   files: string[]
   updateMetadata: string | undefined
+  manualArchive?: string
 }
 
 /**
@@ -57,6 +58,15 @@ export function takoReleaseAssets(target: 'mac-arm64' | 'win-x64', version: stri
  * @returns Declared version and every `url`/`path` entry.
  */
 export function takoUpdateMetadataReferences(metadata: string): { version: string | undefined, files: string[] }
+
+/**
+ * Wrap the unsigned Windows installer for manual downloads without changing electron-updater's EXE target.
+ * @param directory - Flat release directory already containing the installer.
+ * @param version - Release version used in both file names.
+ * @returns Generated ZIP file name.
+ */
+export function createTakoWindowsManualArchive(directory: string, version: string,
+  run?: (command: string, args: string[], options: object) => string | Buffer): string
 
 /**
  * Copy one platform's release files into a flat directory after checking they are complete and consistent.
@@ -69,7 +79,7 @@ export function collectTakoReleaseAssets(request: {
   mode: 'signed' | 'unsigned'
   output: string
   appRoot?: string
-}): string[]
+}, createManualArchive?: (directory: string, version: string) => string): string[]
 
 /**
  * Write SHA256SUMS.txt for every regular file in a release directory, in `sha256sum` format.

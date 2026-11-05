@@ -7,7 +7,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { appendFileSync, copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -143,13 +143,14 @@ export function renderTakoReleaseSizeReport(rows, thresholdPercent) {
  * @param {'mac-arm64' | 'win-x64'} target - Release target.
  * @param {string} version - Application version.
  * @param {'signed' | 'unsigned'} mode - macOS signing mode; Windows releases are always unsigned.
- * @returns {{ directory: string, files: string[], updateMetadata: string | undefined }} Directory relative to apps/desktop, file names, and the electron-updater metadata file among them.
+ * @returns {{ directory: string, files: string[], updateMetadata: string | undefined, manualArchive?: string }} Directory relative to apps/desktop, builder file names, updater metadata, and any generated manual-download wrapper.
  */
 export function takoReleaseAssets(target, version, mode) {
   const base = `${ARTIFACT_PREFIX}-${version}`
   if (target === 'win-x64') {
     return { directory: '.desktop-build/targets/win-x64/unsigned-artifacts',
-      files: [`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'latest.yml'], updateMetadata: 'latest.yml' }
+      files: [`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'latest.yml'], updateMetadata: 'latest.yml',
+      manualArchive: `${base}-win-x64.zip` }
   }
   if (target !== 'mac-arm64') throw new Error(`tako release: unsupported target ${String(target)}`)
   if (mode === 'unsigned') {
@@ -172,11 +173,38 @@ export function takoUpdateMetadataReferences(metadata) {
 }
 
 /**
+ * Wrap the unsigned Windows installer for manual downloads without changing electron-updater's EXE target.
+ * @param {string} directory - Flat release directory already containing the installer.
+ * @param {string} version - Release version used in both file names.
+ * @param {(command: string, args: string[], options: object) => string | Buffer} [run] - Subprocess seam for host-independent tests.
+ * @returns {string} Generated ZIP file name.
+ */
+export function createTakoWindowsManualArchive(directory, version, run = execFileSync) {
+  const base = `${ARTIFACT_PREFIX}-${version}`
+  const installer = `${base}-win-x64.exe`
+  const archive = `${base}-win-x64.zip`
+  const archivePath = join(directory, archive)
+  try {
+    run('tar', ['-a', '-cf', archivePath, '-C', directory, installer], { stdio: 'pipe' })
+    if (statSync(archivePath).size === 0) throw new Error('archive is empty')
+    const entries = String(run('tar', ['-tf', archivePath], { encoding: 'utf8' })).trim().split(/\r?\n/gu)
+    if (entries.length !== 1 || entries[0] !== installer) {
+      throw new Error(`archive contains unexpected files ${JSON.stringify(entries)}`)
+    }
+  } catch (error) {
+    try { unlinkSync(archivePath) } catch { /* archive was never created */ }
+    throw new Error(`tako release: could not create manual Windows archive ${archive}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  return archive
+}
+
+/**
  * Copy one platform's release files into a flat directory after checking they are complete and consistent.
  * @param {{ target: 'mac-arm64' | 'win-x64', version: string, mode: 'signed' | 'unsigned', output: string, appRoot?: string }} request - Release target and destination.
- * @returns {string[]} Copied file names.
+ * @param {(directory: string, version: string) => string} [createManualArchive] - Windows archive builder; injectable only for deterministic host-independent tests.
+ * @returns {string[]} Copied and generated file names.
  */
-export function collectTakoReleaseAssets(request) {
+export function collectTakoReleaseAssets(request, createManualArchive = createTakoWindowsManualArchive) {
   const assets = takoReleaseAssets(request.target, request.version, request.mode)
   const source = join(request.appRoot ?? APP_ROOT, assets.directory)
   for (const file of assets.files) {
@@ -199,7 +227,8 @@ export function collectTakoReleaseAssets(request) {
   }
   mkdirSync(request.output, { recursive: true })
   for (const file of assets.files) copyFileSync(join(source, file), join(request.output, file))
-  return assets.files
+  const generated = assets.manualArchive === undefined ? [] : [createManualArchive(request.output, request.version)]
+  return [...assets.files, ...generated]
 }
 
 /**
@@ -228,8 +257,9 @@ export function renderTakoReleaseNotes(template, version, macMode, details = '')
   const mac = macMode === 'signed'
     ? `\`${base}-mac-arm64.dmg\` — Apple Silicon，已签名并公证 / signed and notarized`
     : `\`${base}-mac-arm64-unsigned.dmg\` — Apple Silicon，**未签名**：首次打开需在“系统设置 → 隐私与安全性”中点“仍要打开”，且不会自动更新 / **unsigned**: approve it under System Settings → Privacy & Security; no automatic updates`
+  const windows = `\`${base}-win-x64.zip\` — 内含未签名安装程序 \`${base}-win-x64.exe\` / contains the unsigned installer`
   const rendered = template.replaceAll('{{VERSION}}', version).replaceAll('{{MAC_DOWNLOAD}}', mac)
-    .replaceAll('{{RELEASE_DETAILS}}', details)
+    .replaceAll('{{WINDOWS_DOWNLOAD}}', windows).replaceAll('{{RELEASE_DETAILS}}', details)
   if (/\{\{[A-Z_]+\}\}/u.test(rendered)) throw new Error('tako release: the release notes template has an unknown placeholder')
   return rendered
 }

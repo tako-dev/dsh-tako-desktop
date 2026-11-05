@@ -15,9 +15,9 @@ Installers are published on [GitHub Releases](https://github.com/tako-dev/dsh-ta
 | System | Download | Notes |
 |---|---|---|
 | macOS (Apple Silicon, M-series) | `DSH-Tako-<version>-mac-arm64.dmg` | Signed and notarized; if only `-unsigned.dmg` is present, see "Unsigned macOS builds" below |
-| Windows 10/11 (x64) | `DSH-Tako-<version>-win-x64.exe` | Not code-signed |
+| Windows 10/11 (x64) | `DSH-Tako-<version>-win-x64.zip` | Contains the unsigned installer EXE; extract before running |
 
-The `latest.yml`, `latest-mac.yml`, `.zip`, and `.blockmap` files feed in-app updates and need no manual download. `SHA256SUMS.txt` lists each file's SHA-256; compare with `shasum -a 256 <file>` (macOS) or `Get-FileHash <file>` (Windows). Intel Mac and Linux installers are not provided.
+The Windows manual-download ZIP contains only the NSIS installer EXE; extract it before running. In-app Windows updates continue to use the EXE named by `latest.yml`. `latest-mac.yml`, the macOS ZIP, and `.blockmap` files feed in-app updates and need no manual download. `SHA256SUMS.txt` lists every file's SHA-256; compare with `shasum -a 256 <file>` (macOS) or `Get-FileHash <file>` (Windows). Intel Mac and Linux installers are not provided.
 
 **macOS**: open the dmg, drag DSH Tako to Applications, then open it from Applications or Launchpad. Do not run it from the dmg window.
 
