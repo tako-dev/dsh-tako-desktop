@@ -66,7 +66,7 @@ describe('installNpmDshTakoPlugin', () => {
     expect(spawnAdd).not.toHaveBeenCalled()
   })
 
-  it('upgrades the stale plugin shipped with desktop 0.1.45 to the reviewed login release', async () => {
+  it.each(['0.5.13', '0.5.15', '0.5.16'])('upgrades plugin %s to the reviewed catalog-recovery release', async (version) => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-tako-plugin-upgrade-'))
     try {
       const pkg = join(root, 'node_modules', NPM_DSH_TAKO)
@@ -75,12 +75,12 @@ describe('installNpmDshTakoPlugin', () => {
       const cli = join(dsh, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib')
       mkdirSync(cli, { recursive: true })
       writeFileSync(join(cli, 'cli.js'), '')
-      writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: NPM_DSH_TAKO, version: '0.5.13' }))
+      writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: NPM_DSH_TAKO, version }))
       const spawnAdd = vi.fn<SpawnAdd>(async () => ({ status: 0, stdout: '', stderr: '' }))
       await installNpmDshTakoPlugin({ profileDir: root, dshDir: dsh, spawnAdd })
-      expect(NPM_DSH_TAKO_VERSION).toBe('0.5.15')
+      expect(NPM_DSH_TAKO_VERSION).toBe('0.5.17')
       expect(spawnAdd).toHaveBeenCalledOnce()
-      expect(spawnAdd.mock.calls[0]![0].args).toContain('dsh-tako@0.5.15')
+      expect(spawnAdd.mock.calls[0]![0].args).toContain('dsh-tako@0.5.17')
     } finally { rmSync(root, { recursive: true, force: true }) }
   })
 
