@@ -1,40 +1,76 @@
-<# Exercise the installer a release actually publishes: silent install, launch, silent uninstall, no leftovers. #>
+<# Installs the release payload on a clean Windows account and verifies removal even after a failed check. #>
 [CmdletBinding()]
 param(
   [Parameter(Mandatory)][string]$Installer,
   [Parameter(Mandatory)][string]$Version,
-  [string]$ProductName = 'DSH Tako',
-  [int]$InstallTimeoutSeconds = 900,
-  [int]$UninstallTimeoutSeconds = 180,
-  [int]$LaunchSeconds = 25
+  [Parameter(Mandatory)][string]$OutputDirectory,
+  [ValidateRange(1, 3600)][int]$InstallTimeoutSeconds = 900,
+  [ValidateRange(1, 3600)][int]$UninstallTimeoutSeconds = 180,
+  [ValidateRange(1, 3600)][int]$StartupTimeoutSeconds = 120
 )
 $ErrorActionPreference = 'Stop'
+if (-not $IsWindows -or -not [Environment]::Is64BitProcess) { throw 'Release installation checks require Windows x64 and PowerShell 7.3 or later' }
 $setup = [IO.Path]::GetFullPath($Installer)
-$root = Join-Path ([IO.Path]::GetTempPath()) ('dsh-tako-install-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+$output = [IO.Path]::GetFullPath($OutputDirectory)
+New-Item -ItemType Directory -Path $output | Out-Null
+$root = [IO.Directory]::CreateTempSubdirectory('dsh-tako-install-').FullName
+$productName = 'DSH Tako'
 $installPath = Join-Path $root 'Installed App'
-$appPath = Join-Path $installPath ($ProductName + '.exe')
-$uninstaller = Join-Path $installPath ('Uninstall ' + $ProductName + '.exe')
-$startMenu = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Microsoft\Windows\Start Menu\Programs'
-$uninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
-$results = [Collections.Generic.List[string]]::new()
+$appPath = Join-Path $installPath ($productName + '.exe')
+$uninstaller = Join-Path $installPath ('Uninstall ' + $productName + '.exe')
+$homePath = Join-Path $root 'Harness Home'
+$userData = Join-Path $root 'Electron User Data'
+$roaming = [Environment]::GetFolderPath('ApplicationData')
+$local = [Environment]::GetFolderPath('LocalApplicationData')
+$startMenu = Join-Path $roaming 'Microsoft\Windows\Start Menu\Programs'
+$desktop = [Environment]::GetFolderPath('DesktopDirectory')
+$protocolKey = 'HKCU:\Software\Classes\dsh-tako'
+$dataPaths = @((Join-Path $roaming $productName), (Join-Path $roaming 'dsh-tako-desktop'), (Join-Path $local 'dsh-tako-desktop-updater'))
+$checks = [Collections.Generic.List[string]]::new()
+$report = [ordered]@{ status = 'failed'; stage = 'preflight'; version = $Version; installer = $setup; installerSha256 = $null;
+  installPath = $installPath; checks = $checks; cleanup = 'not-required'; error = $null; cleanupError = $null;
+  installExitCode = $null; uninstallExitCode = $null; protocolCleanup = 'not-required' }
+$attempted = $false
+$locked = $false
+$mutex = [Threading.Mutex]::new($false, 'Global\DSHTakoReleaseInstallSmoke')
 
 function Require([bool]$Condition, [string]$Message) {
   if (-not $Condition) { throw $Message }
 }
 
 function Find-UninstallEntry {
-  Get-ChildItem $uninstallRoot -ErrorAction SilentlyContinue | ForEach-Object {
-    $entry = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-    if ($entry.DisplayName -eq $ProductName) { $entry }
-  } | Select-Object -First 1
+  foreach ($hive in @('HKCU:', 'HKLM:')) {
+    foreach ($relative in @('Software\Microsoft\Windows\CurrentVersion\Uninstall', 'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+      $path = Join-Path $hive $relative
+      if (Test-Path -LiteralPath $path) {
+        Get-ChildItem -LiteralPath $path | ForEach-Object {
+          $entry = Get-ItemProperty -LiteralPath $_.PSPath
+          if ($entry.DisplayName -eq $productName) { $entry }
+        }
+      }
+    }
+  }
 }
 
 function Find-Shortcut {
-  if (-not (Test-Path -LiteralPath $startMenu)) { return @() }
-  Get-ChildItem -LiteralPath $startMenu -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | Where-Object {
-    $shell = New-Object -ComObject WScript.Shell
-    try { $shell.CreateShortcut($_.FullName).TargetPath -eq $appPath } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
-  }
+  $shell = New-Object -ComObject WScript.Shell
+  try {
+    foreach ($directory in @($startMenu, $desktop)) {
+      if (-not (Test-Path -LiteralPath $directory)) { continue }
+      Get-ChildItem -LiteralPath $directory -Filter *.lnk -Recurse | ForEach-Object {
+        $shortcut = $shell.CreateShortcut($_.FullName)
+        try {
+          if ($shortcut.TargetPath -eq $appPath -or $_.BaseName -eq $productName) {
+            [pscustomobject]@{ FullName = $_.FullName; TargetPath = $shortcut.TargetPath }
+          }
+        } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) }
+      }
+    }
+  } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+}
+
+function Get-OwnedApplication {
+  Get-Process -Name $productName -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $appPath }
 }
 
 function Wait-Until([scriptblock]$Condition, [int]$Seconds, [string]$Message) {
@@ -46,64 +82,143 @@ function Wait-Until([scriptblock]$Condition, [int]$Seconds, [string]$Message) {
   throw $Message
 }
 
-if (-not (Test-Path -LiteralPath $setup)) { throw "Installer not found: $setup" }
-Require (-not (Test-Path -LiteralPath $installPath)) 'The private install directory must not exist before the check'
-# A packaged build already installed for the current user would own the same registry entry and shortcuts.
-$running = @(Get-Process -Name $ProductName -ErrorAction SilentlyContinue)
-if ($running.Count -gt 0) { throw "$ProductName is already running; the install check needs a clean session" }
-$existing = Find-UninstallEntry
-Require ($existing -eq $null) "An existing $ProductName installation would be modified: $($existing.InstallLocation)"
+function Remove-OwnedProtocolRegistration([string]$Key, [string]$Executable) {
+  if (-not (Test-Path -LiteralPath $Key)) { return 'absent-after-uninstall' }
+  $commandKey = Get-Item -LiteralPath (Join-Path $Key 'shell\open\command')
+  try { $command = $commandKey.GetValue('') } finally { $commandKey.Dispose() }
+  Require ([string]::Equals($command, ('"' + $Executable + '" "%1"'), [StringComparison]::OrdinalIgnoreCase)) 'Protocol registration no longer targets the private application; registration retained'
+  # Electron creates this registration at startup; NSIS does not own its removal.
+  Remove-Item -LiteralPath $Key -Recurse -Force
+  Require (-not (Test-Path -LiteralPath $Key)) 'The smoke-owned protocol registration survived cleanup'
+  return 'removed-smoke-owned-registration'
+}
+
+function Invoke-OwnedProcess([string]$File, [string[]]$Arguments, [int]$Seconds, [switch]$Nsis) {
+  $info = [Diagnostics.ProcessStartInfo]::new($File)
+  $info.UseShellExecute = $false
+  $info.CreateNoWindow = $true
+  $info.WorkingDirectory = $root
+  if ($Nsis) { $info.Arguments = $Arguments[0] }
+  else { foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) } }
+  foreach ($name in @($info.Environment.Keys)) {
+    if ($name -match 'KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^ELECTRON_RUN_AS_NODE$|^(DSH_|TAKO_|ANTHROPIC_|OPENAI_|DEEPSEEK_)') {
+      [void]$info.Environment.Remove($name)
+    }
+  }
+  $info.Environment['DSH_HOME'] = $homePath
+  $info.Environment['DSH_AGENTS_HOME'] = Join-Path $root 'Agents Home'
+  $info.Environment['DSH_TELEMETRY_DISABLED'] = '1'
+  $process = [Diagnostics.Process]::Start($info)
+  try {
+    if (-not $process.WaitForExit($Seconds * 1000)) {
+      $process.Kill($true)
+      Require ($process.WaitForExit(30000)) "Process tree did not stop after its deadline: $File"
+      throw "Process exceeded its $Seconds s deadline: $File"
+    }
+    return $process.ExitCode
+  } finally { $process.Dispose() }
+}
 
 try {
-  # NSIS takes /D last and unquoted; the installer is unsigned, so no SmartScreen prompt can block it.
-  $process = Start-Process -FilePath $setup -ArgumentList ('/S /D=' + $installPath) -PassThru -WindowStyle Hidden
-  if (-not $process.WaitForExit($InstallTimeoutSeconds * 1000)) {
-    $process.Kill(); $process.WaitForExit()
-    throw "Silent install did not finish within $InstallTimeoutSeconds s"
-  }
-  Require ($process.ExitCode -eq 0) "Silent install exited with $($process.ExitCode)"
-  $results.Add('silent-install-exit-0')
+  try { $locked = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked = $true }
+  Require $locked 'Another release installation check owns this Windows host'
+  Require (Test-Path -LiteralPath $setup -PathType Leaf) "Installer not found: $setup"
+  Require (@(Get-Process -Name $productName -ErrorAction SilentlyContinue).Count -eq 0) "$productName is already running; use a clean Windows account"
+  Require (@(Find-UninstallEntry).Count -eq 0) 'An existing installation would be modified; use a clean Windows account'
+  Require (@(Find-Shortcut).Count -eq 0) 'An existing product shortcut would be modified; use a clean Windows account'
+  Require (-not (Test-Path -LiteralPath $protocolKey)) 'An existing dsh-tako protocol registration would be modified'
+  foreach ($path in $dataPaths) { Require (-not (Test-Path -LiteralPath $path)) "Existing product data would be modified: $path" }
+  $report.installerSha256 = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+  New-Item -ItemType Directory -Path $homePath | Out-Null
+  $sentinel = Join-Path $homePath 'preserved.txt'
+  $sentinelValue = [Guid]::NewGuid().ToString('N')
+  [IO.File]::WriteAllText($sentinel, $sentinelValue)
 
-  Require (Test-Path -LiteralPath $appPath) "Installed application is missing: $appPath"
-  Require (Test-Path -LiteralPath (Join-Path $installPath 'resources/app.asar')) 'resources/app.asar is missing from the installed tree'
-  Require (Test-Path -LiteralPath (Join-Path $installPath 'resources/runtime/primary-runtime/runtime.json')) 'The primary runtime is missing from the installed tree'
-  Require (Test-Path -LiteralPath $uninstaller) 'The uninstaller is missing from the installed tree'
+  $report.stage = 'install'
+  $attempted = $true
+  # NSIS requires /D= to be the final, unquoted part of the command line.
+  $report.installExitCode = Invoke-OwnedProcess $setup @('/S /currentuser /D=' + $installPath) $InstallTimeoutSeconds -Nsis
+  Require ($report.installExitCode -eq 0) "Silent install exited with $($report.installExitCode)"
+  $checks.Add('silent-install-exit-0')
+
+  $report.stage = 'installed-tree'
+  foreach ($path in @($appPath, $uninstaller, (Join-Path $installPath 'resources/app.asar'), (Join-Path $installPath 'resources/runtime/primary-runtime/runtime.json'))) {
+    Require (Test-Path -LiteralPath $path -PathType Leaf) "Installed file is missing: $path"
+  }
+  $report.stage = 'installed-version'
   $fileVersion = (Get-Item -LiteralPath $appPath).VersionInfo.FileVersion
   Require ($fileVersion -eq $Version) "Installed executable reports version $fileVersion instead of $Version"
-  $results.Add("installed-tree-complete-$fileVersion")
+  $checks.Add("installed-tree-complete-$fileVersion")
 
-  $entry = Find-UninstallEntry
-  Require ($entry -ne $null) "No $uninstallRoot entry names $ProductName"
-  Require ($entry.DisplayVersion -eq $Version) "Uninstall entry reports $($entry.DisplayVersion) instead of $Version"
+  $report.stage = 'registration'
+  $entries = @(Find-UninstallEntry)
+  Require ($entries.Count -eq 1) 'Expected exactly one product uninstall entry'
+  $entry = $entries[0]
+  Require ($entry.DisplayVersion -eq $Version) "Uninstall entry reports version $($entry.DisplayVersion) instead of $Version"
   Require ($entry.InstallLocation.TrimEnd('\') -eq $installPath.TrimEnd('\')) "Uninstall entry points at $($entry.InstallLocation)"
-  $results.Add('uninstall-registry-entry')
-
+  $checks.Add('uninstall-registry-entry')
   $shortcuts = @(Find-Shortcut)
-  Require ($shortcuts.Count -gt 0) "No Start Menu shortcut targets $appPath"
-  $results.Add("start-menu-shortcut-$($shortcuts.Count)")
+  Require (@($shortcuts | Where-Object { $_.TargetPath -eq $appPath -and $_.FullName.StartsWith($startMenu + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) 'No Start Menu shortcut targets the installed application'
+  $checks.Add("product-shortcuts-$($shortcuts.Count)")
 
-  $launched = Start-Process -FilePath $appPath -PassThru
-  Start-Sleep -Seconds $LaunchSeconds
-  Require (-not $launched.HasExited) "The installed application exited within $LaunchSeconds s"
-  $windowed = @(Get-Process -Name $ProductName -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 })
-  $results.Add("application-running-after-$($LaunchSeconds)s-windows=$($windowed.Count)")
-  Get-Process -Name $ProductName -ErrorAction SilentlyContinue | Stop-Process -Force
-  Wait-Until { @(Get-Process -Name $ProductName -ErrorAction SilentlyContinue).Count -eq 0 } 60 "The application did not stop"
-
-  # electron-builder's uninstaller locates its directory through _?= once NSIS copied it to %TEMP%.
-  $removal = Start-Process -FilePath $uninstaller -ArgumentList ('/S _?=' + $installPath) -PassThru -WindowStyle Hidden
-  if (-not $removal.WaitForExit($UninstallTimeoutSeconds * 1000)) {
-    $removal.Kill(); $removal.WaitForExit()
-    throw "Silent uninstall did not finish within $UninstallTimeoutSeconds s"
-  }
-  # The uninstaller hands removal to a temporary copy and exits before the directory disappears.
-  Wait-Until { -not (Test-Path -LiteralPath $installPath) } $UninstallTimeoutSeconds 'The installation directory survived the uninstall'
-  Wait-Until { (Find-UninstallEntry) -eq $null } 60 'The uninstall registry entry survived the uninstall'
-  Require (@(Find-Shortcut).Count -eq 0) 'A Start Menu shortcut survived the uninstall'
-  $results.Add('silent-uninstall-clean')
-
-  $results | ForEach-Object { Write-Output "release install check: $_" }
+  $report.stage = 'application-ready'
+  $node = (Get-Command node -CommandType Application).Source
+  $appCheck = Join-Path $PSScriptRoot 'windows-release-app-smoke.mjs'
+  $exitCode = Invoke-OwnedProcess $node @($appCheck, $appPath, $Version, $homePath, $userData, $output, [string]$StartupTimeoutSeconds) ($StartupTimeoutSeconds + 90)
+  Require ($exitCode -eq 0) "Installed application readiness check exited with $exitCode; inspect $output"
+  Wait-Until { @(Get-OwnedApplication).Count -eq 0 } 30 'Application processes survived normal shutdown'
+  $checks.Add('installed-host-and-welcome-ready')
+  $report.status = 'passed'
+} catch {
+  $report.error = $_.Exception.Message
+  [Console]::Error.WriteLine($report.error)
 } finally {
-  Get-Process -Name $ProductName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
+  if ($attempted) {
+    $report.cleanup = 'failed'
+    try {
+      foreach ($process in @(Get-OwnedApplication)) {
+        try {
+          if (-not $process.HasExited) {
+            try { $process.Kill($true) } catch [InvalidOperationException] { if (-not $process.HasExited) { throw } }
+          }
+          Require ($process.WaitForExit(30000)) "Owned application process did not stop: $($process.Id)"
+        } finally { $process.Dispose() }
+      }
+      Wait-Until { @(Get-OwnedApplication).Count -eq 0 } 30 'Owned application processes remain; uninstall was not attempted'
+      if (Test-Path -LiteralPath $installPath) {
+        Require (Test-Path -LiteralPath $uninstaller -PathType Leaf) "Cannot roll back without an uninstaller; installation retained at $installPath"
+        $copy = Join-Path $root 'uninstall-copy.exe'
+        # _?= disables relocation, so the executable must already be outside the directory being removed.
+        Copy-Item -LiteralPath $uninstaller -Destination $copy
+        $report.uninstallExitCode = Invoke-OwnedProcess $copy @('/S /currentuser _?=' + $installPath) $UninstallTimeoutSeconds -Nsis
+        Require ($report.uninstallExitCode -eq 0) "Silent uninstall exited with $($report.uninstallExitCode)"
+      }
+      Wait-Until { -not (Test-Path -LiteralPath $installPath) } $UninstallTimeoutSeconds 'The installation directory survived uninstall'
+      Require (@(Find-UninstallEntry).Count -eq 0) 'An uninstall registry entry survived uninstall'
+      Require (@(Find-Shortcut).Count -eq 0) 'A product shortcut survived uninstall'
+      $report.protocolCleanup = 'failed'
+      $report.protocolCleanup = Remove-OwnedProtocolRegistration $protocolKey $appPath
+      if ($report.protocolCleanup -eq 'removed-smoke-owned-registration') { $checks.Add('smoke-owned-protocol-registration-removed') }
+      foreach ($path in $dataPaths) { Require (-not (Test-Path -LiteralPath $path)) "Product data survived uninstall: $path" }
+      Require ([IO.File]::ReadAllText($sentinel) -eq $sentinelValue) 'Uninstall modified the private Harness home'
+      $checks.Add('silent-uninstall-clean-home-retained')
+      $report.cleanup = 'passed'
+    } catch {
+      $report.cleanupError = $_.Exception.Message
+      [Console]::Error.WriteLine("Cleanup failed; retain $root for inspection: $($report.cleanupError)")
+    }
+  }
+  try {
+    if ($report.cleanup -ne 'failed') { Remove-Item -LiteralPath $root -Recurse -Force }
+  } catch {
+    $report.cleanup = 'failed'
+    $report.cleanupError = $_.Exception.Message
+  } finally {
+    if ($locked) { $mutex.ReleaseMutex() }
+    $mutex.Dispose()
+    if ($report.cleanup -eq 'failed') { $report.status = 'failed' }
+    [IO.File]::WriteAllText((Join-Path $output 'result.json'), ($report | ConvertTo-Json -Depth 6) + "`n")
+  }
 }
+$checks | ForEach-Object { Write-Output "release install check: $_" }
+if ($report.status -ne 'passed') { throw "Release installation check failed at $($report.stage); inspect $output\result.json" }

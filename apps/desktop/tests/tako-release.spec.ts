@@ -1,8 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, matchesGlob, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { parseEnv } from 'node:util'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { load } from 'js-yaml'
 import {
   collectTakoReleaseAssets,
   compareTakoReleaseSizes,
@@ -49,6 +53,216 @@ describe('release version', () => {
     expect(() => resolveTakoReleaseVersion('v0.2.0-beta.1', '0.2.0-beta.1')).toThrow('stable MAJOR.MINOR.PATCH')
     expect(() => resolveTakoReleaseVersion('v01.0.0', '01.0.0')).toThrow('stable MAJOR.MINOR.PATCH')
   })
+})
+
+describe('Windows release installation checks', () => {
+  interface Step { name?: string; run?: string; uses?: string; if?: string; with?: Record<string, string | boolean> }
+  interface Job { 'runs-on': string; permissions?: Record<string, string>; steps: Step[] }
+  const release = load(readFileSync(join(REPOSITORY_ROOT, '.github/workflows/release.yml'), 'utf8')) as { jobs: Record<string, Job> }
+  const ci = load(readFileSync(join(REPOSITORY_ROOT, '.github/workflows/ci.yml'), 'utf8')) as { jobs: Record<string, Job> }
+
+  it('blocks collection and upload until the actual release installer passes', () => {
+    const steps = release.jobs.windows!.steps
+    const build = steps.findIndex(step => step.run?.includes('pnpm run package:desktop:win:x64:unsigned-release\n'))
+    const smoke = steps.findIndex(step => step.run?.includes('windows-release-install-smoke.ps1'))
+    const collect = steps.findIndex(step => step.run?.includes('tako-release.mjs collect'))
+    const upload = steps.findIndex(step => step.uses?.startsWith('actions/upload-artifact@'))
+    expect(build).toBeGreaterThan(-1)
+    expect(smoke).toBeGreaterThan(build)
+    expect(collect).toBeGreaterThan(smoke)
+    expect(upload).toBeGreaterThan(collect)
+    expect(steps[smoke]!.if).toBeUndefined()
+    const assets = takoReleaseAssets('win-x64', TAKO_DESKTOP_VERSION, 'signed')
+    expect(steps[smoke]!.run?.replaceAll('$env:VERSION', TAKO_DESKTOP_VERSION))
+      .toContain(`apps/desktop/${assets.directory}/${assets.files[0]}`)
+    expect(steps[smoke]!.run).toContain('exit $LASTEXITCODE')
+  })
+
+  it('keeps installation evidence out of public release assets', () => {
+    const download = release.jobs.publish!.steps.find(step => step.uses?.startsWith('actions/download-artifact@'))!
+    const pattern = download.with!.pattern as string
+    const evidence = release.jobs.windows!.steps.find(step => step.name === 'Retain installation evidence')!
+    expect(evidence.if).toBe('always()')
+    const published = Object.values(release.jobs).flatMap(job => job.steps
+      .filter(step => step.uses?.startsWith('actions/upload-artifact@') && matchesGlob(step.with!.name as string, pattern))
+      .map(step => step.with!.name))
+    expect(published.sort()).toEqual(['release-mac-arm64', 'release-win-x64'])
+  })
+
+  it('runs the real Windows installer and failure-cleanup control without publication rights in PR CI', () => {
+    const job = ci.jobs['windows-install-smoke']
+    expect(job).toBeDefined()
+    expect(job!['runs-on']).toBe('windows-latest')
+    expect(job!.permissions).toEqual({ contents: 'read' })
+    const commands = job!.steps.map(step => step.run ?? '').join('\n')
+    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release')
+    expect(commands).toContain('-Version 0.0.0')
+    expect(commands).toContain('Expected the mismatched version check to fail')
+    expect(commands).toContain('$control.cleanup -ne \'passed\'')
+    expect(commands).toContain('windows-release-install-smoke.ps1')
+    expect(commands).not.toMatch(/gh release|git (?:tag|push)/u)
+  })
+})
+
+describe('installed application smoke lifecycle', () => {
+  interface ApplicationReport {
+    status: string
+    checks: string[]
+    launchedProcess?: { pid: number; exitCode: number | null; signal: string | null; exited: boolean }
+    error?: string
+    shutdownError?: string
+    diagnosticsError?: string
+    outputError?: string
+    reportError?: string
+    crashes?: string[]
+  }
+
+  function fixture() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-release-smoke-')))
+    const children: ChildProcessWithoutNullStreams[] = []
+    const exits: Promise<unknown>[] = []
+    onTestFinished(async () => {
+      for (const child of children) {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+      }
+      await Promise.allSettled(exits)
+      await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+    })
+    const home = join(root, 'Harness Home 中文')
+    const userData = join(root, 'Electron User Data')
+    const output = join(root, 'Evidence')
+    mkdirSync(output)
+    const executable = join(root, 'Installed App', 'DSH Tako.exe')
+    function start(scenario: string, seconds = '10') {
+      const child = spawn(process.execPath, [
+        '--import', pathToFileURL(join(APP_ROOT, 'tests/fixtures/release-app-driver.mjs')).href,
+        join(APP_ROOT, 'tests/windows-release-app-smoke.mjs'),
+        executable, TAKO_DESKTOP_VERSION, home, userData, output, seconds, scenario,
+      ], { cwd: REPOSITORY_ROOT, stdio: 'pipe', env: { ...process.env, NODE_OPTIONS: '', ELECTRON_RUN_AS_NODE: '1',
+        RELEASE_SMOKE_SENTINEL_TOKEN: 'must-not-reach-the-application', TAKO_PRIVATE_SETTING: 'must-not-reach-the-application' } })
+      children.push(child)
+      let stdout = ''
+      let stderr = ''
+      child.stdout.setEncoding('utf8').on('data', (text: string) => { stdout += text })
+      child.stderr.setEncoding('utf8').on('data', (text: string) => { stderr += text })
+      const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveExit, reject) => {
+        child.once('error', reject)
+        child.once('close', (code, signal) => { resolveExit({ code, signal }) })
+      })
+      exits.push(closed)
+      child.stdin.end()
+      return { closed, stdout: () => stdout, stderr: () => stderr }
+    }
+    async function run(scenario: string, seconds?: string) {
+      const child = start(scenario, seconds)
+      const exit = await child.closed
+      expect(exit.signal, child.stderr()).toBeNull()
+      const report = JSON.parse(readFileSync(join(output, 'application.json'), 'utf8')) as ApplicationReport
+      return { ...exit, report, stdout: child.stdout(), stderr: child.stderr() }
+    }
+    return { root, home, userData, output, run }
+  }
+
+  it('waits for interactive welcome readiness and normal process exit with private state and no credentials', async () => {
+    const f = fixture()
+    const result = await f.run('normal')
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.report.status).toBe('passed')
+    expect(result.report.checks).toEqual(['installed-executable-and-private-state', 'host-ready-and-welcome-interactive-without-login', 'normal-application-shutdown'])
+    expect(result.report.launchedProcess).toMatchObject({ exitCode: 0, signal: null, exited: true })
+    expect(readFileSync(join(f.output, 'application.stdout.log'), 'utf8')).toBe('controlled application stdout\n')
+    expect(readFileSync(join(f.output, 'application.stderr.log'), 'utf8')).toBe('controlled application stderr\n')
+    expect(existsSync(join(f.output, 'welcome.png'))).toBe(true)
+    expect(existsSync(join(f.output, 'api-key.png'))).toBe(true)
+  })
+
+  it.each([
+    ['early-exit', 'before normal shutdown was requested', 7, null],
+    ['already-exited', 'before normal shutdown was requested', 7, null],
+    ['nonzero-exit', 'exited unsuccessfully', 7, null],
+    ['signal-exit', 'interrupted by a signal', null, 'SIGSEGV'],
+  ] as const)('rejects %s even when the close operation succeeds', async (scenario, message, exitCode, signal) => {
+    const result = await fixture().run(scenario)
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.shutdownError).toContain(message)
+    expect(result.report.launchedProcess).toMatchObject({ exitCode, signal, exited: true })
+    expect(result.report.checks).not.toContain('normal-application-shutdown')
+  })
+
+  it.each([
+    ['launch-failure', 'Controlled launch failure'],
+    ['wrong-version', '99.0.0'],
+    ['missing-welcome', 'did not open its welcome renderer'],
+    ['startup-diagnostic', 'AssertionError'],
+  ])('rejects %s without substituting process survival for readiness', async (scenario, message) => {
+    const result = await fixture().run(scenario!, scenario === 'missing-welcome' ? '0.05' : undefined)
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.error).toContain(message)
+  })
+
+  it('retains crash contents outside the private application state', async () => {
+    const f = fixture()
+    const result = await f.run('crash-report')
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.crashes).toEqual(['crash-test-main.log'])
+    await rm(f.userData, { recursive: true, maxRetries: 10, retryDelay: 100 })
+    expect(readFileSync(join(f.output, 'crashes/crash-test-main.log'), 'utf8')).toBe('retained crash contents\n')
+  })
+
+  it('reports a crash-copy failure without losing application output or the structured report', async () => {
+    const f = fixture()
+    const result = await f.run('crash-copy-failure')
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.diagnosticsError).toBeTruthy()
+    expect(readFileSync(join(f.output, 'application.stderr.log'), 'utf8')).toBe('controlled application stderr\n')
+  })
+
+  it('reports an output-write failure independently of the application result', async () => {
+    const f = fixture()
+    mkdirSync(join(f.output, 'application.stdout.log'))
+    const result = await f.run('normal')
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.outputError).toBeTruthy()
+    expect(result.report.checks).toContain('normal-application-shutdown')
+  })
+
+  it('isolates concurrent helper processes and their evidence directories', async () => {
+    const first = fixture()
+    const second = fixture()
+    expect(first.root).not.toBe(second.root)
+    const results = await Promise.all([first.run('normal'), second.run('normal')])
+    expect(results.map(result => result.code)).toEqual([0, 0])
+    for (const f of [first, second]) expect(existsSync(join(f.output, 'welcome.png'))).toBe(true)
+  })
+})
+
+it.skipIf(process.platform !== 'win32')('checks shortcut targets and removes only private protocol registrations', async () => {
+  const child = spawn('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File',
+    join(APP_ROOT, 'tests/fixtures/release-install-driver.ps1'), '-Smoke', join(APP_ROOT, 'tests/windows-release-install-smoke.ps1')],
+  { cwd: REPOSITORY_ROOT, stdio: 'pipe' })
+  const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveExit, reject) => {
+    child.once('error', reject)
+    child.once('close', (code, signal) => { resolveExit({ code, signal }) })
+  })
+  onTestFinished(async () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    await Promise.allSettled([closed])
+  })
+  let stdout = ''
+  let stderr = ''
+  child.stdout.setEncoding('utf8').on('data', (text: string) => { stdout += text })
+  child.stderr.setEncoding('utf8').on('data', (text: string) => { stderr += text })
+  child.stdin.end()
+  const exit = await closed
+  expect(exit.signal, stderr).toBeNull()
+  expect(exit.code, stderr).toBe(0)
+  expect(stdout).toContain('shortcut-checks: target verified; same-name foreign target rejected')
+  expect(stdout).toContain('protocol-cleanup: absent, owned, and foreign registrations verified')
 })
 
 describe('macOS signing settings', () => {
