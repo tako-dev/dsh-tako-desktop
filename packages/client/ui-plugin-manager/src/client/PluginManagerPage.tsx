@@ -116,6 +116,7 @@ const EXTENSION_BUNDLES = [
 ]
 /** Bundles shown first for the Tako profile; the full community/plugin list remains available below. */
 const TAKO_CURATED_BUNDLES = [
+  '@deepseek-ai/dsh-experimental-plugin-market-bundle',
   '@deepseek-ai/dsh-experimental-tako-browser-bundle',
   '@deepseek-ai/dsh-experimental-session-search',
   '@deepseek-ai/dsh-experimental-session-titles-bundle',
@@ -1547,7 +1548,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     && (pkg.installed || pkg.official || pkg.error !== undefined))
   const mine = listed.filter(pkg => !pkg.official)
   const official = listed.filter(pkg => pkg.official)
-  const takoProfile = listed.some(pkg => pkg.name === '@deepseek-ai/dsh-tako' && pkg.enabled)
+  // A Tako profile selects its bundled provider whether or not that layer is listed as a card: a desktop profile
+  // declares it without installing it, so the card filter above drops it while the profile is still Tako.
+  const takoProfile = state.packages.some(pkg => pkg.name === '@deepseek-ai/dsh-tako' && pkg.enabled)
   const curated = takoProfile
     ? TAKO_CURATED_BUNDLES.flatMap(name => official.filter(pkg => pkg.name === name))
     : []
@@ -1567,7 +1570,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const onInstalled = tab === INSTALLED_TAB
   const showsCards = !onInstalled || (openPkg === undefined && openItem === undefined)
   const detailFromMore = (view.kind === 'package' || view.kind === 'row')
-    && (view.from === 'more' || (MORE_BUNDLES.includes(view.name) && !pinned.has(view.name)))
+    && (view.from === 'more' || (MORE_BUNDLES.includes(view.name) && !pinned.has(view.name) && !curatedNames.has(view.name)))
   const showsMoreList = onInstalled && showsCards && (view.kind === 'more' || detailFromMore)
   const showsMainList = showsCards && !showsMoreList
   const installedCards = onInstalled && showsCards
