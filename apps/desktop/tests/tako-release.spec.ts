@@ -196,7 +196,7 @@ describe('installed application smoke lifecycle', () => {
     ['missing-welcome', 'did not open its welcome renderer'],
     ['startup-diagnostic', 'AssertionError'],
   ])('rejects %s without substituting process survival for readiness', async (scenario, message) => {
-    const result = await fixture().run(scenario!, scenario === 'missing-welcome' ? '0.05' : undefined)
+    const result = await fixture().run(scenario, scenario === 'missing-welcome' ? '0.05' : undefined)
     expect(result.code, result.stderr).toBe(1)
     expect(result.report.status).toBe('failed')
     expect(result.report.error).toContain(message)
