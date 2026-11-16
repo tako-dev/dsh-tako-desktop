@@ -1086,10 +1086,12 @@ describe('PluginManagerPage', () => {
     })
 
     it('puts the Tako curated bundles first only when the Tako profile is active', () => {
+      const market = '@deepseek-ai/dsh-experimental-plugin-market-bundle'
       const curated = '@deepseek-ai/dsh-experimental-session-search'
       const browser = '@deepseek-ai/dsh-experimental-tako-browser-bundle'
       renderTab({ packages: [
         pkg({ name: '@deepseek-ai/dsh-tako', official: false }),
+        pkg({ name: market, official: true, enabled: false }),
         pkg({ name: curated, official: true }),
         pkg({ name: browser, official: true }),
         pkg({ name: '@deepseek-ai/dsh-experimental-agent-team-profile', official: true }),
@@ -1099,7 +1101,23 @@ describe('PluginManagerPage', () => {
       const group = document.querySelector('[data-plugin-group="curated"]') as HTMLElement
       expect(within(group).getByRole('heading', { name: en.takoCuratedTitle })).toBeTruthy()
       expect(within(group).getAllByRole('listitem').map(item => item.getAttribute('data-plugin-package')))
-        .toEqual([browser, curated])
+        .toEqual([market, browser, curated])
+    })
+
+    it('detects the Tako profile from the selected provider bundle the card filter drops', () => {
+      const market = '@deepseek-ai/dsh-experimental-plugin-market-bundle'
+      // The desktop profile selects @deepseek-ai/dsh-tako without installing it, so it is neither a card nor official.
+      renderTab({ packages: [
+        pkg({ name: '@deepseek-ai/dsh-tako', official: false, installed: false, availability: 'installation' }),
+        pkg({ name: market, official: true, enabled: false }),
+      ] })
+      const group = document.querySelector('[data-plugin-group="curated"]') as HTMLElement
+      expect(within(group).getByRole('heading', { name: en.takoCuratedTitle })).toBeTruthy()
+      expect(within(group).getAllByRole('listitem').map(item => item.getAttribute('data-plugin-package')))
+        .toEqual([market])
+      fireEvent.click(screen.getByRole('button', { name: en.openDetail.replace('{name}', market) }))
+      fireEvent.click(screen.getByRole('button', { name: en.backToList }))
+      expect(document.querySelector('[data-plugin-group="curated"]')).not.toBeNull()
     })
 
     it('returns from package details to the secondary page and retains it across React remounts', () => {
