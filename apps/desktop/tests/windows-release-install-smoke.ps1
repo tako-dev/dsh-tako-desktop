@@ -162,7 +162,7 @@ try {
   $checks.Add("product-shortcuts-$($shortcuts.Count)")
 
   $report.stage = 'application-ready'
-  $node = (Get-Command node -CommandType Application).Source
+  $node = (Get-Command node -CommandType Application | Select-Object -First 1).Source
   $appCheck = Join-Path $PSScriptRoot 'windows-release-app-smoke.mjs'
   $exitCode = Invoke-OwnedProcess $node @($appCheck, $appPath, $Version, $homePath, $userData, $output, [string]$StartupTimeoutSeconds) ($StartupTimeoutSeconds + 90)
   Require ($exitCode -eq 0) "Installed application readiness check exited with $exitCode; inspect $output"

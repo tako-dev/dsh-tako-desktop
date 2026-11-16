@@ -47,6 +47,23 @@ try {
 
   $files = [IO.Directory]::CreateTempSubdirectory('dsh-tako-shortcuts-').FullName
   try {
+    $selection = $ast.Find({ param($node)
+      $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$node'
+    }, $true)
+    Require ($null -ne $selection) 'Missing Node executable selection'
+    $selectNode = [scriptblock]::Create($selection.Extent.Text)
+    $first = Join-Path $files 'First Node'
+    $second = Join-Path $files 'Second Node'
+    New-Item -ItemType Directory -Path $first, $second | Out-Null
+    foreach ($directory in @($first, $second)) { New-Item -ItemType File -Path (Join-Path $directory 'node.exe') | Out-Null }
+    $originalPath = $env:PATH
+    try {
+      $env:PATH = $first + [IO.Path]::PathSeparator + $second + [IO.Path]::PathSeparator + $originalPath
+      . $selectNode
+      Require ($node -is [string] -and $node -eq (Join-Path $first 'node.exe')) 'Node selection must return only the first executable on PATH'
+    } finally { $env:PATH = $originalPath }
+    Write-Output 'node-selection: first executable selected from multiple PATH entries'
+
     $appPath = Join-Path $files 'Installed App\DSH Tako.exe'
     $startMenu = Join-Path $files 'Start Menu'
     $desktop = Join-Path $files 'Desktop'

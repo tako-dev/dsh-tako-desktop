@@ -262,6 +262,7 @@ it.skipIf(process.platform !== 'win32')('recognizes versioned uninstall entries,
   expect(exit.signal, stderr).toBeNull()
   expect(exit.code, stderr).toBe(0)
   expect(stdout).toContain('uninstall-entries: versioned and older product names detected; foreign prefix excluded')
+  expect(stdout).toContain('node-selection: first executable selected from multiple PATH entries')
   expect(stdout).toContain('shortcut-checks: target verified; same-name foreign target rejected')
   expect(stdout).toContain('protocol-cleanup: absent, owned, and foreign registrations verified')
 })
