@@ -8,7 +8,8 @@ import { describe, expect, it, onTestFinished } from 'vitest'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
-import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES, bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
+import { bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
+import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '../packages/util/official-bundles/src/index.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 import { createPluginProfile } from '../apps/desktop/src/project-manager.ts'
 
@@ -140,11 +141,16 @@ describe('optional bundles', () => {
     }
   })
 
-  it('ships all five lightweight bundles without selecting them in a default template', () => {
-    const defaults = Object.values(PROFILE_TEMPLATES).flatMap(template => template.bundles)
-    for (const name of lightweight) {
-      expect(OPTIONAL_BUNDLES).toContain(name)
-      expect(defaults).not.toContain(name)
+  it('keeps lightweight bundles disabled outside the Tako companion selection', () => {
+    for (const name of lightweight) expect(OPTIONAL_BUNDLES).toContain(name)
+    for (const [profile, template] of Object.entries(PROFILE_TEMPLATES)) {
+      expect(template.bundles.filter(name => lightweight.includes(name)), profile).toEqual(profile === 'tako'
+        ? [
+            '@deepseek-ai/dsh-experimental-session-search',
+            '@deepseek-ai/dsh-experimental-session-titles-bundle',
+            '@deepseek-ai/dsh-experimental-terminal-bundle',
+          ]
+        : [])
     }
   })
 

@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { JSDOM } from 'jsdom'
 import ts from 'typescript'
 import { expect, it, onTestFinished } from 'vitest'
-import { OPTIONAL_BUNDLES } from '../packages/boot/app-boot/src/profile.ts'
+import { OPTIONAL_BUNDLES } from '../packages/util/official-bundles/src/index.ts'
 
 const pagePath = resolve(import.meta.dirname, '../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx')
 

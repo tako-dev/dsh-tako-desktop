@@ -12,9 +12,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import { afterAll, beforeAll, expect, it, onTestFinished, vi } from 'vitest'
 import {
   boot, composeEntries, initProfile, loadProfileDirectory, readProfilePatches, readProfileManifest,
-  reconcileProfilePatches, OPTIONAL_BUNDLES, OFFICIAL_ON_DEMAND_CATALOG, PluginPackages, readPluginMeta, getDshRuntimeVersion,
+  reconcileProfilePatches, PluginPackages, readPluginMeta, getDshRuntimeVersion,
   type ProfileContext, type RuntimeResolution,
 } from '@deepseek-ai/dsh-app-boot'
+import { OPTIONAL_BUNDLES, OFFICIAL_ON_DEMAND_CATALOG } from '@deepseek-ai/dsh-official-bundles'
 import PluginManager, { type Config, type PluginChange, type PluginInstallLogChunk, type PluginInstallProgress, type PluginInstallRequestId } from '../src/index.ts'
 import Hmr from '@deepseek-ai/dsh-hmr'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
@@ -595,7 +596,7 @@ it('runs a real pnpm dependency script only after approval and retry', async () 
   writeFileSync(join(dir, 'pnpm-workspace.yaml'), String(policy))
   const blocked = await manager.installBundle('file:./addon', { enabled: false })
   expect(blocked, JSON.stringify(blocked)).toMatchObject({ application: 'failed', packageResult: { kind: 'build-blocked' } })
-  expect(blocked.pendingBuilds).toHaveLength(1)
+  expect(blocked.pendingBuilds).toEqual(['approval-fixture-addon@file:../../addon'])
   const built = join(dir, 'node_modules', 'approval-fixture-addon', 'built.txt')
   expect(existsSync(built)).toBe(false)
   expect(readProfileManifest('test', dir).dependencies?.['approval-fixture-addon']).toBeUndefined()
@@ -732,6 +733,8 @@ it('refuses management bundle disablement and permits repeated bundle selections
 })
 
 it.each([
+  '@deepseek-ai/dsh-tako',
+  'dsh-tako',
   '@deepseek-ai/dsh-host-plugin-inventory',
   '@deepseek-ai/dsh-typert-registry',
   '@deepseek-ai/dsh-api-remotes',
@@ -744,6 +747,8 @@ it.each([
   expect(entry).toMatchObject({ readOnlyReason: 'management-required' })
   const manifest = readFileSync(join(dir, 'package.json'), 'utf8')
   const patch = readFileSync(profile.patchPath, 'utf8')
+  const pnpm = vi.spyOn(operations, 'runProfilePnpm')
+  onTestFinished(() => { pnpm.mockRestore() })
   expect(await manager.setPluginEnabled(entry.entryId, false)).toMatchObject({
     changed: false, application: 'failed', error: { code: 'management-required' },
   })
@@ -758,6 +763,7 @@ it.each([
   })
   expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(manifest)
   expect(readFileSync(profile.patchPath, 'utf8')).toBe(patch)
+  expect(pnpm).not.toHaveBeenCalled()
 })
 
 it('addresses children inside profile groups and marks ambiguous ids read-only', async () => {

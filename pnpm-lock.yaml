@@ -506,6 +506,9 @@ importers:
       node-addon-require-builtin:
         specifier: ^0.1.9
         version: 0.1.9
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../packages/util/official-bundles
     devDependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
@@ -778,6 +781,9 @@ importers:
       vite:
         specifier: ^6.4.3
         version: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)(yaml@2.9.0)
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../packages/util/official-bundles
 
   apps/desktop-host:
     dependencies:
@@ -996,6 +1002,9 @@ importers:
       ws:
         specifier: 8.21.3
         version: 8.21.3
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../packages/util/official-bundles
 
   benchmarks:
     devDependencies:
@@ -1913,6 +1922,9 @@ importers:
       semver:
         specifier: ^7.8.5
         version: 7.8.5
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../util/official-bundles
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -2066,6 +2078,9 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../util/official-bundles
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -9719,6 +9734,9 @@ importers:
       picomatch:
         specifier: ^4.0.7
         version: 4.0.7
+      '@deepseek-ai/dsh-official-bundles':
+        specifier: workspace:*
+        version: link:../../util/official-bundles
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -15168,6 +15186,16 @@ importers:
         version: link:../../../vendor/cordis
 
   packages/util/output-retention:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+
+  packages/util/official-bundles:
+    dependencies:
+      '@deepseek-ai/dsh-package-manifest':
+        specifier: workspace:*
+        version: link:../package-manifest
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~

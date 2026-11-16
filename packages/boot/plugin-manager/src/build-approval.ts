@@ -1,7 +1,7 @@
 /** Approve pnpm's pending dependency scripts in the current profile's workspace settings. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { isAlias, isMap, isNode, isScalar, parseDocument, visit } from 'yaml'
+import { isAlias, isMap, isNode, isScalar, isSeq, parseDocument, visit } from 'yaml'
 import { ManagementFailure } from './failure.ts'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 
@@ -36,20 +36,50 @@ async function readPolicy(dir: string) {
   return { document, pending, keys }
 }
 
+async function reportedBuildSelectors(dir: string, output: string): Promise<string[]> {
+  const reported = ignoredBuildNames(output)
+  if (reported.length === 0) return []
+  let text: string
+  try { text = await readFile(join(dir, 'node_modules', '.modules.yaml'), 'utf8') }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    return reported
+  }
+  const modules = parseDocument(text)
+  if (modules.errors[0] !== undefined) throw modules.errors[0]
+  if (!isMap(modules.contents)) throw new Error('node_modules/.modules.yaml must be a YAML mapping')
+  const pending = modules.get('pendingBuilds')
+  if (pending === undefined) return reported
+  if (!isSeq(pending)) throw new Error('node_modules/.modules.yaml pendingBuilds must be a string array')
+  const selectors: string[] = []
+  for (const item of pending.items) {
+    if (!isScalar(item) || typeof item.value !== 'string') {
+      throw new Error('node_modules/.modules.yaml pendingBuilds must be a string array')
+    }
+    selectors.push(item.value)
+  }
+  // pnpm accepts file dependencies only by dependency path, not by the manifest name in our script-blocking diagnostic.
+  return reported.flatMap(name => {
+    const exact = selectors.filter(selector => selector.startsWith(`${name}@file:`) && !/[*?]/.test(selector))
+    return exact.length === 0 ? [name] : exact
+  })
+}
+
 /**
- * Record the build scripts a failed run reported as ignored, then list every name awaiting a decision.
+ * Record the build scripts a failed run reported as ignored, then list every key awaiting a decision.
  *
  * pnpm writes those policy entries itself only when it can prompt, and the
  * manager always runs it non-interactively, so the run's own report is the
- * record that survives.
+ * record that survives. File dependencies retain pnpm's exact pending selector.
  * @param dir Current profile directory.
  * @param output Captured output of the failed run.
- * @returns Exact package names awaiting a build decision; wildcard rules are excluded.
+ * @returns Exact pnpm approval keys awaiting a build decision; wildcard rules are excluded.
+ * @throws If profile settings or pnpm's pending-build metadata cannot be read or parsed; no approvals are written.
  */
 export async function recordPendingBuilds(dir: string, output: string): Promise<string[]> {
   const { document, pending, keys } = await readPolicy(dir)
   const known = new Set(keys)
-  const added = ignoredBuildNames(output).filter(name => !known.has(name))
+  const added = (await reportedBuildSelectors(dir, output)).filter(name => !known.has(name))
   if (added.length === 0) return pending
   for (const name of added) document.setIn(['allowBuilds', name], UNDECIDED_BUILD)
   await writeFileAtomic(join(dir, 'pnpm-workspace.yaml'), String(document), { mode: 0o600 })

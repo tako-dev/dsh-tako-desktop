@@ -39,6 +39,29 @@ it('preserves pnpm file dependency selectors verbatim', async () => {
   expect(parse(readFileSync(filename, 'utf8'))).toEqual({ allowBuilds: { [name]: true } })
 })
 
+it.each(['addon', '@scope/addon'])('records the exact pending file selector for %s', async (name) => {
+  const { dir, filename } = fixture('allowBuilds:\n  denied: false\n')
+  mkdirSync(join(dir, 'node_modules'))
+  const selector = `${name}@file:../../addon`
+  writeFileSync(join(dir, 'node_modules', '.modules.yaml'), JSON.stringify({ pendingBuilds: [selector, 'registry@1.0.0'] }))
+  expect(await recordPendingBuilds(dir, `Ignored build scripts: ${name}, registry\n`)).toEqual([selector, 'registry'])
+  await approveBuilds(dir, [selector])
+  expect(parse(readFileSync(filename, 'utf8'))).toEqual({ allowBuilds: {
+    denied: false, [selector]: true, registry: 'set this to true or false',
+  } })
+})
+
+it.each(['[', '[]', '{"pendingBuilds":false}', '{"pendingBuilds":[1]}'])(
+  'rejects unreadable pending selectors without rewriting profile approvals: %s', async (modules) => {
+    const original = 'allowBuilds:\n  denied: false\n'
+    const { dir, filename } = fixture(original)
+    mkdirSync(join(dir, 'node_modules'))
+    writeFileSync(join(dir, 'node_modules', '.modules.yaml'), modules)
+    await expect(recordPendingBuilds(dir, 'Ignored build scripts: addon\n')).rejects.toThrow()
+    expect(readFileSync(filename, 'utf8')).toBe(original)
+  },
+)
+
 it.each([undefined, '{}\n', 'nodeLinker: hoisted\n', 'allowBuilds: {}\n'])('has no pending approval without pnpm placeholders: %s', async (text) => {
   const { dir } = fixture(text)
   expect(await recordPendingBuilds(dir, '')).toEqual([])

@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/util/official-bundles/README.md
+/:
+  en: 6342624590fdddcd
+  zh: 8af6413399e53fae
+/deepseek-ai-dsh-official-bundles:
+  en: 9095133679593012
+  zh: ac6b05dc3eff68b6
+/deepseek-ai-dsh-official-bundles/summary:
+  en: a0d9619a28cbe264
+  zh: c6099c439f8c16e1
+/deepseek-ai-dsh-official-bundles/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-official-bundles/use-this-package:
+  en: 247111b33ea54406
+  zh: 92e3c15a1733d0a3
+/deepseek-ai-dsh-official-bundles/understand-the-implementation:
+  en: 338533b5208cdca0
+  zh: fd75bed69be4a721
+/deepseek-ai-dsh-official-bundles/further-exploration:
+  en: 44c076881afe4575
+  zh: 35d4ddf156e1ae55
+/deepseek-ai-dsh-official-bundles/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-official-bundles/model-experience/profile-composition:
+  en: ae3a4988d282fcc2
+  zh: 8216c4b7c7d7916a
+/deepseek-ai-dsh-official-bundles/model-experience/profile-composition/what-the-model-sees:
+  en: 2b8a01105a634960
+  zh: 1312f8880b5e9721
+/deepseek-ai-dsh-official-bundles/model-experience/profile-composition/token-effect:
+  en: efa9e7155076924e
+  zh: 395fb3cb0fa1b3a0
+/deepseek-ai-dsh-official-bundles/model-experience/profile-composition/kv-cache-effect:
+  en: e7e6e705013d9c36
+  zh: 23e2f0fa83439567
+/deepseek-ai-dsh-official-bundles/known-limitations-and-deferred-work:
+  en: 7c1af76950aae86b
+  zh: ebfa15d760c94034
+/deepseek-ai-dsh-official-bundles/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

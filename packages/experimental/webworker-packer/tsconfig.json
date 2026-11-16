@@ -12,6 +12,9 @@
   ],
   "references": [
     {
+      "path": "../../util/official-bundles"
+    },
+    {
       "path": "../../../vendor/include"
     },
     {
