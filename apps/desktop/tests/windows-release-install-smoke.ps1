@@ -45,7 +45,7 @@ function Find-UninstallEntry {
       if (Test-Path -LiteralPath $path) {
         Get-ChildItem -LiteralPath $path | ForEach-Object {
           $entry = Get-ItemProperty -LiteralPath $_.PSPath
-          if ($entry.DisplayName -eq $productName) { $entry }
+          if ($entry.DisplayName -eq $productName -or $entry.DisplayName -like "$productName *") { $entry }
         }
       }
     }

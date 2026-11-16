@@ -1,4 +1,4 @@
-<# Exercises installer shortcut checks and protocol cleanup with private files and registry keys, without installing anything. #>
+<# Exercises installer registration, shortcut checks, and protocol cleanup with private state, without installing anything. #>
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$Smoke)
 $ErrorActionPreference = 'Stop'
@@ -14,9 +14,39 @@ foreach ($name in @('Require', 'Find-Shortcut', 'Remove-OwnedProtocolRegistratio
 $root = Join-Path 'HKCU:\Software\Classes' ('dsh-tako-smoke-' + [Guid]::NewGuid().ToString('N'))
 New-Item -Path $root | Out-Null
 try {
+  $productName = 'DSH Tako'
+  $discovery = $ast.Find({ param($node)
+    $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Find-UninstallEntry'
+  }, $true)
+  Require ($null -ne $discovery) 'Missing uninstall-entry discovery function'
+  $predicate = $discovery.Find({ param($node)
+    $node -is [Management.Automation.Language.IfStatementAst] -and $node.Clauses[0].Item1.Extent.Text.Contains('$entry.DisplayName')
+  }, $true)
+  Require ($null -ne $predicate) 'Missing uninstall-entry product filter'
+  $filter = [scriptblock]::Create($predicate.Extent.Text)
+  $registry = Join-Path $root 'uninstall-entries'
+  foreach ($fixture in @(
+    @{ Key = 'unversioned'; DisplayName = $productName; DisplayVersion = '0.1.49' },
+    @{ Key = 'current'; DisplayName = "$productName 0.1.50"; DisplayVersion = '0.1.50' },
+    @{ Key = 'older'; DisplayName = "$productName 0.1.49"; DisplayVersion = '0.1.49' },
+    @{ Key = 'foreign'; DisplayName = 'DSH Takoyaki 0.1.50'; DisplayVersion = '0.1.50' }
+  )) {
+    $key = Join-Path $registry $fixture.Key
+    New-Item -Path $key -Force | Out-Null
+    New-ItemProperty -Path $key -Name DisplayName -Value $fixture.DisplayName | Out-Null
+    New-ItemProperty -Path $key -Name DisplayVersion -Value $fixture.DisplayVersion | Out-Null
+  }
+  $entries = @(Get-ChildItem -LiteralPath $registry | ForEach-Object {
+    $entry = Get-ItemProperty -LiteralPath $_.PSPath
+    & $filter
+  })
+  Require ($entries.Count -eq 3) 'Uninstall-entry discovery must detect unversioned, current, and older product registrations only'
+  Require (@($entries | Where-Object { $_.DisplayName -eq "$productName 0.1.50" }).Count -eq 1) 'Versioned product registration was not discovered'
+  Require (@($entries | Where-Object { $_.DisplayName -eq "$productName 0.1.49" }).Count -eq 1) 'Older product registration was not discovered'
+  Write-Output 'uninstall-entries: versioned and older product names detected; foreign prefix excluded'
+
   $files = [IO.Directory]::CreateTempSubdirectory('dsh-tako-shortcuts-').FullName
   try {
-    $productName = 'DSH Tako'
     $appPath = Join-Path $files 'Installed App\DSH Tako.exe'
     $startMenu = Join-Path $files 'Start Menu'
     $desktop = Join-Path $files 'Desktop'

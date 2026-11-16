@@ -241,7 +241,7 @@ describe('installed application smoke lifecycle', () => {
   })
 })
 
-it.skipIf(process.platform !== 'win32')('checks shortcut targets and removes only private protocol registrations', async () => {
+it.skipIf(process.platform !== 'win32')('recognizes versioned uninstall entries, checks shortcut targets, and removes only private protocol registrations', async () => {
   const child = spawn('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File',
     join(APP_ROOT, 'tests/fixtures/release-install-driver.ps1'), '-Smoke', join(APP_ROOT, 'tests/windows-release-install-smoke.ps1')],
   { cwd: REPOSITORY_ROOT, stdio: 'pipe' })
@@ -261,6 +261,7 @@ it.skipIf(process.platform !== 'win32')('checks shortcut targets and removes onl
   const exit = await closed
   expect(exit.signal, stderr).toBeNull()
   expect(exit.code, stderr).toBe(0)
+  expect(stdout).toContain('uninstall-entries: versioned and older product names detected; foreign prefix excluded')
   expect(stdout).toContain('shortcut-checks: target verified; same-name foreign target rejected')
   expect(stdout).toContain('protocol-cleanup: absent, owned, and foreign registrations verified')
 })
