@@ -37,6 +37,9 @@ export const en = {
   takoQuotaNoData: 'No data', takoQuotaUnavailable: 'Quota unavailable',
   takoSignInForQuota: 'Sign in to view quota', takoOpenWallet: 'Open wallet',
   takoWeeklyShort: 'Weekly', takoBalance: 'Balance',
+  takoConnected: 'Connected', takoAccountHint: 'Plan, balance, recharge, and renewal are managed on the official Tako site.',
+  takoManage: 'Manage on Tako',
+  takoDailyUsage: 'Daily', takoWeeklyUsage: 'Weekly', takoMonthlyUsage: 'Monthly',
 } as const
 /** Account locale keys. */
 export type AccountKey = keyof typeof en
@@ -76,6 +79,9 @@ export const zh: Record<AccountKey, string> = {
   takoQuotaNoData: '暂无数据', takoQuotaUnavailable: '额度不可用',
   takoSignInForQuota: '登录后查看额度', takoOpenWallet: '打开钱包',
   takoWeeklyShort: '每周', takoBalance: '余额',
+  takoConnected: '已连接', takoAccountHint: '套餐、余额、充值和续费在 Tako 官方网站管理。',
+  takoManage: '前往 Tako 管理',
+  takoDailyUsage: '每日', takoWeeklyUsage: '每周', takoMonthlyUsage: '每月',
 }
 
 /** Japanese copy, checked against the English keys. */
@@ -144,6 +150,12 @@ export const ja = {
   'takoOpenWallet': 'ウォレットを開く',
   'takoWeeklyShort': '週間',
   'takoBalance': '残高',
+  'takoConnected': '接続済み',
+  'takoAccountHint': 'プラン、残高、チャージ、更新はTako公式サイトで管理します。',
+  'takoManage': 'Takoで管理',
+  'takoDailyUsage': '毎日',
+  'takoWeeklyUsage': '毎週',
+  'takoMonthlyUsage': '毎月',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -182,6 +194,9 @@ export const es = {
   takoQuotaNoData: 'Sin datos', takoQuotaUnavailable: 'Cuota no disponible',
   takoSignInForQuota: 'Inicia sesión para ver la cuota', takoOpenWallet: 'Abrir billetera',
   takoWeeklyShort: 'Semanal', takoBalance: 'Saldo',
+  takoConnected: 'Conectado', takoAccountHint: 'El plan, el saldo, la recarga y la renovación se gestionan en el sitio oficial de Tako.',
+  takoManage: 'Gestionar en Tako',
+  takoDailyUsage: 'Diario', takoWeeklyUsage: 'Semanal', takoMonthlyUsage: 'Mensual',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -220,6 +235,9 @@ export const fr = {
   takoQuotaNoData: 'Aucune donnée', takoQuotaUnavailable: 'Quota indisponible',
   takoSignInForQuota: 'Connectez-vous pour voir le quota', takoOpenWallet: 'Ouvrir le portefeuille',
   takoWeeklyShort: 'Hebdomadaire', takoBalance: 'Solde',
+  takoConnected: 'Connecté', takoAccountHint: 'Le forfait, le solde, la recharge et le renouvellement sont gérés sur le site officiel de Tako.',
+  takoManage: 'Gérer sur Tako',
+  takoDailyUsage: 'Quotidien', takoWeeklyUsage: 'Hebdomadaire', takoMonthlyUsage: 'Mensuel',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -258,6 +276,9 @@ export const de = {
   takoQuotaNoData: 'Keine Daten', takoQuotaUnavailable: 'Kontingent nicht verfügbar',
   takoSignInForQuota: 'Anmelden, um das Kontingent zu sehen', takoOpenWallet: 'Wallet öffnen',
   takoWeeklyShort: 'Wöchentlich', takoBalance: 'Guthaben',
+  takoConnected: 'Verbunden', takoAccountHint: 'Tarif, Guthaben, Aufladung und Verlängerung werden auf der offiziellen Tako-Website verwaltet.',
+  takoManage: 'In Tako verwalten',
+  takoDailyUsage: 'Täglich', takoWeeklyUsage: 'Wöchentlich', takoMonthlyUsage: 'Monatlich',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -296,6 +317,9 @@ export const ru = {
   takoQuotaNoData: 'Нет данных', takoQuotaUnavailable: 'Квота недоступна',
   takoSignInForQuota: 'Войдите, чтобы увидеть квоту', takoOpenWallet: 'Открыть кошелёк',
   takoWeeklyShort: 'Еженедельно', takoBalance: 'Баланс',
+  takoConnected: 'Подключено', takoAccountHint: 'Тариф, баланс, пополнение и продление управляются на официальном сайте Tako.',
+  takoManage: 'Управлять в Tako',
+  takoDailyUsage: 'Ежедневно', takoWeeklyUsage: 'Еженедельно', takoMonthlyUsage: 'Ежемесячно',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -334,4 +358,7 @@ export const pt = {
   takoQuotaNoData: 'Sem dados', takoQuotaUnavailable: 'Cota indisponível',
   takoSignInForQuota: 'Faça login para ver a cota', takoOpenWallet: 'Abrir carteira',
   takoWeeklyShort: 'Semanal', takoBalance: 'Saldo',
+  takoConnected: 'Conectado', takoAccountHint: 'Plano, saldo, recarga e renovação são gerenciados no site oficial do Tako.',
+  takoManage: 'Gerenciar no Tako',
+  takoDailyUsage: 'Diário', takoWeeklyUsage: 'Semanal', takoMonthlyUsage: 'Mensal',
 } satisfies Record<keyof typeof en, string>

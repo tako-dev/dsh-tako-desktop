@@ -10,6 +10,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-api-remote-access/client'
+import type { AccessEffect } from '@deepseek-ai/dsh-api-remote-access/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { AccountUpdate, AccountDetails } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { OnboardingChange } from './onboarding-contract.ts'
@@ -56,7 +57,7 @@ export function apply(ctx: Context): void {
   const config = ContactConfig(page[CONTACT_CONFIG_GLOBAL] ?? {})
   const takoMode = page[TAKO_PROFILE_GLOBAL] === true
   // Tako profiles read their own credentials; the official account transport is absent.
-  const whenAccountAccess = (register: () => void): void => {
+  const whenAccountAccess = (register: () => AccessEffect): void => {
     if (takoMode) register()
     else ctx.remoteAccess.whenAccess('account/watch', register)
   }
