@@ -1,7 +1,7 @@
 /** Resolved fields required to embed a generic HTTPS macOS updater feed. */
 export interface MacOSGenericAppUpdateFeed {
   readonly publicUrl: string
-  readonly channel?: 'nightly' | 'latest'
+  readonly channel?: 'nightly' | 'stable'
 }
 
 /** Resolved fields required to embed a GitHub Releases macOS updater feed (DSH Tako). */
@@ -19,7 +19,7 @@ export type MacOSAppUpdateFeed = MacOSGenericAppUpdateFeed | MacOSGitHubAppUpdat
 export type MacOSAppUpdateConfig = {
   readonly provider: 'generic'
   readonly url: string
-  readonly channel: 'nightly' | 'latest'
+  readonly channel: 'nightly' | 'stable'
   readonly updaterCacheDirName: string
 } | {
   readonly provider: 'github'

@@ -488,6 +488,6 @@ describe('default product isolation', () => {
   ])('rejects absent, empty, or uninspectable default profile definitions', (source) => {
     const root = fixture()
     write(root, profile, source)
-    expect(() => verifyDefaultProductIsolation(root)).toThrow(profile)
+    expect(() => verifyDefaultProductIsolation(root)).toThrow(`${profile}: `)
   })
 })

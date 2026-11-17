@@ -1,4 +1,4 @@
-/** Installation-owned profile templates and bundle selections, read as literals by repository checks. */
+/** The bundle package names the dsh installation selects, offers, installs on demand, or retires. */
 
 /** Installation-owned defaults used when a shipped profile is first opened. */
 export interface ProfileTemplate {
@@ -14,16 +14,6 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   web: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
   },
-  tako: {
-    bundles: [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-tako',
-      '@deepseek-ai/dsh-experimental-tako-browser-bundle',
-      '@deepseek-ai/dsh-experimental-session-search',
-      '@deepseek-ai/dsh-experimental-session-titles-bundle',
-      '@deepseek-ai/dsh-experimental-terminal-bundle',
-      '@deepseek-ai/dsh-experimental-voice-input-bundle',
-    ],
-  },
   headless: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
   },
@@ -35,10 +25,10 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   },
 }
 
-/** Companion bundles following base, Web, and the bundled Tako provider in the Tako template. */
-export const TAKO_DEFAULT_BUNDLES: readonly string[] = PROFILE_TEMPLATES.tako!.bundles.slice(3)
-
-/** Installation-owned tuples normalized to the shipped template only on an exact match. */
+/**
+ * Installation-owned bundle tuples that an earlier release wrote into a shipped profile; app-boot replaces an exact
+ * match with the {@link PROFILE_TEMPLATES} entry of the same name and leaves every other list untouched.
+ */
 export const INSTALLATION_OWNED_PROFILE_TUPLES: Readonly<Record<string, readonly string[]>> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
 }
@@ -48,29 +38,38 @@ export const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
   // The Web composition mounts Schedule itself
   // ([upgrade guide](../../../../docs/upgrade-guide/v0.2.0-rc.2/schedule-bundle-retired/guide.md)).
   '@deepseek-ai/dsh-experimental-schedule-bundle',
+  '@deepseek-ai/dsh-experimental-agent-team-profile',
 ])
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
 export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-base']
 
 /**
- * Bundles supplied by the installation for users to enable. Tako selects its companion subset;
- * the other shipped templates leave these disabled. The plugin manager never uninstalls installation-owned copies.
+ * The bundles the dsh installation ships for a person to switch on: each a
+ * runtime dependency of the installation that declares `dsh.bundle.patch`,
+ * an `icon`, and `./locale/*.json` display metadata, selected by no shipped
+ * template, and offered switched off by the plugin manager except persistent
+ * terminals, which have no page switch
+ * ([rationale](../../../../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md),
+ * [admission](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
  */
 export const OPTIONAL_BUNDLES: readonly string[] = [
+  '@deepseek-ai/dsh-personalized-recommendations',
+  '@deepseek-ai/dsh-cua-bundle',
   '@deepseek-ai/dsh-experimental-session-search',
   '@deepseek-ai/dsh-experimental-ralph-bundle',
   '@deepseek-ai/dsh-experimental-terminal-bundle',
   '@deepseek-ai/dsh-experimental-badge-skill-bundle',
   '@deepseek-ai/dsh-experimental-session-titles-bundle',
-  '@deepseek-ai/dsh-experimental-agent-team-profile',
   '@deepseek-ai/dsh-experimental-voice-input-bundle',
   '@deepseek-ai/dsh-experimental-cot-translation-bundle',
   '@deepseek-ai/dsh-experimental-auto-review',
   '@deepseek-ai/dsh-experimental-inspector-profile',
+  '@deepseek-ai/dsh-experimental-liveshare',
   '@deepseek-ai/dsh-experimental-plugin-market-bundle',
   '@deepseek-ai/dsh-experimental-tool-worktree',
-  '@deepseek-ai/dsh-experimental-tako-browser-bundle',
+  '@deepseek-ai/dsh-experimental-forge-bundle',
+  '@deepseek-ai/dsh-deepseek-chat-import',
 ]
 
 /** Public DSH release members available through the ordinary on-demand bundle installer. */
