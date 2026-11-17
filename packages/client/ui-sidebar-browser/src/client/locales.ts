@@ -80,6 +80,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  'sharing.active': 'このチャットの Agent がこのページとログイン状態を共有しています',
+  'sharing.isolated': 'ユーザーブラウザ · Agent から分離',
+  'sharing.start': 'Agent と共有',
+  'sharing.stop': '共有を停止',
+  'sharing.failed': '共有を変更できませんでした。ページが開いていることを確認して再試行してください。現在の状態は維持されます。',
   'type.label': 'ブラウザ',
   'guide.title': 'ブラウザ',
   'guide.description': 'Webページを閲覧',
@@ -110,6 +115,11 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  'sharing.active': 'El Agent de este chat comparte esta página y su estado de sesión',
+  'sharing.isolated': 'Navegador del usuario · aislado del Agent',
+  'sharing.start': 'Compartir con el Agent',
+  'sharing.stop': 'Dejar de compartir',
+  'sharing.failed': 'No se pudo cambiar el estado de compartir. Compruebe que la página esté abierta e inténtelo de nuevo; el estado actual no cambia.',
   'type.label': 'Navegador',
   'guide.title': 'Navegador',
   'guide.description': 'Navegar por páginas web',
@@ -140,6 +150,11 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  'sharing.active': 'L’Agent de cette conversation partage cette page et son état de connexion',
+  'sharing.isolated': 'Navigateur de l’utilisateur · isolé de l’Agent',
+  'sharing.start': 'Partager avec l’Agent',
+  'sharing.stop': 'Arrêter le partage',
+  'sharing.failed': 'Impossible de modifier le partage. Vérifiez que la page est ouverte et réessayez ; l’état actuel est conservé.',
   'type.label': 'Navigateur',
   'guide.title': 'Navigateur',
   'guide.description': 'Parcourir les pages Web',
@@ -170,6 +185,11 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  'sharing.active': 'Der Agent dieses Chats teilt diese Seite und ihren Anmeldestatus',
+  'sharing.isolated': 'Benutzer-Browser · vom Agent isoliert',
+  'sharing.start': 'Mit Agent teilen',
+  'sharing.stop': 'Teilen beenden',
+  'sharing.failed': 'Freigabestatus konnte nicht geändert werden. Prüfen Sie, ob die Seite geöffnet ist, und versuchen Sie es erneut; der aktuelle Status bleibt bestehen.',
   'type.label': 'Browser',
   'guide.title': 'Browser',
   'guide.description': 'Durchsuchen Sie Webseiten',
@@ -200,6 +220,11 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  'sharing.active': 'Agent этого чата использует эту страницу и её сеанс входа',
+  'sharing.isolated': 'Браузер пользователя · изолирован от Agent',
+  'sharing.start': 'Поделиться с Agent',
+  'sharing.stop': 'Прекратить общий доступ',
+  'sharing.failed': 'Не удалось изменить общий доступ. Убедитесь, что страница открыта, и повторите; текущее состояние сохраняется.',
   'type.label': 'Браузер',
   'guide.title': 'Браузер',
   'guide.description': 'Просмотр веб-страниц',
@@ -230,6 +255,11 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  'sharing.active': 'O Agent deste chat compartilha esta página e seu estado de login',
+  'sharing.isolated': 'Navegador do usuário · isolado do Agent',
+  'sharing.start': 'Compartilhar com o Agent',
+  'sharing.stop': 'Parar de compartilhar',
+  'sharing.failed': 'Não foi possível alterar o compartilhamento. Verifique se a página está aberta e tente novamente; o estado atual é mantido.',
   'type.label': 'Navegador',
   'guide.title': 'Navegador',
   'guide.description': 'Navegar em páginas da web',
