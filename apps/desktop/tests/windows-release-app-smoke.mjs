@@ -89,17 +89,27 @@ try {
   // The hidden workspace is created before the welcome window; neither its existence nor process survival is readiness.
   const page = await new Promise((resolvePage, reject) => {
     const disposers = []
+    let settled = false
     const finish = (page, error) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
       for (const dispose of disposers) dispose()
       if (error) reject(error)
       else resolvePage(page)
     }
     const inspect = page => {
-      const check = () => { if (new URL(page.url()).pathname.endsWith('/welcome.html')) finish(page) }
-      page.on('domcontentloaded', check)
-      disposers.push(() => page.off('domcontentloaded', check))
-      check()
+      if (settled) return
+      const check = () => {
+        try {
+          if (URL.parse(page.url())?.pathname.endsWith('/welcome.html')) finish(page)
+        } catch (error) { finish(undefined, error) }
+      }
+      try {
+        page.on('domcontentloaded', check)
+        disposers.push(() => page.off('domcontentloaded', check))
+        check()
+      } catch (error) { finish(undefined, error) }
     }
     const closed = () => { finish(undefined, new Error('Installed application exited before welcome readiness')) }
     const timer = setTimeout(() => { finish(undefined, new Error('Installed Host did not open its welcome renderer before the startup deadline')) }, remaining())

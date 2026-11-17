@@ -181,6 +181,29 @@ describe('installed application smoke lifecycle', () => {
     expect(existsSync(join(f.output, 'api-key.png'))).toBe(true)
   })
 
+  it.each(['existing-empty-url', 'empty-window-url', 'blank-window-url', 'invalid-window-url'])(
+    'waits for welcome navigation instead of treating %s as readiness or a fatal error', async (scenario) => {
+      const result = await fixture().run(scenario)
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.report.status).toBe('passed')
+      expect(result.report.checks).toContain('host-ready-and-welcome-interactive-without-login')
+      expect(result.report.checks).toContain('normal-application-shutdown')
+      expect(result.report.launchedProcess).toMatchObject({ exitCode: 0, signal: null, exited: true })
+    },
+  )
+
+  it.each(['window-url-error', 'dom-url-error'])('contains %s in the welcome wait and completes normal shutdown', async (scenario) => {
+    const result = await fixture().run(scenario)
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.failureStage).toBe('welcome-ready')
+    expect(result.report.error).toContain('Controlled welcome URL read failure')
+    expect(result.report.uncaughtException).toBeUndefined()
+    expect(result.report.checks).not.toContain('host-ready-and-welcome-interactive-without-login')
+    expect(result.report.checks).toContain('normal-application-shutdown')
+    expect(result.report.launchedProcess).toMatchObject({ exitCode: 0, signal: null, exited: true })
+  })
+
   it.each([
     ['early-exit', 'before normal shutdown was requested', 7, null],
     ['already-exited', 'before normal shutdown was requested', 7, null],

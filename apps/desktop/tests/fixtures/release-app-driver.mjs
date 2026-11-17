@@ -63,13 +63,23 @@ export const _electron = { async launch(options) {
   }
   let form = false
   let signInWaits = 0
-  const hidden = Object.assign(new EventEmitter(), { url: () => 'file:///installed/workspace.html', locator: () => {
+  const pendingUrls = new Map([
+    ['empty-window-url', ''], ['blank-window-url', 'about:blank'], ['invalid-window-url', 'not a URL'],
+    ['window-url-error', 'about:blank'], ['dom-url-error', 'about:blank'],
+  ])
+  let welcomeUrl = pendingUrls.get(scenario) ?? 'file:///installed/welcome.html'
+  let urlReadFailed = scenario === 'window-url-error'
+  const hidden = Object.assign(new EventEmitter(), { url: () => scenario === 'existing-empty-url' ? '' : 'file:///installed/workspace.html', locator: () => {
     throw new Error('Hidden workspace is not welcome readiness')
   } })
   const welcome = Object.assign(new EventEmitter(), {
-    url: () => 'file:///installed/welcome.html',
+    url: () => {
+      if (urlReadFailed) throw new Error('Controlled welcome URL read failure')
+      return welcomeUrl
+    },
     locator: selector => ({
       async waitFor({ state, timeout }) {
+        assert.equal(welcomeUrl, 'file:///installed/welcome.html')
         assert.equal(state, 'visible')
         assert.ok(timeout > 0)
         assert.ok(form ? ['#key-input', '#back-to-login'].includes(selector) : ['#api-key', '#sign-in'].includes(selector))
@@ -87,10 +97,19 @@ export const _electron = { async launch(options) {
     process: () => child,
     async evaluate() {
       if (scenario === 'already-exited') throw new Error('Controlled application already exited')
+      if (pendingUrls.has(scenario)) {
+        setImmediate(() => {
+          application.emit('window', welcome)
+          welcome.emit('domcontentloaded')
+          if (scenario === 'dom-url-error') urlReadFailed = true
+          else welcomeUrl = 'file:///installed/welcome.html'
+          welcome.emit('domcontentloaded')
+        })
+      }
       return { pid: process.pid + 1, version: scenario === 'wrong-version' ? '99.0.0' : version,
         packaged: true, executable, userData, logs, home }
     },
-    windows: () => scenario === 'missing-welcome' ? [hidden] : [hidden, welcome],
+    windows: () => scenario === 'missing-welcome' || pendingUrls.has(scenario) ? [hidden] : [hidden, welcome],
     async close() {
       assert.equal(application.listenerCount('window'), 0)
       assert.equal(application.listenerCount('close'), 0)
