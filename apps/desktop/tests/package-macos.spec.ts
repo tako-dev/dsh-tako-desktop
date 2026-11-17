@@ -33,7 +33,7 @@ async function fixture(arch: 'arm64' | 'x64' = 'arm64') {
   await mkdir(join(appPath, 'Contents', 'Resources'), { recursive: true })
   await writeFile(join(appPath, 'payload'), 'signed content')
   await writeMacOSAppUpdateConfig(join(appPath, 'Contents', 'Resources'), {
-    provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest',
+    provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable',
   }, 'dsh-tako-desktop-updater')
   const version = '1.2.3-alpha.1'
   const base = `DSH-Tako-${version}-mac-${arch}`

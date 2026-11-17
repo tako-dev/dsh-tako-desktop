@@ -3,6 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type ToolExecutionResult } from '@deepseek-ai/dsh-tools'
+import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
 import { applyTakoTools } from '../src/tools.ts'
 import type { TakoToolClient } from '../src/tools.ts'
 
@@ -23,7 +24,7 @@ async function mount(client: TakoToolClient): Promise<Mounted> {
   let count = 0
   return {
     ctx,
-    call: (name, args) => ctx.tools.execute({
+    call: (name, args) => executeToolFixture(ctx, {
       signal: new AbortController().signal,
       callId: ToolCallId(`tako-${++count}`),
       turn: 7,

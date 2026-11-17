@@ -36,7 +36,7 @@ describe('macOS packaged updater configuration', () => {
   })
 
   it('writes and verifies the DSH Tako GitHub Releases feed', async () => {
-    const github = { provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' } as const
+    const github = { provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' } as const
     expect(resolveMacOSAppUpdateFeed([github])).toEqual(github)
     const paths = await fixture()
     expect(createMacOSAppUpdateConfig(github, 'dsh-tako-desktop-updater')).toEqual({ ...github, updaterCacheDirName: 'dsh-tako-desktop-updater' })

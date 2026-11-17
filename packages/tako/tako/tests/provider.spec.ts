@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
+import type { IndexInjection, WebServer } from '@deepseek-ai/dsh-host-webserver'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import LlmRuntime, { LlmAdapter } from '@deepseek-ai/dsh-llm'
@@ -14,6 +14,9 @@ class OccupyingAdapter extends LlmAdapter {
 }
 
 const contexts: Context[] = []
+
+/** The Peer an index render speaks for; this listener reads no field of it. */
+const PAGE_PEER = { principal: { kind: 'owner' } } as Parameters<WebServer['renderIndex']>[1]
 
 afterEach(async () => {
   for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
@@ -49,7 +52,7 @@ describe('Tako page bootstrap', () => {
     ctx.provide('credentials', { resolve: async () => ({ value: 'test-key' }) } as never)
     apply(ctx, Config({ baseURL: 'https://tako.example', models: [{ id: 'known-model' }] }))
     const table: IndexInjection[] = []
-    ctx.emit('webserver/index-inject', table)
+    ctx.emit('webserver/index-inject', table, PAGE_PEER)
     expect(table).toEqual(expect.arrayContaining([
       { kind: 'global', name: TAKO_PROFILE_GLOBAL, value: true },
       { kind: 'global', name: CLIENT_TITLE_GLOBAL, value: 'DSH Tako' },
@@ -99,7 +102,7 @@ describe('Tako chat route yield', () => {
 
   function globalsOf(ctx: Context): IndexInjection[] {
     const table: IndexInjection[] = []
-    ctx.emit('webserver/index-inject', table)
+    ctx.emit('webserver/index-inject', table, PAGE_PEER)
     return table
   }
 

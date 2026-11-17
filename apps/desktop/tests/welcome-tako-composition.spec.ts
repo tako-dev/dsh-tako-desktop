@@ -49,16 +49,16 @@ it('recognizes the fresh bundled Tako profile before the npm plugin is installed
     })
     const namespaces = ctx.settings.describe({ redactSecrets: true })
     expect(takoCredentialSettings(namespaces)).toEqual({ apiKeyEnv: 'TAKO_API_KEY', baseURL: 'https://tako.example.test' })
-    const send: Parameters<typeof connectDesktopWelcome>[1] = async (_input, init) => {
+    const send: Parameters<typeof connectDesktopWelcome>[2] = async (_input, init) => {
       if (init?.method !== 'POST') return new Response('app')
-      const request = JSON.parse(init.body as string) as { rpcId: string; method: string; payload: { args: { refs?: string[] } } }
+      const request = JSON.parse(init!.body as string) as { rpcId: string; method: string; payload: { args: { refs?: string[] } } }
       const value = request.method === 'settings/describe'
         ? { namespaces: [...namespaces, { ns: 'locale', value: {} }] }
         : request.method === 'llm/listConfigurableProviders' ? []
           : Object.fromEntries((request.payload.args.refs ?? []).map(ref => [ref, { configured: false, writable: true }]))
       return Response.json({ type: 'server-response', rpcId: request.rpcId, result: { ok: true, value } })
     }
-    const backend = await connectDesktopWelcome('http://127.0.0.1:12345/?token=fixture', send)
+    const backend = await connectDesktopWelcome('http://127.0.0.1:12345/?token=fixture', 'dsh-auth-fixture=signed', send)
     expect(await backend.read()).toMatchObject({ hasApiKey: false, writable: true })
     expect(backend.provider).toBe('tako')
   } finally {

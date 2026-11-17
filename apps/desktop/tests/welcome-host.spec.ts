@@ -44,7 +44,7 @@ describe('desktop welcome Web operations', () => {
     const backend = connectDesktopWelcome(url, cookie, host.send)
     expect(await backend.read()).toMatchObject({ themePreference: preference })
     expect(host.send.mock.calls.filter(([input]) => input.endsWith('/api/settings/describe'))).toHaveLength(1)
-    host.namespaces.find(item => item.ns === 'ui-theme')!.value.preference = 'system'
+    ;(host.namespaces.find(item => item.ns === 'ui-theme')!.value as { preference: string }).preference = 'system'
     expect(await backend.read()).toMatchObject({ themePreference: 'system' })
   })
 

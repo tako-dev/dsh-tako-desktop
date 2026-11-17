@@ -33,6 +33,10 @@ export const en = {
   quotaTitle: 'No balance available',
   quotaDescription: 'DeepSeek Harness cannot start a new task with this account when no balance is available. Would you like to top up? You can also top up later in Settings → Account.',
   quotaTopUp: 'Top up',
+  takoBrand: 'Tako', takoPlan: 'Plan', takoQuota: 'Tako quota',
+  takoQuotaNoData: 'No data', takoQuotaUnavailable: 'Quota unavailable',
+  takoSignInForQuota: 'Sign in to view quota', takoOpenWallet: 'Open wallet',
+  takoWeeklyShort: 'Weekly', takoBalance: 'Balance',
 } as const
 /** Account locale keys. */
 export type AccountKey = keyof typeof en
@@ -68,6 +72,10 @@ export const zh: Record<AccountKey, string> = {
   quotaTitle: '当前无可用余额',
   quotaDescription: '没有可用额度时，DeepSeek Harness 无法开始新的任务，是否前往充值？或者可以稍后前往 设置 → 账号与余额 进行充值。',
   quotaTopUp: '去充值',
+  takoBrand: 'Tako', takoPlan: '套餐', takoQuota: 'Tako 额度',
+  takoQuotaNoData: '暂无数据', takoQuotaUnavailable: '额度不可用',
+  takoSignInForQuota: '登录后查看额度', takoOpenWallet: '打开钱包',
+  takoWeeklyShort: '每周', takoBalance: '余额',
 }
 
 /** Japanese copy, checked against the English keys. */
@@ -127,6 +135,15 @@ export const ja = {
   'quotaTitle': '残高がありません',
   'quotaDescription': '残高がない場合、DeepSeek Harness はこのアカウントで新しいタスクを開始できません。チャージしますか？後から設定 → アカウントでチャージすることもできます。',
   'quotaTopUp': 'チャージ',
+  'takoBrand': 'Tako',
+  'takoPlan': 'プラン',
+  'takoQuota': 'Tako クォータ',
+  'takoQuotaNoData': 'データなし',
+  'takoQuotaUnavailable': 'クォータを利用できません',
+  'takoSignInForQuota': 'ログインしてクォータを表示',
+  'takoOpenWallet': 'ウォレットを開く',
+  'takoWeeklyShort': '週間',
+  'takoBalance': '残高',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -161,6 +178,10 @@ export const es = {
   quotaTitle: 'No hay saldo disponible',
   quotaDescription: 'DeepSeek Harness no puede iniciar una nueva tarea con esta cuenta cuando no hay saldo disponible. ¿Quieres recargar? También puedes recargar más tarde en Configuración → Cuenta.',
   quotaTopUp: 'Recargar',
+  takoBrand: 'Tako', takoPlan: 'Plan', takoQuota: 'Cuota de Tako',
+  takoQuotaNoData: 'Sin datos', takoQuotaUnavailable: 'Cuota no disponible',
+  takoSignInForQuota: 'Inicia sesión para ver la cuota', takoOpenWallet: 'Abrir billetera',
+  takoWeeklyShort: 'Semanal', takoBalance: 'Saldo',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -195,6 +216,10 @@ export const fr = {
   quotaTitle: 'Aucun solde disponible',
   quotaDescription: "DeepSeek Harness ne peut pas démarrer une nouvelle tâche avec ce compte lorsqu'aucun solde n'est disponible. Souhaitez-vous recharger ? Vous pouvez également recharger plus tard dans Paramètres → Compte.",
   quotaTopUp: 'Recharger',
+  takoBrand: 'Tako', takoPlan: 'Forfait', takoQuota: 'Quota Tako',
+  takoQuotaNoData: 'Aucune donnée', takoQuotaUnavailable: 'Quota indisponible',
+  takoSignInForQuota: 'Connectez-vous pour voir le quota', takoOpenWallet: 'Ouvrir le portefeuille',
+  takoWeeklyShort: 'Hebdomadaire', takoBalance: 'Solde',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -229,6 +254,10 @@ export const de = {
   quotaTitle: 'Kein Guthaben verfügbar',
   quotaDescription: 'DeepSeek Harness kann mit diesem Konto keine neue Aufgabe starten, wenn kein Guthaben verfügbar ist. Möchten Sie aufladen? Sie können das Guthaben auch später unter Einstellungen → Konto aufladen.',
   quotaTopUp: 'Auffüllen',
+  takoBrand: 'Tako', takoPlan: 'Tarif', takoQuota: 'Tako-Kontingent',
+  takoQuotaNoData: 'Keine Daten', takoQuotaUnavailable: 'Kontingent nicht verfügbar',
+  takoSignInForQuota: 'Anmelden, um das Kontingent zu sehen', takoOpenWallet: 'Wallet öffnen',
+  takoWeeklyShort: 'Wöchentlich', takoBalance: 'Guthaben',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -263,6 +292,10 @@ export const ru = {
   quotaTitle: 'Нет доступного баланса',
   quotaDescription: 'DeepSeek Harness не может запустить новую задачу с этой учетной записью, если на ней нет баланса. Хотите пополнить счет? Вы также можете пополнить счет позже в «Настройки» → «Аккаунт».',
   quotaTopUp: 'Пополнить',
+  takoBrand: 'Tako', takoPlan: 'Тариф', takoQuota: 'Квота Tako',
+  takoQuotaNoData: 'Нет данных', takoQuotaUnavailable: 'Квота недоступна',
+  takoSignInForQuota: 'Войдите, чтобы увидеть квоту', takoOpenWallet: 'Открыть кошелёк',
+  takoWeeklyShort: 'Еженедельно', takoBalance: 'Баланс',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -297,4 +330,8 @@ export const pt = {
   quotaTitle: 'Nenhum saldo disponível',
   quotaDescription: 'DeepSeek Harness não pode iniciar uma nova tarefa com esta conta quando não houver saldo disponível. Você gostaria de recarregar? Você também pode recarregar mais tarde em Configurações → Conta.',
   quotaTopUp: 'Recarregar',
+  takoBrand: 'Tako', takoPlan: 'Plano', takoQuota: 'Cota do Tako',
+  takoQuotaNoData: 'Sem dados', takoQuotaUnavailable: 'Cota indisponível',
+  takoSignInForQuota: 'Faça login para ver a cota', takoOpenWallet: 'Abrir carteira',
+  takoWeeklyShort: 'Semanal', takoBalance: 'Saldo',
 } satisfies Record<keyof typeof en, string>
