@@ -3,14 +3,14 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
 /dsh-tako:
-  en: 7c16555e9d1d6450
-  zh: 22ce88e438cbf635
+  en: 02295fb4229f3655
+  zh: b15e00e81a82ff15
 /dsh-tako/download-and-install:
   en: 67a931bba93dc13a
   zh: 3713fcdd23ebe155
 /dsh-tako/first-sign-in:
-  en: 8a4a4649b878fa3b
-  zh: c4add94608e3edb7
+  en: 9aa9603e8be4c0ae
+  zh: 631b648dba025ae0
 /dsh-tako/dsh-tako-and-the-npm-plugin-dsh-tako:
   en: 13ef33e809316266
   zh: 35838bbeb4ee3581
@@ -21,8 +21,8 @@
   en: f564099a5bd394fc
   zh: a76e7d21553ff564
 /dsh-tako/faq:
-  en: d63b0ca45671e455
-  zh: 70d86f60c0b94344
+  en: 9db59d1f4b184900
+  zh: d2f5a10179f468d9
 /deepseek-harness:
   en: dec7acf71149d381
   zh: 13ed68011a93aeec
