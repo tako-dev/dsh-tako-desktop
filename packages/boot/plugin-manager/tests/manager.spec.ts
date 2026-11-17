@@ -234,6 +234,8 @@ it.each(['github:acme/connected', 'https://github.com/acme/connected.git', 'git+
     expect(readProfileManifest('test', dir).dependencies).toHaveProperty(name)
     expect(requests).toContain('github.com:443')
   },
+  // Real Git and pnpm child processes; the default 5s budget does not cover them under aggregate load.
+  30_000,
 )
 
 it.each(['missing package', 'invalid manifest', 'not a bundle', 'missing patch', 'invalid patch'])(
@@ -603,7 +605,7 @@ it('runs a real pnpm dependency script only after approval and retry', async () 
   const allowed = await manager.installBundle('file:./addon', { enabled: false, approvedBuilds: blocked.pendingBuilds! })
   expect(allowed, JSON.stringify(allowed)).toMatchObject({ application: 'restart-required', packageResult: { exitCode: 0 } })
   expect(readFileSync(built, 'utf8')).toBe('built')
-})
+}, 30_000)
 
 it.each(['[', 'allowBuilds: false\n'])('preserves pnpm diagnostics when pending approvals cannot be read: %s', async (policy) => {
   const { manager, dir } = await fixture()
