@@ -29,7 +29,7 @@ $dataPaths = @((Join-Path $roaming $productName), (Join-Path $roaming 'dsh-tako-
 $checks = [Collections.Generic.List[string]]::new()
 $report = [ordered]@{ status = 'failed'; stage = 'preflight'; version = $Version; installer = $setup; installerSha256 = $null;
   installPath = $installPath; checks = $checks; cleanup = 'not-required'; error = $null; cleanupError = $null;
-  installExitCode = $null; uninstallExitCode = $null; protocolCleanup = 'not-required' }
+  installExitCode = $null; applicationExitCode = $null; uninstallExitCode = $null; protocolCleanup = 'not-required' }
 $attempted = $false
 $locked = $false
 $mutex = [Threading.Mutex]::new($false, 'Global\DSHTakoReleaseInstallSmoke')
@@ -93,10 +93,12 @@ function Remove-OwnedProtocolRegistration([string]$Key, [string]$Executable) {
   return 'removed-smoke-owned-registration'
 }
 
-function Invoke-OwnedProcess([string]$File, [string[]]$Arguments, [int]$Seconds, [switch]$Nsis) {
+function Invoke-OwnedProcess([string]$File, [string[]]$Arguments, [int]$Seconds, [string]$LogPrefix, [switch]$Nsis) {
   $info = [Diagnostics.ProcessStartInfo]::new($File)
   $info.UseShellExecute = $false
   $info.CreateNoWindow = $true
+  $info.RedirectStandardOutput = $true
+  $info.RedirectStandardError = $true
   $info.WorkingDirectory = $root
   if ($Nsis) { $info.Arguments = $Arguments[0] }
   else { foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) } }
@@ -108,15 +110,27 @@ function Invoke-OwnedProcess([string]$File, [string[]]$Arguments, [int]$Seconds,
   $info.Environment['DSH_HOME'] = $homePath
   $info.Environment['DSH_AGENTS_HOME'] = Join-Path $root 'Agents Home'
   $info.Environment['DSH_TELEMETRY_DISABLED'] = '1'
-  $process = [Diagnostics.Process]::Start($info)
+  $stdout = [IO.File]::Create((Join-Path $output ($LogPrefix + '-stdout.log')))
   try {
-    if (-not $process.WaitForExit($Seconds * 1000)) {
-      $process.Kill($true)
-      Require ($process.WaitForExit(30000)) "Process tree did not stop after its deadline: $File"
-      throw "Process exceeded its $Seconds s deadline: $File"
-    }
-    return $process.ExitCode
-  } finally { $process.Dispose() }
+    $stderr = [IO.File]::Create((Join-Path $output ($LogPrefix + '-stderr.log')))
+    try {
+      $process = [Diagnostics.Process]::Start($info)
+      try {
+        $stdoutCopy = $process.StandardOutput.BaseStream.CopyToAsync($stdout)
+        $stderrCopy = $process.StandardError.BaseStream.CopyToAsync($stderr)
+        if (-not $process.WaitForExit($Seconds * 1000)) {
+          $process.Kill($true)
+          Require ($process.WaitForExit(30000)) "Process tree did not stop after its deadline: $File"
+          throw "Process exceeded its $Seconds s deadline: $File"
+        }
+        return $process.ExitCode
+      } finally {
+        try {
+          Require ([Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($stdoutCopy, $stderrCopy), 30000)) "Process output did not close: $File"
+        } finally { $process.Dispose() }
+      }
+    } finally { $stderr.Dispose() }
+  } finally { $stdout.Dispose() }
 }
 
 try {
@@ -137,7 +151,7 @@ try {
   $report.stage = 'install'
   $attempted = $true
   # NSIS requires /D= to be the final, unquoted part of the command line.
-  $report.installExitCode = Invoke-OwnedProcess $setup @('/S /currentuser /D=' + $installPath) $InstallTimeoutSeconds -Nsis
+  $report.installExitCode = Invoke-OwnedProcess $setup @('/S /currentuser /D=' + $installPath) $InstallTimeoutSeconds 'install' -Nsis
   Require ($report.installExitCode -eq 0) "Silent install exited with $($report.installExitCode)"
   $checks.Add('silent-install-exit-0')
 
@@ -164,8 +178,8 @@ try {
   $report.stage = 'application-ready'
   $node = (Get-Command node -CommandType Application | Select-Object -First 1).Source
   $appCheck = Join-Path $PSScriptRoot 'windows-release-app-smoke.mjs'
-  $exitCode = Invoke-OwnedProcess $node @($appCheck, $appPath, $Version, $homePath, $userData, $output, [string]$StartupTimeoutSeconds) ($StartupTimeoutSeconds + 90)
-  Require ($exitCode -eq 0) "Installed application readiness check exited with $exitCode; inspect $output"
+  $report.applicationExitCode = Invoke-OwnedProcess $node @($appCheck, $appPath, $Version, $homePath, $userData, $output, [string]$StartupTimeoutSeconds) ($StartupTimeoutSeconds + 90) 'node'
+  Require ($report.applicationExitCode -eq 0) "Installed application readiness check exited with $($report.applicationExitCode); inspect $output\node-stderr.log and application.json"
   Wait-Until { @(Get-OwnedApplication).Count -eq 0 } 30 'Application processes survived normal shutdown'
   $checks.Add('installed-host-and-welcome-ready')
   $report.status = 'passed'
@@ -190,7 +204,7 @@ try {
         $copy = Join-Path $root 'uninstall-copy.exe'
         # _?= disables relocation, so the executable must already be outside the directory being removed.
         Copy-Item -LiteralPath $uninstaller -Destination $copy
-        $report.uninstallExitCode = Invoke-OwnedProcess $copy @('/S /currentuser _?=' + $installPath) $UninstallTimeoutSeconds -Nsis
+        $report.uninstallExitCode = Invoke-OwnedProcess $copy @('/S /currentuser _?=' + $installPath) $UninstallTimeoutSeconds 'uninstall' -Nsis
         Require ($report.uninstallExitCode -eq 0) "Silent uninstall exited with $($report.uninstallExitCode)"
       }
       Wait-Until { -not (Test-Path -LiteralPath $installPath) } $UninstallTimeoutSeconds 'The installation directory survived uninstall'

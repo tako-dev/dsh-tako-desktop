@@ -107,7 +107,12 @@ describe('Windows release installation checks', () => {
 describe('installed application smoke lifecycle', () => {
   interface ApplicationReport {
     status: string
+    stage: string
+    failureStage?: string
     checks: string[]
+    uncaughtException?: string
+    unhandledRejection?: string
+    exitError?: string
     launchedProcess?: { pid: number; exitCode: number | null; signal: string | null; exited: boolean }
     error?: string
     shutdownError?: string
@@ -160,7 +165,7 @@ describe('installed application smoke lifecycle', () => {
       const report = JSON.parse(readFileSync(join(output, 'application.json'), 'utf8')) as ApplicationReport
       return { ...exit, report, stdout: child.stdout(), stderr: child.stderr() }
     }
-    return { root, home, userData, output, run }
+    return { root, home, userData, output, start, run }
   }
 
   it('waits for interactive welcome readiness and normal process exit with private state and no credentials', async () => {
@@ -200,6 +205,50 @@ describe('installed application smoke lifecycle', () => {
     expect(result.code, result.stderr).toBe(1)
     expect(result.report.status).toBe('failed')
     expect(result.report.error).toContain(message)
+  })
+
+  it('retains failures before launch and prints the report to stderr', async () => {
+    const f = fixture()
+    const imported = await f.run('import-failure')
+    expect(imported.code, imported.stderr).toBe(1)
+    expect(imported.report.failureStage).toBe('load-playwright')
+    expect(imported.report.error).toContain('Controlled Playwright import failure')
+    expect(imported.stderr).toContain(imported.report.error)
+    expect(imported.stderr).toContain('"status": "failed"')
+
+    rmSync(f.home, { recursive: true, force: true })
+    writeFileSync(f.home, 'not a directory')
+    const prepared = await f.run('normal')
+    expect(prepared.code, prepared.stderr).toBe(1)
+    expect(prepared.report.failureStage).toBe('prepare-private-state')
+    expect(prepared.stderr).toContain(prepared.report.error)
+  })
+
+  it.each([
+    ['uncaught-exception', 'uncaughtException'],
+    ['unhandled-rejection', 'unhandledRejection'],
+    ['direct-exit', 'exitError'],
+  ] as const)('retains a report and stderr for %s outside the awaited launch', async (scenario, field) => {
+    const result = await fixture().run(scenario)
+    expect(result.code, result.stderr).toBe(1)
+    expect(result.report.status).toBe('failed')
+    expect(result.report.failureStage).toBe('electron-launch')
+    expect(result.report[field]).toContain(scenario === 'direct-exit' ? 'exited with code 1' : `Controlled ${scenario}`)
+    expect(result.stderr).toContain(result.report[field])
+    expect(result.stderr).toContain('"status": "failed"')
+  })
+
+  it('prints report-write errors to stderr when the evidence file cannot be written', async () => {
+    const f = fixture()
+    mkdirSync(join(f.output, 'application.json'))
+    const child = f.start('launch-failure')
+    const exit = await child.closed
+    expect(exit.signal, child.stderr()).toBeNull()
+    expect(exit.code, child.stderr()).toBe(1)
+    const report = JSON.parse(child.stdout()) as ApplicationReport
+    expect(report.error).toContain('Controlled launch failure')
+    expect(report.reportError).toBeTruthy()
+    expect(child.stderr()).toContain(report.reportError)
   })
 
   it('retains crash contents outside the private application state', async () => {
@@ -263,6 +312,7 @@ it.skipIf(process.platform !== 'win32')('recognizes versioned uninstall entries,
   expect(exit.code, stderr).toBe(0)
   expect(stdout).toContain('uninstall-entries: versioned and older product names detected; foreign prefix excluded')
   expect(stdout).toContain('node-selection: first executable selected from multiple PATH entries')
+  expect(stdout).toContain('process-capture: stdout, stderr, nonzero exit, pipe pressure, and deadline teardown retained')
   expect(stdout).toContain('shortcut-checks: target verified; same-name foreign target rejected')
   expect(stdout).toContain('protocol-cleanup: absent, owned, and foreign registrations verified')
 })

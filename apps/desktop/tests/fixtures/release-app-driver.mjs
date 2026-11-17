@@ -9,12 +9,16 @@ import { PassThrough } from 'node:stream'
 const [, , executable, version, home, userData, output, , scenario] = process.argv
 const requireParent = new URL('../../../web/package.json', import.meta.url).href
 const hooks = registerHooks({ resolve(specifier, context, next) {
-  if (specifier === 'playwright' && context.parentURL === requireParent) {
-    hooks.deregister()
-    return { url: import.meta.url, shortCircuit: true }
+  if (context.parentURL === requireParent) {
+    if (specifier === 'playwright/package.json') return { url: new URL('../../../web/package.json', import.meta.url).href, shortCircuit: true }
+    if (specifier === 'playwright') {
+      if (scenario === 'import-failure') throw new Error('Controlled Playwright import failure')
+      return { url: import.meta.url, shortCircuit: true }
+    }
   }
   return next(specifier, context)
 } })
+process.once('exit', () => { hooks.deregister() })
 
 /** Supplies controlled application observations to the helper's subprocess regressions. */
 export const _electron = { async launch(options) {
@@ -31,6 +35,15 @@ export const _electron = { async launch(options) {
   assert.equal(options.env.ELECTRON_RUN_AS_NODE, undefined)
   assert.ok(options.timeout > 0)
   if (scenario === 'launch-failure') throw new Error('Controlled launch failure')
+  if (scenario === 'uncaught-exception' || scenario === 'unhandled-rejection') {
+    setImmediate(() => {
+      const error = new Error(`Controlled ${scenario}`)
+      if (scenario === 'uncaught-exception') throw error
+      void Promise.reject(error)
+    })
+    return new Promise(() => {})
+  }
+  if (scenario === 'direct-exit') process.exit(1)
 
   const logs = join(userData, 'logs')
   mkdirSync(logs, { recursive: true })

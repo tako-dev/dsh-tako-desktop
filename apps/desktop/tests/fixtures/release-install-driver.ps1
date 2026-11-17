@@ -6,7 +6,7 @@ $tokens = $null
 $parseErrors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($Smoke, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count -ne 0) { throw ($parseErrors | Out-String) }
-foreach ($name in @('Require', 'Find-Shortcut', 'Remove-OwnedProtocolRegistration')) {
+foreach ($name in @('Require', 'Find-Shortcut', 'Remove-OwnedProtocolRegistration', 'Invoke-OwnedProcess')) {
   $function = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
   if ($null -eq $function) { throw "Missing cleanup function: $name" }
   . ([scriptblock]::Create($function.Extent.Text))
@@ -47,6 +47,33 @@ try {
 
   $files = [IO.Directory]::CreateTempSubdirectory('dsh-tako-shortcuts-').FullName
   try {
+    $output = Join-Path $files 'Process Evidence'
+    $homePath = Join-Path $files 'Process Home'
+    New-Item -ItemType Directory -Path $output, $homePath | Out-Null
+    $privateRoot = $root
+    try {
+      $root = $files
+      $nodeExecutable = (Get-Command node -CommandType Application | Select-Object -First 1).Source
+      $exitCode = Invoke-OwnedProcess $nodeExecutable @('-e', 'process.stdout.write("captured stdout\n"); process.stderr.write("captured stderr\n"); process.exitCode = 7') 30 'capture'
+      Require ($exitCode -eq 7) 'Captured process exit status was lost'
+      Require ([IO.File]::ReadAllText((Join-Path $output 'capture-stdout.log')) -eq "captured stdout`n") 'Process stdout was not retained'
+      Require ([IO.File]::ReadAllText((Join-Path $output 'capture-stderr.log')) -eq "captured stderr`n") 'Process stderr was not retained'
+      $exitCode = Invoke-OwnedProcess $nodeExecutable @('-e', 'process.stdout.write("o".repeat(262144)); process.stderr.write("e".repeat(262144))') 30 'large'
+      Require ($exitCode -eq 0) 'Concurrent stdout/stderr capture blocked the process'
+      Require ((Get-Item -LiteralPath (Join-Path $output 'large-stdout.log')).Length -eq 262144) 'Large stdout was truncated'
+      Require ((Get-Item -LiteralPath (Join-Path $output 'large-stderr.log')).Length -eq 262144) 'Large stderr was truncated'
+      $timedOut = $false
+      try {
+        Invoke-OwnedProcess $nodeExecutable @('-e', 'process.stderr.write("before deadline\n"); setInterval(() => {}, 1000)') 2 'deadline' | Out-Null
+      } catch {
+        Require ($_.Exception.Message -like '*exceeded its 2 s deadline*') 'Unexpected timeout failure'
+        $timedOut = $true
+      }
+      Require $timedOut 'Long-running child did not exceed its deadline'
+      Require ([IO.File]::ReadAllText((Join-Path $output 'deadline-stderr.log')) -eq "before deadline`n") 'Output preceding forced teardown was not retained'
+    } finally { $root = $privateRoot }
+    Write-Output 'process-capture: stdout, stderr, nonzero exit, pipe pressure, and deadline teardown retained'
+
     $selection = $ast.Find({ param($node)
       $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$node'
     }, $true)
