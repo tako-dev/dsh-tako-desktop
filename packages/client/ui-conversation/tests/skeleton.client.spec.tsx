@@ -26,7 +26,7 @@ import { ConversationHeader } from '../src/client/skeleton/ConversationHeader.ts
 import { ConversationMainPanel } from '../src/client/skeleton/ConversationMainPanel.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
-import { HeroShell, type HeroShellProps } from '../src/client/skeleton/EmptyHero.tsx'
+import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
 import './control-row-dom.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
@@ -425,8 +425,8 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<HeroShellProps['renderSlot']>((_key, _owner, options) => <>{options?.fallback}</>)
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    const renderSlot = vi.fn((_key: string, _owner: object, options?: { fallback?: ReactNode }) => <>{options?.fallback}</>)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
     expect(renderSlot).toHaveBeenCalledTimes(2)
@@ -443,10 +443,10 @@ describe('Hero chrome', () => {
   })
 
   it('lets a brand occupant replace the headline and its preview badge', () => {
-    const renderSlot = vi.fn<HeroShellProps['renderSlot']>((key, _owner, options) => (
+    const renderSlot = vi.fn((key: string, _owner: object, options?: { fallback?: ReactNode }) => (
       key === 'conversation.hero.brand.title' ? <span>Occupied headline</span> : <>{options?.fallback}</>
     ))
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
     expect(view.getByText('Occupied headline')).toBeTruthy()
     expect(view.queryByText('Into the Unknown')).toBeNull()
     expect(view.queryByText('Preview')).toBeNull()

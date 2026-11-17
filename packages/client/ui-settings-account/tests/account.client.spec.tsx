@@ -144,7 +144,7 @@ it.each([en, zh])('keeps the Settings entry visible for a Tako profile', async (
   const operations = operationsOf({ status: 'signed-out', attempt: null }, undefined, undefined, undefined, undefined, true)
   const openSettings = vi.fn()
   const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
-  render(<AccountMenu {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
+  render(<AccountMenu renderSlot={() => null} {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
