@@ -75,20 +75,20 @@ export function resolveTakoDesktopVersion(env = process.env) {
 }
 
 /**
- * Resolve the update channel embedded in a DSH Tako build; GitHub Releases publish stable `latest` by default.
+ * Resolve the update channel embedded in a DSH Tako build; GitHub Releases publish stable `stable` by default.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
- * @returns {'nightly' | 'latest'} Validated channel.
+ * @returns {'nightly' | 'stable'} Validated channel.
  */
 export function resolveTakoDesktopUpdateChannel(env = process.env) {
-  const channel = env.DSH_DESKTOP_UPDATE_CHANNEL || 'latest'
-  if (channel !== 'nightly' && channel !== 'latest') throw new Error('desktop auto-update: invalid update channel')
+  const channel = env.DSH_DESKTOP_UPDATE_CHANNEL || 'stable'
+  if (channel !== 'nightly' && channel !== 'stable') throw new Error('desktop auto-update: invalid update channel')
   return channel
 }
 
 /**
  * The electron-builder publish entry for a signed DSH Tako build.
- * @param {'nightly' | 'latest'} channel - Embedded update channel.
- * @returns {{ provider: 'github', owner: string, repo: string, channel: 'nightly' | 'latest' }} Publish provider.
+ * @param {'nightly' | 'stable'} channel - Embedded update channel.
+ * @returns {{ provider: 'github', owner: string, repo: string, channel: 'nightly' | 'stable' }} Publish provider.
  */
 export function takoDesktopPublish(channel) {
   return { ...TAKO_DESKTOP_GITHUB_PUBLISH, channel }

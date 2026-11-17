@@ -1,5 +1,5 @@
 /** Account Remote values contain no credential payloads. */
-export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountProfile, AccountUserId, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+export type { AccountClientMetadata, AccountDetails, AccountNotification, AccountNotificationBatch, AccountNotificationEvent, AccountNotificationId, AccountProfile, AccountUserId, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
 
 /** Redacted read-only Tako quota view for the account settings page. */
 export interface TakoQuotaView {

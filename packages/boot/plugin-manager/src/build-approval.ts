@@ -1,7 +1,7 @@
 /** Approve pnpm's pending dependency scripts in the current profile's workspace settings. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { isAlias, isMap, isNode, isScalar, isSeq, parseDocument, visit } from 'yaml'
+import { isAlias, isMap, isNode, isScalar, parseDocument, visit } from 'yaml'
 import { ManagementFailure } from './failure.ts'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 
@@ -10,6 +10,20 @@ const UNDECIDED_BUILD = 'set this to true or false'
 
 /** Where a non-interactive run names the build scripts it skipped. */
 const IGNORED_BUILDS = /\bIgnored build scripts: (.+)/
+
+/** The `allowBuilds` key pnpm suggests when it refuses to prepare a git-hosted package; a subdirectory key can contain spaces. */
+const GIT_DEP_PREPARE = /ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED[\s\S]*?^allowBuilds:\r?\n[ \t]+(.+?): true$/m
+
+/**
+ * Whether an `allowBuilds` key names a git URL that carries a credential: a password, or any user name over HTTP(S).
+ * Such a key is not recorded, so the credential stays out of the profile settings and the pending list.
+ */
+function carriesCredential(key: string): boolean {
+  const at = key.indexOf('@git+')
+  if (at === -1) return false
+  const url = URL.parse(key.slice(at + '@git+'.length).replace(/#.*$/s, ''))
+  return url !== null && (url.password !== '' || (url.username !== '' && /^https?:$/.test(url.protocol)))
+}
 
 async function readPolicy(dir: string) {
   let text: string
@@ -36,50 +50,20 @@ async function readPolicy(dir: string) {
   return { document, pending, keys }
 }
 
-async function reportedBuildSelectors(dir: string, output: string): Promise<string[]> {
-  const reported = ignoredBuildNames(output)
-  if (reported.length === 0) return []
-  let text: string
-  try { text = await readFile(join(dir, 'node_modules', '.modules.yaml'), 'utf8') }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    return reported
-  }
-  const modules = parseDocument(text)
-  if (modules.errors[0] !== undefined) throw modules.errors[0]
-  if (!isMap(modules.contents)) throw new Error('node_modules/.modules.yaml must be a YAML mapping')
-  const pending = modules.get('pendingBuilds')
-  if (pending === undefined) return reported
-  if (!isSeq(pending)) throw new Error('node_modules/.modules.yaml pendingBuilds must be a string array')
-  const selectors: string[] = []
-  for (const item of pending.items) {
-    if (!isScalar(item) || typeof item.value !== 'string') {
-      throw new Error('node_modules/.modules.yaml pendingBuilds must be a string array')
-    }
-    selectors.push(item.value)
-  }
-  // pnpm accepts file dependencies only by dependency path, not by the manifest name in our script-blocking diagnostic.
-  return reported.flatMap(name => {
-    const exact = selectors.filter(selector => selector.startsWith(`${name}@file:`) && !/[*?]/.test(selector))
-    return exact.length === 0 ? [name] : exact
-  })
-}
-
 /**
- * Record the build scripts a failed run reported as ignored, then list every key awaiting a decision.
+ * Record the build scripts a failed run reported as blocked, then list every `allowBuilds` key awaiting a decision.
  *
  * pnpm writes those policy entries itself only when it can prompt, and the
  * manager always runs it non-interactively, so the run's own report is the
- * record that survives. File dependencies retain pnpm's exact pending selector.
+ * record that survives.
  * @param dir Current profile directory.
  * @param output Captured output of the failed run.
- * @returns Exact pnpm approval keys awaiting a build decision; wildcard rules are excluded.
- * @throws If profile settings or pnpm's pending-build metadata cannot be read or parsed; no approvals are written.
+ * @returns Exact `allowBuilds` keys awaiting a build decision; wildcard rules are excluded.
  */
 export async function recordPendingBuilds(dir: string, output: string): Promise<string[]> {
   const { document, pending, keys } = await readPolicy(dir)
   const known = new Set(keys)
-  const added = (await reportedBuildSelectors(dir, output)).filter(name => !known.has(name))
+  const added = blockedBuildNames(output).filter(name => !known.has(name))
   if (added.length === 0) return pending
   for (const name of added) document.setIn(['allowBuilds', name], UNDECIDED_BUILD)
   await writeFileAtomic(join(dir, 'pnpm-workspace.yaml'), String(document), { mode: 0o600 })
@@ -87,14 +71,15 @@ export async function recordPendingBuilds(dir: string, output: string): Promise<
 }
 
 /**
- * Read the package names a pnpm run reported as ignored build scripts.
+ * Read the `allowBuilds` keys a pnpm run reported as ignored build scripts or as a git-hosted package it refused to prepare.
  * @param output Captured output of the run.
- * @returns Exact names in report order; wildcard patterns are excluded.
+ * @returns Exact keys in report order; wildcard patterns and git keys carrying a credential are excluded.
  */
-export function ignoredBuildNames(output: string): string[] {
-  const reported = IGNORED_BUILDS.exec(output)?.[1]
-  if (reported === undefined) return []
-  return reported.split(',').map(name => name.trim()).filter(name => name !== '' && !/[*?]/.test(name))
+export function blockedBuildNames(output: string): string[] {
+  const ignored = IGNORED_BUILDS.exec(output)?.[1]?.split(',') ?? []
+  const git = GIT_DEP_PREPARE.exec(output)?.[1]
+  return [...ignored, ...git === undefined ? [] : [git]]
+    .map(name => name.trim()).filter(name => name !== '' && !/[*?]/.test(name) && !carriesCredential(name))
 }
 
 /** Persist approval without running scripts; the caller holds the profile manifest lock.

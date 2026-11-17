@@ -15,6 +15,7 @@ export const PROTECTED_PLUGINS: ReadonlySet<string> = new Set([
   '@deepseek-ai/cordis-plugin-timer', '@deepseek-ai/dsh-client-connection',
   '@deepseek-ai/dsh-host-frontend-static', '@deepseek-ai/dsh-tools',
   '@deepseek-ai/dsh-hmr',
+  '@deepseek-ai/dsh-tako', 'dsh-tako',
 ])
 
 /**
@@ -76,5 +77,6 @@ export const EXPERIMENTAL_BUNDLES: ReadonlySet<string> = new Set([
   '@deepseek-ai/dsh-experimental-ralph-bundle',
   '@deepseek-ai/dsh-experimental-plugin-market-bundle',
   '@deepseek-ai/dsh-experimental-liveshare',
+  '@deepseek-ai/dsh-experimental-tako-browser-bundle',
   '@deepseek-ai/dsh-deepseek-chat-import',
 ])

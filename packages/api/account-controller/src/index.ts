@@ -3,7 +3,9 @@ import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-agent'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type {
+  AccountClientMetadata, AccountDetails, AccountNotificationBatch, AccountNotificationEvent, AccountNotificationId,
+} from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId, TakoQuotaView } from './types.ts'
 
 export type * from './types.ts'
@@ -72,24 +74,25 @@ export class AccountController extends TypertRemoteService {
     }
   }
   /**
-   * Query the granted bonuses Platform has not yet recorded as displayed.
+   * Query unconsumed account notifications in server order.
    * @param client - identity of the requesting UI; its language selects the server-authored message.
-   * @returns bonuses with their account, or null when the account grant is absent or changed.
+   * @returns notifications with their next query delay, or null when the account grant is absent or changed.
    */
   @Remote
-  getUnnotifiedBonuses(client: AccountClientMetadata): Promise<AccountBonusBatch | null> {
-    return this.ctx.deepseekAccount.getUnnotifiedBonuses(client)
+  getNotifications(client: AccountClientMetadata): Promise<AccountNotificationBatch | null> {
+    return this.ctx.deepseekAccount.getNotifications(client)
   }
   /**
-   * Record one displayed bonus as notified for the account it belongs to.
-   * @param accountId - account the notification was read for.
-   * @param orderId - granted bonus order the user saw.
+   * Report one notification interaction for the backend to record.
+   * @param id - notification the user interacted with.
+   * @param event - displayed frame, non-dismiss action click, or explicit dismissal.
    * @param client - identity of the requesting UI; the Host derives Platform request headers from it.
-   * @returns true once Platform records the acknowledgement; false when the account is absent or changed.
+   * @returns true once the server accepts the event; false when the account is absent or changed.
    */
   @Remote
-  ackBonusNotified(accountId: AccountUserId, orderId: AccountBonusOrderId, client: AccountClientMetadata): Promise<boolean> {
-    return this.ctx.deepseekAccount.ackBonusNotified(accountId, orderId, client)
+  reportNotificationEvent(id: AccountNotificationId,
+    event: AccountNotificationEvent, client: AccountClientMetadata): Promise<boolean> {
+    return this.ctx.deepseekAccount.reportNotificationEvent(id, event, client)
   }
   /**
    * Begin browser sign-in.

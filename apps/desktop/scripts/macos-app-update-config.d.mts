@@ -9,7 +9,7 @@ export interface MacOSGitHubAppUpdateFeed {
   readonly provider: 'github'
   readonly owner: string
   readonly repo: string
-  readonly channel?: 'nightly' | 'latest'
+  readonly channel?: 'nightly' | 'stable'
 }
 
 /** Resolved fields required to embed a macOS updater feed. */
@@ -25,7 +25,7 @@ export type MacOSAppUpdateConfig = {
   readonly provider: 'github'
   readonly owner: string
   readonly repo: string
-  readonly channel: 'nightly' | 'latest'
+  readonly channel: 'nightly' | 'stable'
   readonly updaterCacheDirName: string
 }
 

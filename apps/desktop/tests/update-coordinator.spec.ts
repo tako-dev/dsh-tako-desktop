@@ -39,7 +39,7 @@ describe('desktop release metadata', () => {
       nodeVersion: '24.17.0',
       pnpmVersion: '11.7.0',
     }
-    expect(() => parseDesktopRelease({ ...base, version: 'latest' })).toThrow(/invalid desktop release metadata/u)
+    expect(() => parseDesktopRelease({ ...base, version: 'stable' })).toThrow(/invalid desktop release metadata/u)
     expect(() => parseDesktopRelease({ ...base, hostProtocolVersion: 999 })).toThrow(/invalid desktop release metadata/u)
   })
 })
@@ -47,13 +47,10 @@ describe('desktop release metadata', () => {
 const coordinators: InstanceType<typeof DesktopUpdateCoordinator>[] = []
 afterEach(() => { for (const item of coordinators.splice(0)) item.dispose() })
 
-function unreachable(code: string, message = code): Error {
-  return Object.assign(new Error(message), { code })
-}
-
 function fixture(
-  channel: 'nightly' | 'latest' = 'nightly',
+  channel: 'nightly' | 'stable' = 'nightly',
   version = '1.1.0-alpha.1',
+  discard?: (updater: AppUpdater) => Promise<void>,
   compatibilityGate?: (candidateVersion: string) => Promise<void>,
   mirrorUrl?: string,
 ) {
@@ -78,8 +75,8 @@ function fixture(
   }) as unknown as AppUpdater
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
-    beforeRestart, updater, () => true, () => version, downloadResult, channel, compatibilityGate,
-    mirrorUrl,
+    beforeRestart, updater, () => true, () => version, downloadResult, channel, discard,
+    compatibilityGate, mirrorUrl,
   )
   coordinators.push(coordinator)
   return {
@@ -89,13 +86,13 @@ function fixture(
 }
 
 describe('desktop update coordinator', () => {
-  it('keeps safe preparation diagnostics separate and clears them on an explicit retry', async () => {
+  it.each(['stop-failed', 'fullscreen-timeout'] as const)('keeps safe %s diagnostics separate and clears them on an explicit retry', async (kind) => {
     const f = fixture()
     await f.coordinator.check()
     await f.coordinator.download('1.1.0-rc.2')
-    f.beforeRestart.mockRejectedValueOnce(new DesktopUpdatePreparationError('stop-failed', zh.updateStopFailed, 'exit 0; shutdown acknowledged false'))
+    f.beforeRestart.mockRejectedValueOnce(new DesktopUpdatePreparationError(kind, zh.updateStopFailed, 'exit 0; shutdown acknowledged false'))
     expect(await f.coordinator.install('1.1.0-rc.2')).toEqual({ phase: 'error', version: '1.1.0-rc.2',
-      failedOperation: 'install', preparationFailure: 'stop-failed', message: zh.updateStopFailed,
+      failedOperation: 'install', preparationFailure: kind, message: zh.updateStopFailed,
       technicalDetails: 'exit 0; shutdown acknowledged false' })
     expect(f.quitAndInstall).not.toHaveBeenCalled()
     f.beforeRestart.mockResolvedValueOnce(false)
@@ -203,7 +200,7 @@ describe('desktop update coordinator', () => {
 
   it.each(['0.1.5', '0.1.41', '0.1.44'])('updates directly from %s to the latest compatible stable release', async (installed) => {
     const gate = vi.fn(async () => {})
-    const f = fixture('latest', installed, gate)
+    const f = fixture('stable', installed, undefined, gate)
     f.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '0.1.46' } })
     f.downloadUpdate.mockImplementation(async () => {
       f.events.emit('update-downloaded', { version: '0.1.46' })
@@ -221,7 +218,7 @@ describe('desktop update coordinator', () => {
 
   it('does not present a DSH update until the Tako compatibility gate accepts it', async () => {
     const gate = vi.fn(async () => { throw new Error('Tako bundle is not published for this DSH version') })
-    const f = fixture('nightly', '1.1.0-alpha.1', gate)
+    const f = fixture('nightly', '1.1.0-alpha.1', undefined, gate)
     expect(await f.coordinator.check()).toMatchObject({ phase: 'error', failedOperation: 'check' })
     expect(gate).toHaveBeenCalledExactlyOnceWith('1.1.0-rc.2')
     await expect(f.coordinator.download('1.1.0-rc.2')).rejects.toThrow(/no checked update/u)
@@ -287,6 +284,216 @@ it.each([new DesktopUpdatePreparationError('stop-failed', 'private diagnostic'),
 })
 
 
+it.each(['nightly', 'stable'] as const)('accepts newer prereleases on the selected %s channel', async (channel) => {
+  const f = fixture(channel, '1.0.0')
+  expect(f.updater.channel).toBe(channel)
+  expect(f.updater.allowPrerelease).toBe(true)
+  expect(f.updater.allowDowngrade).toBe(false)
+  for (const version of ['1.1.0-alpha.1', '1.1.0-rc.2', '1.1.0']) {
+    f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version } })
+    expect(await f.coordinator.check()).toMatchObject({ phase: 'available', version })
+    expect(f.updater.channel).toBe(channel)
+  }
+})
+
+it.each(['nightly', 'stable'] as const)('rejects older, equal and malformed versions on %s', async (channel) => {
+  for (const version of ['0.9.0', '1.0.0-rc.1', '1.0.0', 'invalid']) {
+    const f = fixture(channel, '1.0.0')
+    f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version } })
+    expect((await f.coordinator.check()).phase).toBe(version === 'invalid' ? 'error' : 'idle')
+    await expect(f.coordinator.download(version)).rejects.toThrow(/no checked update/u)
+    await expect(f.coordinator.install(version)).rejects.toThrow(/confirmed target is not ready/u)
+    expect(f.downloadUpdate).not.toHaveBeenCalled()
+    expect(f.quitAndInstall).not.toHaveBeenCalled()
+  }
+})
+
+
+it('retires a downloaded target and rejects its old confirmation after switching', async () => {
+  const f = fixture()
+  await f.coordinator.check()
+  const revision = f.coordinator.revision
+  await f.coordinator.download('1.1.0-rc.2')
+  const save = vi.fn(async () => {})
+  f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version: '1.2.0' } })
+  await f.coordinator.switchChannel('stable', save)
+  expect(save).toHaveBeenCalledOnce()
+  expect(f.coordinator.selectedChannel).toBe('stable')
+  expect(f.updater.allowDowngrade).toBe(false)
+  expect(f.coordinator.state).toMatchObject({ phase: 'available', version: '1.2.0' })
+  await f.coordinator.install('1.1.0-rc.2', revision)
+  expect(f.quitAndInstall).not.toHaveBeenCalled()
+})
+
+it('leaves the current target intact if saving the choice fails', async () => {
+  const f = fixture()
+  await f.coordinator.check()
+  await f.coordinator.download('1.1.0-rc.2')
+  await expect(f.coordinator.switchChannel('stable', () => Promise.reject(new Error('read only')))).rejects.toThrow('read only')
+  expect(f.coordinator.selectedChannel).toBe('nightly')
+  expect(f.coordinator.state.phase).toBe('ready')
+  await f.coordinator.install('1.1.0-rc.2')
+  expect(f.quitAndInstall).toHaveBeenCalledOnce()
+})
+
+it('discards a check result that belongs to the previous channel', async () => {
+  const f = fixture()
+  const started = Promise.withResolvers<undefined>()
+  const checked = Promise.withResolvers<{ isUpdateAvailable: boolean; updateInfo: { version: string } }>()
+  f.checkForUpdates.mockImplementationOnce(() => { started.resolve(undefined); return checked.promise })
+  const checking = f.coordinator.check()
+  await started.promise
+  const saved = Promise.withResolvers<undefined>()
+  const switching = f.coordinator.switchChannel('stable', async () => { saved.resolve(undefined) })
+  await saved.promise
+  f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version: '1.2.0' } })
+  checked.resolve({ isUpdateAvailable: true, updateInfo: { version: '9.0.0-alpha.1' } })
+  await Promise.all([checking, switching])
+  expect(f.states.some(state => state.version === '9.0.0-alpha.1')).toBe(false)
+  expect(f.coordinator.state).toMatchObject({ phase: 'available', version: '1.2.0' })
+})
+
+it('does not check or install while startup channel configuration is invalid', async () => {
+  const f = fixture()
+  f.coordinator.suspendConfiguration('/settings.json')
+  expect(f.coordinator.configurationFailure).toBe('startup')
+  await f.coordinator.check(true)
+  await f.coordinator.download('1.1.0-rc.2')
+  expect(f.checkForUpdates).not.toHaveBeenCalled()
+  expect(f.downloadUpdate).not.toHaveBeenCalled()
+  expect(f.coordinator.state).toMatchObject({ phase: 'error', failedOperation: 'configuration' })
+  await f.coordinator.switchChannel('nightly', async () => {})
+  expect(f.coordinator.state.phase).toBe('available')
+  expect(f.coordinator.configurationFailure).toBeUndefined()
+})
+
+
+it('waits for a cancelled download before checking the new channel and ignores late progress', async () => {
+  const f = fixture()
+  const entered = Promise.withResolvers<undefined>()
+  const finished = Promise.withResolvers<string[]>()
+  f.downloadUpdate.mockImplementationOnce(async () => { entered.resolve(undefined); return finished.promise })
+  await f.coordinator.check()
+  const downloading = f.coordinator.download('1.1.0-rc.2')
+  await entered.promise
+  const persisted = Promise.withResolvers<undefined>()
+  const switching = f.coordinator.switchChannel('stable', async () => { persisted.resolve(undefined) })
+  await persisted.promise
+  await Promise.resolve()
+  const count = f.states.length
+  f.events.emit('download-progress', { percent: 99 })
+  f.events.emit('update-downloaded', { version: '1.1.0-rc.2' })
+  expect(f.states).toHaveLength(count)
+  expect(f.checkForUpdates).toHaveBeenCalledTimes(1)
+  f.checkForUpdates.mockResolvedValueOnce({ isUpdateAvailable: true, updateInfo: { version: '1.2.0' } })
+  finished.resolve([])
+  await Promise.all([downloading, switching])
+  expect(f.coordinator.state).toEqual({ phase: 'available', version: '1.2.0' })
+  expect(f.downloadResult).not.toHaveBeenCalled()
+  expect(f.updater.allowDowngrade).toBe(false)
+})
+
+it('rejects a channel switch during installation preparation without persisting it', async () => {
+  const f = fixture()
+  await f.coordinator.check()
+  await f.coordinator.download('1.1.0-rc.2')
+  const preparation = Promise.withResolvers<boolean>()
+  f.beforeRestart.mockReturnValueOnce(preparation.promise)
+  const installing = f.coordinator.install('1.1.0-rc.2')
+  const save = vi.fn(async () => {})
+  await expect(f.coordinator.switchChannel('stable', save)).rejects.toThrow('installation is in progress')
+  expect(save).not.toHaveBeenCalled()
+  preparation.resolve(false)
+  await installing
+  expect(f.coordinator.state.phase).toBe('ready')
+})
+
+
+it('does not accept a channel switch after installer handoff even if a later error is reported', async () => {
+  const f = fixture()
+  await f.coordinator.check()
+  await f.coordinator.download('1.1.0-rc.2')
+  await f.coordinator.install('1.1.0-rc.2')
+  f.events.emit('error', new Error('native updater failed after handoff'))
+  expect(f.coordinator.state.phase).toBe('error')
+  const save = vi.fn(async () => {})
+  await expect(f.coordinator.switchChannel('stable', save)).rejects.toThrow('installation is in progress')
+  expect(save).not.toHaveBeenCalled()
+})
+
+it('suspends updates if retiring a downloaded target fails and recovers on a later switch', async () => {
+  const discard = vi.fn().mockRejectedValueOnce(new Error('native target busy')).mockResolvedValueOnce(undefined)
+  const f = fixture('nightly', '1.1.0-alpha.1', discard)
+  await f.coordinator.check()
+  await f.coordinator.download('1.1.0-rc.2')
+  await expect(f.coordinator.switchChannel('stable', async () => {})).rejects.toThrow('native target busy')
+  expect(f.coordinator.configurationFailure).toBe('cleanup')
+  expect(f.coordinator.state).toMatchObject({ phase: 'error', failedOperation: 'configuration' })
+  const checks = f.checkForUpdates.mock.calls.length
+  await f.coordinator.check(true)
+  await expect(f.coordinator.install('1.1.0-rc.2')).rejects.toThrow('channel selection is not ready')
+  expect(f.checkForUpdates).toHaveBeenCalledTimes(checks)
+  expect(f.quitAndInstall).not.toHaveBeenCalled()
+  await f.coordinator.switchChannel('stable', async () => {})
+  expect(f.coordinator.configurationFailure).toBeUndefined()
+})
+
+
+it.each(['idle', 'downloading', 'ready'] as const)('preserves %s when the current channel is selected again', async (phase) => {
+  const f = fixture()
+  const save = vi.fn(async () => {})
+  const pending = Promise.withResolvers<string[]>()
+  const started = Promise.withResolvers<undefined>()
+  let downloading: Promise<DesktopUpdateState> | undefined
+  if (phase !== 'idle') {
+    await f.coordinator.check()
+    if (phase === 'downloading') f.downloadUpdate.mockImplementationOnce(() => { started.resolve(undefined); return pending.promise })
+    downloading = f.coordinator.download('1.1.0-rc.2')
+    if (phase === 'ready') await downloading
+    else await started.promise
+  }
+  const before = f.coordinator.state
+  const revision = f.coordinator.revision
+  const checks = f.checkForUpdates.mock.calls.length
+  try {
+    expect(await f.coordinator.switchChannel('nightly', save)).toBe('unchanged')
+    expect(save).not.toHaveBeenCalled()
+    expect(f.coordinator.state).toBe(before)
+    expect(f.coordinator.revision).toBe(revision)
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(checks)
+  } finally {
+    pending.resolve(['verified-package'])
+    await downloading
+  }
+})
+
+it.each([
+  ['ENOSPC', 'space'], ['EACCES', 'permission'], ['EPERM', 'permission'], ['EROFS', 'permission'], ['EBUSY', 'busy'],
+] as const)('reports the current %s download failure without attributing it to cleanup', async (code, kind) => {
+  const f = fixture()
+  await f.coordinator.check()
+  f.downloadUpdate.mockRejectedValueOnce(Object.assign(new Error('write failed'), {
+    code, path: '/cache/new.zip', dest: '/cache/pending/new.zip',
+  }))
+  const state = await f.coordinator.download('1.1.0-rc.2')
+  expect(state).toMatchObject({ phase: 'error', failedOperation: 'download', downloadFailure: kind,
+    technicalDetails: `${code}\nwrite failed\n/cache/new.zip\n/cache/pending/new.zip` })
+  await expect(f.coordinator.install('1.1.0-rc.2')).rejects.toThrow('not ready')
+  expect((await f.coordinator.download('1.1.0-rc.2')).phase).toBe('ready')
+  expect(f.coordinator.state.downloadFailure).toBeUndefined()
+})
+
+it('does not diagnose a filesystem cause from error wording alone', async () => {
+  const f = fixture()
+  await f.coordinator.check()
+  f.downloadUpdate.mockRejectedValueOnce(new Error('ENOSPC or EACCES in a remote response'))
+  expect((await f.coordinator.download('1.1.0-rc.2')).downloadFailure).toBeUndefined()
+})
+
+function unreachable(code: string, message = code): Error {
+  return Object.assign(new Error(message), { code })
+}
+
 describe('GitHub to Tako mirror fallback', () => {
   it('retries a GitHub-unreachable check against the Tako generic mirror once', async () => {
     const f = fixture()
@@ -335,7 +542,7 @@ describe('GitHub to Tako mirror fallback', () => {
   })
 
   it('uses a constructor-supplied mirror URL', async () => {
-    const f = fixture('nightly', '1.1.0-alpha.1', undefined, 'https://updates.example.test/dsh')
+    const f = fixture('nightly', '1.1.0-alpha.1', undefined, undefined, 'https://updates.example.test/dsh')
     f.checkForUpdates.mockRejectedValueOnce(unreachable('ENOTFOUND', 'getaddrinfo ENOTFOUND github.com'))
     await f.coordinator.check()
     expect(f.setFeedURL).toHaveBeenCalledExactlyOnceWith({
@@ -359,18 +566,4 @@ describe('GitHub to Tako mirror fallback', () => {
     expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
     expect(f.downloadUpdate).toHaveBeenCalledTimes(2)
   })
-})
-
-it('keeps a stable-version nightly installation on nightly and rejects prereleases on latest', async () => {
-  const nightly = fixture('nightly', '1.0.0')
-  expect(nightly.updater.channel).toBe('nightly')
-  expect(nightly.updater.allowPrerelease).toBe(true)
-  expect((await nightly.coordinator.check()).phase).toBe('available')
-  expect(nightly.updater.channel).toBe('nightly')
-  const latest = fixture('latest', '1.0.0')
-  expect(latest.updater.channel).toBe('latest')
-  expect(latest.updater.allowPrerelease).toBe(false)
-  expect(latest.updater.allowDowngrade).toBe(false)
-  expect((await latest.coordinator.check()).phase).toBe('error')
-  expect(latest.downloadUpdate).not.toHaveBeenCalled()
 })
