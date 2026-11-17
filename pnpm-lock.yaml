@@ -1486,6 +1486,9 @@ importers:
       '@deepseek-ai/dsh-agent-team':
         specifier: workspace:*
         version: link:../../team/agent-team
+      '@deepseek-ai/dsh-api-account-controller':
+        specifier: workspace:*
+        version: link:../account-controller
       '@deepseek-ai/dsh-api-gateway':
         specifier: workspace:*
         version: link:../gateway

@@ -132,6 +132,7 @@ export class ToolExecutionPipeline {
       token,
       callId,
       rootCallId,
+      ...exec.turn === undefined ? {} : { turn: exec.turn },
       name,
       signal,
       ...agent !== undefined ? { agent } : {},

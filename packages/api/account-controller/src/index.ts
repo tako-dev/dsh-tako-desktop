@@ -1,18 +1,17 @@
 /** Authenticated Remote operations for account UI consumers. */
 import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
-import type {} from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-deepseek-account'
 import type {
   AccountClientMetadata, AccountDetails, AccountNotificationBatch, AccountNotificationEvent, AccountNotificationId,
 } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { AccountView, SignInAttemptId, TakoQuotaView } from './types.ts'
+import type { AccountUpdate, AccountView, SignInAttemptId, TakoQuotaView } from './types.ts'
 
 export type * from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
 export class AccountController extends TypertRemoteService {
-  static inject = ['deepseekAccount', 'agents']
+  static inject = ['deepseekAccount']
   /** @param ctx - Host with the account provider mounted. */
   constructor(ctx: Context) { super(ctx, 'accountController', { namespace: 'account' }) }
   /**
@@ -118,7 +117,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   hasRunningAccountTasks(): boolean {
-    return this.ctx.agents.list().some(isRunningAccountTask)
+    return this.ctx.deepseekAccount.hasRunningAccountTasks()
   }
   /**
    * Remove the local account grant and revoke it through Platform in the background, without deleting API keys.
@@ -155,6 +154,6 @@ export class AccountController extends TypertRemoteService {
    * @returns initial snapshot and subsequent changes.
    */
   @Remote({ mode: 'stream' })
-  watch(signal: AbortSignal): AsyncIterable<AccountView> { return this.ctx.deepseekAccount.watch(signal) }
+  watch(signal: AbortSignal): AsyncIterable<AccountUpdate> { return this.ctx.deepseekAccount.watch(signal) }
 }
 export default AccountController

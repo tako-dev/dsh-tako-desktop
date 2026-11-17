@@ -386,6 +386,8 @@ export function apply(ctx: Context, config: Config): void {
       configuredMaxTokens: route.configuredMaxTokens,
       streamIdleTimeoutMs: raw.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS,
       maxRequestImageBytes: 20 * 1024 * 1024,
+      maxRequestImages: 50,
+      imageOffloadCountQuantum: 10,
       requestImagePixelBudget: 2048 * 2048,
       requestImageMaxBytes: 1024 * 1024,
       retryPolicy: resolveRetryPolicy(raw.retryPolicy, 'tako.retryPolicy'),

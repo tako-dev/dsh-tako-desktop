@@ -520,6 +520,7 @@ export function createRunCodeTool(
           const input = {
             callId: subCallId,
             rootCallId: exec.rootCallId,
+            ...exec.turn === undefined ? {} : { turn: exec.turn },
             name,
             schema,
             arguments: normalized.dispatched,

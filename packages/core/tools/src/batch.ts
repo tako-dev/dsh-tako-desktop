@@ -63,6 +63,7 @@ export async function executeToolBatch(
       block,
       exec: {
         callId: block.id,
+        ...input.log === undefined ? {} : { turn: input.log.turn },
         name: block.name,
         arguments: parseArguments(block.arguments),
         ...agent === undefined ? {} : { agent },
