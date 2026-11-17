@@ -25,6 +25,10 @@ function repository(test: TestContext) {
         GIT_AUTHOR_EMAIL: 'repository-reference@example.invalid',
         GIT_COMMITTER_NAME: 'Repository reference test',
         GIT_COMMITTER_EMAIL: 'repository-reference@example.invalid',
+        // Fixed commit dates keep fixture object names deterministic, so abbreviated-identifier
+        // assertions never depend on a hash prefix the candidate regex cannot extract.
+        GIT_AUTHOR_DATE: '1710000000 +0000',
+        GIT_COMMITTER_DATE: '1710000000 +0000',
       },
       ...(input === undefined ? {} : { input }),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -138,6 +142,13 @@ describe('maintained repository reference policy', () => {
       'dsh-v0.0.1-rc.1',
     ].join('\n'))
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
+  })
+
+  it('accepts decimal quantity runs even when one prefixes an available commit', () => {
+    const source = 'size = 6344383, upload-time = "2026-07-01T11:54:15.756Z"\ndeadbee\n'
+    expect(findRepositoryReferences('python/sdk/uv.lock', source, new Set(['6344383', 'deadbee']))).toEqual([
+      { file: 'python/sdk/uv.lock', line: 2, kind: 'commit-hash' },
+    ])
   })
 
   it('accepts a prefix that two available commits share and rejects a longer unique prefix', (test) => {
