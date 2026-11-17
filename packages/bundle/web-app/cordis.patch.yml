@@ -143,6 +143,11 @@
     - id: ui-account-notifications
       name: '@deepseek-ai/dsh-client-ui-account-notifications'
 
+    # Tako-only account commands (getTakoQuota) sharing the `account` Remote
+    # namespace with the deepseek-account service.
+    - id: account-controller
+      name: '@deepseek-ai/dsh-api-account-controller'
+
     - id: settings-controller
       name: '@deepseek-ai/dsh-api-settings-controller'
 

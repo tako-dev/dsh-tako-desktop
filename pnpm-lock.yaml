@@ -1332,12 +1332,6 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -2969,6 +2963,9 @@ importers:
       '@deepseek-ai/dsh-agent-tool-presentation':
         specifier: workspace:*
         version: link:../../core/agent-tool-presentation
+      '@deepseek-ai/dsh-api-account-controller':
+        specifier: workspace:*
+        version: link:../../api/account-controller
       '@deepseek-ai/dsh-api-job-controller':
         specifier: workspace:*
         version: link:../../api/job-controller
