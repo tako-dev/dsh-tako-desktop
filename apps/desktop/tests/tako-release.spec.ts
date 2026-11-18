@@ -120,6 +120,7 @@ describe('installed application smoke lifecycle', () => {
     outputError?: string
     reportError?: string
     crashes?: string[]
+    shutdownCrashes?: string[]
   }
 
   function fixture() {
@@ -274,7 +275,7 @@ describe('installed application smoke lifecycle', () => {
     expect(child.stderr()).toContain(report.reportError)
   })
 
-  it('retains crash contents outside the private application state', async () => {
+  it('fails on a crash report written before shutdown and retains its contents', async () => {
     const f = fixture()
     const result = await f.run('crash-report')
     expect(result.code, result.stderr).toBe(1)
@@ -282,6 +283,17 @@ describe('installed application smoke lifecycle', () => {
     expect(result.report.crashes).toEqual(['crash-test-main.log'])
     await rm(f.userData, { recursive: true, maxRetries: 10, retryDelay: 100 })
     expect(readFileSync(join(f.output, 'crashes/crash-test-main.log'), 'utf8')).toBe('retained crash contents\n')
+  })
+
+  it('retains a crash report written during the requested shutdown as evidence without failing the check', async () => {
+    const f = fixture()
+    const result = await f.run('shutdown-crash-report')
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.report.status).toBe('passed')
+    expect(result.report.crashes).toEqual([])
+    expect(result.report.shutdownCrashes).toEqual(['crash-test-shutdown-web-boot.log'])
+    await rm(f.userData, { recursive: true, maxRetries: 10, retryDelay: 100 })
+    expect(readFileSync(join(f.output, 'crashes/crash-test-shutdown-web-boot.log'), 'utf8')).toBe('shutdown crash contents\n')
   })
 
   it('reports a crash-copy failure without losing application output or the structured report', async () => {

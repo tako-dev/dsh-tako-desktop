@@ -116,6 +116,8 @@ export const _electron = { async launch(options) {
       assert.equal(hidden.listenerCount('domcontentloaded'), 0)
       assert.equal(welcome.listenerCount('domcontentloaded'), 0)
       if (child.exitCode !== null || child.signalCode !== null) return
+      // A failure during the helper-requested shutdown is reported after close() begins.
+      if (scenario === 'shutdown-crash-report') writeFileSync(join(logs, 'crash-test-shutdown-web-boot.log'), 'shutdown crash contents\n')
       setImmediate(() => terminate(scenario === 'nonzero-exit' ? 7 : scenario === 'signal-exit' ? null : 0,
         scenario === 'signal-exit' ? 'SIGSEGV' : null))
     },
