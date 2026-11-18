@@ -20,15 +20,20 @@ const WINDOWS_SETTING = /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER
 const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
 const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
 const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGNTOOL', 'APPLE_API_KEY', 'APPLE_KEYCHAIN', 'CSC_LINK']
+const LOCAL_MACOS_SETTING = /^(?:DSH_DESKTOP_NPM_REGISTRY|DSH_DESKTOP_MACOS_(?:PACK_CONCURRENCY|DOWNLOAD_PROXY)|ELECTRON_MIRROR|ELECTRON_BUILDER_BINARIES_MIRROR)$/u
 
 /**
- * Select local macOS test defaults without reading dotenv files or inheriting release settings.
+ * Select local macOS test defaults without inheriting release settings.
+ * A present `.env.macos` contributes only the download and tuning fields an unsigned build consumes;
+ * its release and signing settings are ignored, and a missing file keeps the configuration-free defaults.
  * @param {NodeJS.ProcessEnv} environment Parent environment, retained for build tools and networking.
+ * @param {string} appRoot Desktop application directory whose optional `.env.macos` supplies local download settings.
  * @returns {NodeJS.ProcessEnv} Unsigned build environment with the DSH Tako application identifier and no update policy.
  */
-export function localMacOSPackageEnvironment(environment = process.env) {
+export function localMacOSPackageEnvironment(environment = process.env, appRoot = APP_ROOT) {
   return {
     ...Object.fromEntries(Object.entries(environment).filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name))),
+    ...readOptionalSettings(join(appRoot, '.env.macos'), name => LOCAL_MACOS_SETTING.test(name)),
     DSH_DESKTOP_APP_ID: TAKO_DESKTOP_APP_ID,
     DSH_DESKTOP_UNSIGNED: '1',
   }
@@ -97,6 +102,44 @@ function readSettings(path, accepts) {
   catch {
     throw new Error(`desktop package: cannot read ${path}; copy ${path}.example and fill in the local settings`)
   }
+  const settings = parseSettings(path, contents)
+  for (const name of Object.keys(settings)) {
+    if (!accepts(name)) {
+      throw new Error(`desktop package: unsupported setting ${name} in ${path}; use the platform template`)
+    }
+  }
+  for (const name of FILE_SETTINGS) {
+    if (settings[name]?.trim()) settings[name] = resolve(dirname(path), settings[name].trim())
+  }
+  return settings
+}
+
+/**
+ * Read only the settings an unsigned build consumes from a dotenv that may not exist.
+ * @param {string} path Optional file; other settings belong to signed packaging and are ignored.
+ * @param {(name: string) => boolean} accepts Whether the unsigned build consumes a setting.
+ * @returns {NodeJS.ProcessEnv} Selected file settings, empty when the file is absent.
+ */
+function readOptionalSettings(path, accepts) {
+  let contents
+  try {
+    contents = readFileSync(path, 'utf8')
+  }
+  catch (error) {
+    if (error !== null && typeof error === 'object' && error.code === 'ENOENT') return {}
+    throw error
+  }
+  const settings = parseSettings(path, contents)
+  return Object.fromEntries(Object.entries(settings).filter(([name]) => accepts(name)))
+}
+
+/**
+ * Parse dotenv contents and reject NUL values without exposing credential-bearing parser errors.
+ * @param {string} path File that supplied the contents, reported only in error messages.
+ * @param {string} contents Raw dotenv text; a UTF-8 BOM is stripped.
+ * @returns {NodeJS.ProcessEnv} Parsed settings.
+ */
+function parseSettings(path, contents) {
   let settings
   try {
     settings = parseEnv(contents.replace(/^\uFEFF/u, ''))
@@ -106,13 +149,7 @@ function readSettings(path, accepts) {
     throw new Error(`desktop package: invalid dotenv syntax in ${path}`)
   }
   for (const name of Object.keys(settings)) {
-    if (!accepts(name)) {
-      throw new Error(`desktop package: unsupported setting ${name} in ${path}; use the platform template`)
-    }
     if (settings[name].includes('\0')) throw new Error(`desktop package: ${name} cannot contain a NUL character`)
-  }
-  for (const name of FILE_SETTINGS) {
-    if (settings[name]?.trim()) settings[name] = resolve(dirname(path), settings[name].trim())
   }
   return settings
 }
