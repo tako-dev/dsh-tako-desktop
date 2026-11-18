@@ -5,6 +5,7 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
+import { request as httpRequest } from 'node:http'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { readPrimaryRuntime, workspaceDependencyPaths } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
@@ -13,6 +14,31 @@ import { createPluginProfile } from '../src/project-manager.ts'
 import type { DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
 
 const OFFICE_SKILLS = ['office', 'office-docx', 'office-pptx', 'office-xlsx']
+
+/**
+ * Loopback GET for the Office operations probes. The built-in `fetch` rides undici's
+ * global agent, whose 300 s `headersTimeout` fires before a slow LibreOffice engine
+ * finishes three sequential operations under the office-kit 480 s budget — and a
+ * request cannot widen that deadline without a private dispatcher. `node:http`
+ * carries no such hidden cap, so the abort below is the only deadline.
+ * @param url - smoke webserver URL.
+ * @param cookie - session cookie from the Host login probe.
+ * @returns the response status code and text body.
+ */
+function smokeGet(url: URL, cookie: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(url, {
+      headers: { cookie }, signal: AbortSignal.timeout(1_500_000),
+    }, (response) => {
+      const chunks: Buffer[] = []
+      response.on('data', (chunk: Buffer) => chunks.push(chunk))
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') }))
+      response.on('error', reject)
+    })
+    request.on('error', reject)
+    request.end()
+  })
+}
 
 /**
  * Require each bundled Office skill to be listed and loaded with a nonempty body.
@@ -232,11 +258,9 @@ export function apply(ctx) {
       }
     }
     for (const { extension } of inputs) {
-      const operations = await fetch(new URL(`/desktop-smoke-office-operations/${extension}`, ready.url), {
-        headers: { cookie }, signal: AbortSignal.timeout(540_000),
-      })
-      if (!operations.ok) throw new Error(`desktop runtime: ${extension} Office operations failed: ${await operations.text()}`)
-      const result = await operations.json() as { images: string[]; converted: string; recalculated: string | null }
+      const operations = await smokeGet(new URL(`/desktop-smoke-office-operations/${extension}`, ready.url), cookie)
+      if (operations.status !== 200) throw new Error(`desktop runtime: ${extension} Office operations failed: ${operations.body}`)
+      const result = JSON.parse(operations.body) as { images: string[]; converted: string; recalculated: string | null }
       // PNG images, then ZIP containers for OpenDocument and XLSX outputs.
       if (result.images.length === 0 || result.images.some(signature => signature !== '89504e470d0a1a0a')
         || result.converted !== '504b0304' || (extension === 'xlsx' ? result.recalculated !== '504b0304' : result.recalculated !== null)) {
