@@ -62,6 +62,7 @@ Release notes include GitHub's version-specific merged-PR summary and changelog 
 Running Release manually from the Actions page (`workflow_dispatch`) takes an existing tag and these options:
 
 - `dry_run` builds and keeps the Actions artifacts (`release-mac-arm64`, `release-win-x64`), shows the checksums and notes in the run summary, and creates or changes no release.
+- `force_older` lets `latest.json` move back to the tag being rerun. Leave it off when rerunning an older release: the China mirror step then fails instead of rolling the China download channel back.
 - `allow_unsigned_mac` publishes `DSH-Tako-<version>-mac-arm64-unsigned.dmg` when Apple secrets are missing. That build has no zip or `latest-mac.yml` and no automatic updates; Mac users of a signed version who check for updates manually see a failure because `latest-mac.yml` is missing.
 
 Rerunning a failed workflow is idempotent: assets with the same names replace the existing ones.

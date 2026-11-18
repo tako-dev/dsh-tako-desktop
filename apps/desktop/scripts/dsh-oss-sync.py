@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Sync the dsh-dl mirror to Aliyun OSS and publish latest.json.
 
-Runs on the mainland download host (dsh-dl user). Uploads every installer
-asset already mirrored under DATA_DIR to oss://dsh-tako-dl/releases/<tag>/,
-then rewrites DATA_DIR/latest.json with the dual-source contract described in
-docs/tako/china-download.md. Credentials come from /etc/dsh-dl-oss.env
+Runs on the mainland download host (dsh-dl user). Uploads exactly the files
+this release's SHA256SUMS.txt lists (plus the sums file itself) from DATA_DIR
+to oss://dsh-tako-dl/releases/<tag>/ — the mirror directory accumulates files
+from older releases, so a directory listing must never drive the upload set.
+Then rewrites DATA_DIR/latest.json with the dual-source contract described in
+docs/tako/china-download.md, refusing to downgrade a newer remote manifest
+unless --force-older is passed. Credentials come from /etc/dsh-dl-oss.env
 (OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET, group-readable by dsh-dl).
 
 Installed at /usr/local/bin/dsh-oss-sync.py; invoked by the release workflow's
@@ -21,7 +24,6 @@ INTERNAL = f"https://{BUCKET}.{REGION}-internal.aliyuncs.com"
 GITHUB_DL = "https://github.com/tako-dev/dsh-tako-desktop/releases/download"
 
 EXCLUDE = ("dmg.url", "latest.json")
-METADATA = ("latest.yml", "latest-mac.yml", "SHA256SUMS.txt")
 ASSET_ROLES = {
     "mac-arm64.dmg": "mac-arm64",
     "win-x64.exe": "win-x64",
@@ -82,19 +84,79 @@ def read_tag(data_dir, explicit):
 
 
 def read_sha256_map(data_dir):
+    """Return {file name: sha256} for every entry SHA256SUMS.txt lists."""
     out = {}
     with open(os.path.join(data_dir, "SHA256SUMS.txt")) as f:
         for line in f:
             parts = line.split()
-            if len(parts) == 2:
-                out[parts[1]] = parts[0]
+            if not parts:
+                continue
+            if len(parts) != 2:
+                raise SystemExit(f"malformed SHA256SUMS.txt line: {line.strip()!r}")
+            out[parts[1]] = parts[0]
+    if not out:
+        raise SystemExit("SHA256SUMS.txt lists no files")
     return out
 
 
-def list_uploads(data_dir):
-    names = sorted(os.listdir(data_dir))
-    return [n for n in names
-            if n not in EXCLUDE and not os.path.isdir(os.path.join(data_dir, n))]
+def list_uploads(data_dir, sha):
+    """Return the files this release publishes: SHA256SUMS.txt and every file it lists.
+
+    DATA_DIR accumulates files from earlier releases, so the checksum file — not a
+    directory listing — decides what belongs under this tag's prefix and in the
+    manifest. Missing or unsafe entries fail the sync instead of shrinking it.
+    """
+    names = sorted(sha)
+    for name in names:
+        if name != os.path.basename(name) or name in (".", ".."):
+            raise SystemExit(f"SHA256SUMS.txt has an unsafe file name: {name!r}")
+        if name in EXCLUDE:
+            raise SystemExit(f"SHA256SUMS.txt lists {name}, which the mirror never publishes")
+        path = os.path.join(data_dir, name)
+        if not os.path.isfile(path):
+            raise SystemExit(f"SHA256SUMS.txt lists {name} but {path} is missing")
+    names.append("SHA256SUMS.txt")
+    return names
+
+
+def version_key(version):
+    """Return a comparable key for an X.Y.Z release version, or None when it is not one."""
+    core = (version[1:] if version.startswith("v") else version).split("-", 1)[0]
+    try:
+        return tuple(int(part) for part in core.split("."))
+    except ValueError:
+        return None
+
+
+def check_latest_version(client, version, force_older):
+    """Refuse to publish a latest.json older than the one already on OSS.
+
+    workflow_dispatch and re-runs of an older release would otherwise rewrite the
+    channel back to that release while every link still verifies. The same guard
+    covers a remote manifest that cannot be ordered against this tag.
+    """
+    st, _, body = client.request("GET", "latest.json")
+    if st == 404:
+        return
+    if st != 200:
+        raise SystemExit(f"cannot read remote latest.json (status {st}); refusing to publish")
+    try:
+        remote_version = json.loads(body)["version"]
+        if not isinstance(remote_version, str):
+            raise ValueError(remote_version)
+    except (ValueError, KeyError, TypeError):
+        refused = "remote latest.json is malformed"
+    else:
+        remote_key, local_key = version_key(remote_version), version_key(version)
+        if remote_key is None or local_key is None:
+            refused = f"cannot order {version!r} against remote latest.json version {remote_version!r}"
+        elif remote_key > local_key:
+            refused = f"remote latest.json already at {remote_version} > {version}"
+        else:
+            return
+    if not force_older:
+        raise SystemExit(f"{refused}; re-run with --force-older to overwrite")
+    print(f"warn: {refused}; overwriting (--force-older)")
 
 
 def content_type(name):
@@ -113,6 +175,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", default=None, help="release tag, e.g. v0.1.51")
     ap.add_argument("--external", action="store_true", help="use public endpoint instead of internal")
+    ap.add_argument("--force-older", action="store_true",
+                    help="allow latest.json to move back to an older version")
     args = ap.parse_args()
 
     env = load_env(ENV_FILE)
@@ -123,10 +187,13 @@ def main():
     tag = read_tag(DATA_DIR, args.tag)
     version = tag.lstrip("v")
     sha = read_sha256_map(DATA_DIR)
-    prefix = f"releases/{tag}/"
+    names = list_uploads(DATA_DIR, sha)
 
+    check_latest_version(client, version, args.force_older)
+
+    prefix = f"releases/{tag}/"
     uploaded = []
-    for name in list_uploads(DATA_DIR):
+    for name in names:
         key = prefix + name
         st, h, b = client.request("HEAD", key)
         expected = sha.get(name)

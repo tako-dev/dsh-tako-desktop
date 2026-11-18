@@ -62,6 +62,7 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
 在 Actions 页面手动运行 Release（`workflow_dispatch`）可以输入已有 tag，并选择：
 
 - `dry_run`：只构建并保留 Actions artifact（`release-mac-arm64`、`release-win-x64`），在运行摘要中显示校验和与发布说明，不创建或修改 Release。
+- `force_older`：允许 `latest.json` 回退到本次重跑的 tag。重跑旧版本时保持不勾选：国内镜像步骤会失败，而不是把国内下载通道回退。
 - `allow_unsigned_mac`：缺少 Apple secrets 时仍发布 `DSH-Tako-<版本>-mac-arm64-unsigned.dmg`。该包不含 zip 和 `latest-mac.yml`，没有自动更新；已安装签名版本的 mac 用户手动检查更新时会因缺少 `latest-mac.yml` 看到失败提示。
 
 重跑失败的工作流是幂等的：构建产物相同名称会覆盖已有附件。

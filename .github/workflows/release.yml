@@ -17,6 +17,10 @@ on:
         description: '只构建并保留 Actions artifact，不创建或修改 GitHub Release / Build only'
         type: boolean
         default: false
+      force_older:
+        description: '允许 latest.json 回退到本次重建的旧 tag；仅在有意回滚国内下载通道时勾选 / Allow latest.json to move back to this older tag'
+        type: boolean
+        default: false
       allow_unsigned_mac:
         description: '缺少 Apple 签名 secrets 时发布未签名 mac 包（文件名带 -unsigned，无自动更新）/ Allow an unsigned macOS build'
         type: boolean
@@ -460,6 +464,27 @@ jobs:
             cd /srv/dsh-dl && rmdir data.tmp
           '
 
+      # Reruns of older releases keep calling /usr/local/bin/dsh-oss-sync.py, so
+      # the host copy is what protects the channel there; fail before uploading
+      # when it is not this tag's script. A tag that carries a newer sync script
+      # needs that script installed on the host before it is tagged.
+      - name: Check the installed OSS sync script
+        env:
+          SSH_KEY: ${{ secrets.DSH_CN_SSH_KEY }}
+          HOST: ${{ secrets.DSH_CN_HOST }}
+          HOST_KEY: ${{ secrets.DSH_CN_HOST_KEY }}
+        run: |
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
+          chmod 600 ~/.ssh/dsh_cn_key
+          printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
+          expected=$(sha256sum apps/desktop/scripts/dsh-oss-sync.py | cut -d' ' -f1)
+          installed=$(ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
+            'sha256sum /usr/local/bin/dsh-oss-sync.py' | cut -d' ' -f1)
+          if [ "$installed" != "$expected" ]; then
+            echo "::error title=Stale OSS sync script::/usr/local/bin/dsh-oss-sync.py ($installed) is not this tag's apps/desktop/scripts/dsh-oss-sync.py ($expected). Install the script from the tag being released. For a rerun of an older tag, do not install that tag's script: skip the channel update or roll it back with the manual --force-older command."
+            exit 1
+          fi
+
       # Mirrors the just-synced assets to oss://dsh-tako-dl/releases/<tag>/ on the
       # mainland host (credentials stay on that host in /etc/dsh-dl-oss.env), then
       # rewrites the dual-source latest.json contract. Script source of truth:
@@ -469,12 +494,13 @@ jobs:
           SSH_KEY: ${{ secrets.DSH_CN_SSH_KEY }}
           HOST: ${{ secrets.DSH_CN_HOST }}
           HOST_KEY: ${{ secrets.DSH_CN_HOST_KEY }}
+          FORCE_OLDER: ${{ inputs.force_older == true && '--force-older' || '' }}
         run: |
           printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
           chmod 600 ~/.ssh/dsh_cn_key
           printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
-            '/usr/local/bin/dsh-oss-sync.py --tag '"$RELEASE_TAG"''
+            '/usr/local/bin/dsh-oss-sync.py --tag '"$RELEASE_TAG"' '"$FORCE_OLDER"''
 
       # The China channel is only as good as its URLs; fail the job if the manifest
       # or any OSS direct link is missing or unreachable.

@@ -44,12 +44,14 @@ Consumers should pick `ossUrl` for China users and `githubUrl` otherwise, and ma
 
 ## Layout on OSS
 
-- `releases/<tag>/<asset name>` — every file in the GitHub Release, byte-identical (verified against `SHA256SUMS.txt` on the mirror host, then HEAD-checked against size after upload; the workflow's verify step re-checks every `ossUrl`).
-- `latest.json` — the manifest above. Older tags stay under `releases/`; the manifest always names the latest.
+- `releases/<tag>/<asset name>` — every file in the GitHub Release, byte-identical (verified against `SHA256SUMS.txt` on the mirror host, then HEAD-checked against size after upload; the workflow's verify step then requires `latest.json` to list exactly the release's `SHA256SUMS.txt` entries with matching hashes and HEAD-checks every `ossUrl`).
+- `latest.json` — the manifest above. Older tags stay under `releases/`; the manifest always names the latest. The sync refuses to overwrite a manifest that names a newer version unless `--force-older` is passed, so re-running an old tag's workflow cannot silently regress the channel.
 
 ## Operation
 
 - Uploads run on the mainland mirror host as user `dsh-dl` via `/usr/local/bin/dsh-oss-sync.py` (source: `apps/desktop/scripts/dsh-oss-sync.py`), invoked by `china-mirror` over SSH after the `dsh-dl` mirror sync. Credentials live only on that host in `/etc/dsh-dl-oss.env` (`OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`, group-readable by `dsh-dl`); no OSS secret is stored in the GitHub repository.
+- The job fails before uploading unless the host's script matches the released tag's `apps/desktop/scripts/dsh-oss-sync.py`, so a stale install cannot drive the channel; after changing that script, install it at `/usr/local/bin/dsh-oss-sync.py` (0755) on the host before tagging.
 - The bucket ACL is `public-read`; `PublicAccessBlock` is disabled on the bucket. OSS direct links require no signature.
 - `dsh-dl.shiroha.tech` continues to serve the same files over the mirror's own TLS; OSS is the durable, addressable China source in `latest.json`.
-- Re-run manually when a sync is missed: `ssh dsh-dl@<host> '/usr/local/bin/dsh-oss-sync.py --tag vX.Y.Z'` (idempotent; skips objects whose size already matches).
+- The upload set comes from this release's `SHA256SUMS.txt`, not a directory listing — the mirror directory keeps files from older releases, and only this release's files belong under `releases/<tag>/` and in the manifest.
+- Re-run manually when a sync is missed: `ssh dsh-dl@<host> '/usr/local/bin/dsh-oss-sync.py --tag vX.Y.Z'` (idempotent; skips objects whose size already matches). Add `--force-older` only to roll the channel back to an older tag — the default refuses to downgrade `latest.json`, and `workflow_dispatch` exposes the same override.
