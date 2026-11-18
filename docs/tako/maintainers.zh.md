@@ -54,6 +54,7 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
    - `macos`（`macos-15`，arm64）：六个 Apple secrets 齐全时导入证书、签名并公证；缺少任一 secret 时失败并列出缺失项。
    - `windows`（`windows-latest`）：构建未签名的 NSIS 安装包，写入 GitHub 更新源，并要求[安装后验证](#windows-installer-verification)通过后才能收集发布文件。
    - `publish`：两个平台都成功后，生成 `SHA256SUMS.txt` 和发布说明（模板 [.github/tako-release-notes.md](../../.github/tako-release-notes.md)），用 `gh release create <tag> --verify-tag` 创建 Release；Release 已存在时改用 `gh release upload --clobber` 替换附件，不改动已有说明。只有这个 job 拥有 `contents: write`。
+   - `china-mirror`：由大陆主机把产物拉进 `dsh-dl.shiroha.tech`，再镜像到 OSS `dsh-tako-dl` 并重写 `latest.json` 双源清单，最后逐条验证 OSS 直链；见[国内下载通道](china-download.zh.md)。
 4. 检查 Release 附件：`DSH-Tako-<版本>-mac-arm64.dmg`、`.zip`、`.zip.blockmap`、`latest-mac.yml`、`DSH-Tako-<版本>-win-x64.exe`、供手动下载的同名 `.zip`、`.exe.blockmap`、`latest.yml`、`SHA256SUMS.txt`。Windows ZIP 必须只包含 EXE；updater 元数据仍指向 EXE。
 
 发布说明包含 GitHub 生成的本次合并 PR 清单与版本比较链接、实际构建提交、内置 DSH 版本及其构建清单和上游项目。缺少变更详情时停止发布；重跑不改写已有发布说明。稳定版客户端可直接更新到最新兼容稳定版，无需逐版安装；兼容性检查、包校验、下载和安装的独立确认及禁止降级仍然生效。

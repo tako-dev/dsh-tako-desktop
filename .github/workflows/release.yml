@@ -408,6 +408,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ env.RELEASE_SOURCE_REF }}
+          sparse-checkout: apps/desktop/scripts
+
       - name: Download published release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -453,3 +459,24 @@ jobs:
             for f in *; do mv -f "$f" /srv/dsh-dl/data/"$f"; done
             cd /srv/dsh-dl && rmdir data.tmp
           '
+
+      # Mirrors the just-synced assets to oss://dsh-tako-dl/releases/<tag>/ on the
+      # mainland host (credentials stay on that host in /etc/dsh-dl-oss.env), then
+      # rewrites the dual-source latest.json contract. Script source of truth:
+      # apps/desktop/scripts/dsh-oss-sync.py, installed at /usr/local/bin/dsh-oss-sync.py.
+      - name: Mirror assets to OSS and publish latest.json
+        env:
+          SSH_KEY: ${{ secrets.DSH_CN_SSH_KEY }}
+          HOST: ${{ secrets.DSH_CN_HOST }}
+          HOST_KEY: ${{ secrets.DSH_CN_HOST_KEY }}
+        run: |
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
+          chmod 600 ~/.ssh/dsh_cn_key
+          printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
+            '/usr/local/bin/dsh-oss-sync.py --tag '"$RELEASE_TAG"''
+
+      # The China channel is only as good as its URLs; fail the job if the manifest
+      # or any OSS direct link is missing or unreachable.
+      - name: Verify the OSS channel and latest.json contract
+        run: python3 apps/desktop/scripts/dsh-oss-verify.py --tag "$RELEASE_TAG"
