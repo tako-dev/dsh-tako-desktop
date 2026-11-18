@@ -286,6 +286,13 @@ jobs:
           pnpm run package:desktop:win:x64:unsigned-release
           exit $LASTEXITCODE
 
+      - name: Install, launch, and uninstall the built installer
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File apps/desktop/tests/windows-release-install-smoke.ps1 `
+            -Installer "apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/DSH-Tako-$env:VERSION-win-x64.exe" `
+            -Version $env:VERSION -OutputDirectory "$env:RUNNER_TEMP/release-install-smoke"
+          exit $LASTEXITCODE
+
       - name: Collect release files
         run: |
           node apps/desktop/scripts/tako-release.mjs collect --target win-x64 --version "$env:VERSION" --mode signed --output "$env:RUNNER_TEMP/release-assets"
@@ -299,6 +306,15 @@ jobs:
           retention-days: 14
           # The installer is a compressed NSIS executable; storing it avoids re-deflating it per run.
           compression-level: 0
+
+      - name: Retain installation evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: installation-evidence-win-x64
+          path: ${{ runner.temp }}/release-install-smoke/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Retain packaging diagnostics
         if: always()

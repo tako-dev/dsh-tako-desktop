@@ -17,7 +17,7 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-CI ([ci.yml](../../.github/workflows/ci.yml)) runs on pushes to `main` and on pull requests: typecheck, lint, and this vitest subset: `apps/desktop` (including `apps/desktop-host`), `packages/tako`, `ui-brand-official`, `ui-settings-account`, `ui-conversation`, `ui-layout`, `app-boot`, and the script tests this fork adds. The official repository owns the full suite; run the relevant tests locally when you change other packages.
+CI ([ci.yml](../../.github/workflows/ci.yml)) runs on pushes to `main` and on pull requests: Ubuntu runs typecheck, lint, and this vitest subset: `apps/desktop` (including `apps/desktop-host`), `packages/tako`, `ui-brand-official`, `ui-settings-account`, `ui-conversation`, `ui-layout`, `app-boot`, and the script tests this fork adds. A read-only Windows job builds the release installer and runs [installed-payload verification](#windows-installer-verification), including failure cleanup, without publishing. The official repository owns the full suite; run the relevant tests locally when you change other packages.
 
 ## Local packaging
 
@@ -28,6 +28,16 @@ CI ([ci.yml](../../.github/workflows/ci.yml)) runs on pushes to `main` and on pu
 | `pnpm run package:desktop:win:x64:unsigned-release` (Windows host) | `DSH-Tako-<version>-win-x64.exe`, `.exe.blockmap`, and `latest.yml` under `…/win-x64/unsigned-artifacts/` | No code signing, but embeds the GitHub update feed; needs `apps/desktop/.env.windows` to exist (it may be empty) |
 
 Add `--check` to any command to validate only the configuration and toolchain. Packaging logs are in `apps/desktop/.desktop-build/packaging-runs/`. See the [packaging guide](../../apps/desktop/packaging/README.md) for details.
+
+<a id="windows-installer-verification"></a>
+
+## Windows installer verification
+
+The Windows CI job builds the same unsigned-release installer as the release workflow. It first requests version `0.0.0` and requires failure at `installed-version`, successful installation and uninstallation exits, and verified cleanup; it then checks the actual version. The release job requires the actual-version check before collecting or uploading release files. These jobs do not qualify signed upgrades, installer UI pages, login, model requests, or automatic restart.
+
+[`windows-release-install-smoke.ps1`](../../apps/desktop/tests/windows-release-install-smoke.ps1) requires Windows x64, PowerShell 7.3 or later, the frozen workspace dependencies, and a clean account with an interactive desktop. The first `node` executable on `PATH` runs the application helper. It refuses existing product processes, uninstall entries (including version-suffixed names), shortcuts, protocol registration, or product data before installation. The check owns a private installation, Harness home, and Electron userData directory. It verifies the installed files and versions, registry and shortcuts, then uses Playwright to wait for the installed Host's welcome page and interact with its API-key form without submitting credentials. The welcome wait ignores empty, invalid, and unrelated page URLs until navigation reaches `/welcome.html`; unexpected inspection errors reject the wait and retain normal shutdown and diagnostics. Normal shutdown requires an independently observed process exit with code 0 and no signal. Cleanup attempts a copied uninstaller even after a failed check; exit status and leftover state are checked independently. After uninstall, the smoke removes a remaining Electron protocol registration only if its command exactly targets the private executable, and reports that removal separately from installer cleanup.
+
+Actions evidence artifacts stay separate from public Release assets and retain `result.json` with the installer SHA-256, check stage, installer/helper/uninstaller exit codes, primary error, and separate cleanup outcome. Each subprocess streams stdout and stderr to `<install|node|uninstall>-<stdout|stderr>.log`, including Node errors before helper initialization. The application helper records `application.json` with the current stage, first failure stage, resolved Playwright version and entry, process exit and signal, bounded application output, and screenshots reached before failure; it copies app-authored crash logs outside the private state before cleanup. Initialization errors, uncaught exceptions, unhandled rejections, and premature helper exits report to stderr and attempt a synchronous report write; a pre-launch report remains if the helper is forcibly terminated. Diagnostic-copy, output-write, and report-write errors fail the check independently, with the final report also written to stdout. A cleanup failure fails the job and retains its private directory for inspection; do not rerun on that account until the reported residue is investigated. The workflow run identifies the tested commit; reports and screenshots apply only to that execution and installer hash. Helper regressions substitute Playwright and do not establish Windows startup or rollback.
 
 ## Version
 
@@ -42,7 +52,7 @@ Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is 
 3. [release.yml](../../.github/workflows/release.yml) runs:
    - `plan` requires the tag to equal `v` + `TAKO_DESKTOP_VERSION` and fails immediately otherwise.
    - `macos` (`macos-15`, arm64) imports the certificate, signs, and notarizes when all six Apple secrets exist, and fails listing the missing ones otherwise.
-   - `windows` (`windows-latest`) builds the unsigned NSIS installer with the GitHub update feed.
+   - `windows` (`windows-latest`) builds the unsigned NSIS installer with the GitHub update feed and requires [installed-payload verification](#windows-installer-verification) before collecting release files.
    - `publish`, after both platforms succeed, writes `SHA256SUMS.txt` and the release notes (template [.github/tako-release-notes.md](../../.github/tako-release-notes.md)) and creates the release with `gh release create <tag> --verify-tag`; when the release already exists it replaces the assets with `gh release upload --clobber` and leaves the notes alone. Only this job has `contents: write`.
 4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, its manual-download `.zip`, `.exe.blockmap`, `latest.yml`, and `SHA256SUMS.txt`. The Windows ZIP must contain exactly the EXE; updater metadata continues to name the EXE.
 
