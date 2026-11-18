@@ -397,3 +397,59 @@ jobs:
             echo
             cat "$RUNNER_TEMP/release-notes.md"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Mirrors the published assets to the mainland download host (dsh-dl.shiroha.tech)
+  # so `?source=fast` links stay fast for China users. Dry runs and releases that
+  # never published are skipped.
+  china-mirror:
+    name: Mirror to China download host
+    needs: [publish]
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Download published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/mirror"
+          gh release download "$RELEASE_TAG" --dir "$RUNNER_TEMP/mirror" --clobber
+          cd "$RUNNER_TEMP/mirror"
+          sha256sum -c SHA256SUMS.txt
+          ls -l
+
+      # The mainland host pulls the assets itself through its mesh squid proxy —
+      # that leg is much faster than uploading from the runner across the GFW.
+      # Files land in data.tmp, are verified against the just-published
+      # SHA256SUMS, then moved into place so the mirror never serves a partial file.
+      - name: Pull assets on the China mirror
+        env:
+          SSH_KEY: ${{ secrets.DSH_CN_SSH_KEY }}
+          HOST: ${{ secrets.DSH_CN_HOST }}
+          HOST_KEY: ${{ secrets.DSH_CN_HOST_KEY }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
+          chmod 600 ~/.ssh/dsh_cn_key
+          printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
+          FILES=$(cd "$RUNNER_TEMP/mirror" && ls)
+          ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" '
+            set -e
+            export https_proxy=http://172.17.66.4:3128
+            mkdir -p /srv/dsh-dl/data.tmp && rm -rf /srv/dsh-dl/data.tmp/*
+            cd /srv/dsh-dl/data.tmp
+            for f in '"$FILES"'; do
+              for try in 1 2 3 4 5; do
+                curl -sfL -C - --max-time 900 \
+                  -o "$f" "https://github.com/'"$GH_REPO"'/releases/download/'"$RELEASE_TAG"'/$f" \
+                  && break
+                [ "$try" = 5 ] && exit 1
+                sleep 10
+              done
+            done
+            sha256sum -c SHA256SUMS.txt
+            for f in *; do mv -f "$f" /srv/dsh-dl/data/"$f"; done
+            cd /srv/dsh-dl && rmdir data.tmp
+          '
