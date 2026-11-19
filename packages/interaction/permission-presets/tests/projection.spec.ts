@@ -52,6 +52,11 @@ async function agentFor(ctx: Context, session: Session) {
   return { agent, inject }
 }
 
+/** Raw `permissions` unit state through the persisted checkpoint read (host tests need the internal `turnStarted` flag). */
+function permissionState(ctx: Context, session: Session): { turnStarted?: boolean } {
+  return ctx.sessionProjections.checkpoint(session).permissions?.val as { turnStarted?: boolean }
+}
+
 async function mountAuto(ctx: Context) {
   return ctx.plugin(Object.assign((pluginCtx: Context) => {
     pluginCtx.permissionPresets.registerAuto(() => {})
@@ -80,7 +85,7 @@ describe('permissions projection unit', () => {
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     session.append('turn/start', { turn: 2 })
     expect(changes).toHaveLength(3)
-    expect((ctx.sessionProjections.stateOf(session, 'permissions') as { turnStarted?: boolean })?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: 'danger-full-access' })
   })
 
@@ -159,12 +164,12 @@ describe('permissions projection unit', () => {
     const config = { defaultPreset: 'danger-full-access' }
     const fiber = await ctx.plugin(PermissionPresetService, config)
     expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
-    expect((ctx.sessionProjections.stateOf(session, 'permissions') as { turnStarted?: boolean })?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     const before = session.snapshotEvents()
     await fiber.dispose()
     await ctx.plugin(PermissionPresetService, config)
     expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
-    expect((ctx.sessionProjections.stateOf(session, 'permissions') as { turnStarted?: boolean })?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     expect(session.snapshotEvents()).toEqual(before)
   })
 
