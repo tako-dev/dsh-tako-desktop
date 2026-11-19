@@ -35,7 +35,7 @@ describe('DSH Tako identity', () => {
     expect(resolveTakoDesktopVersion({})).toBe(TAKO_DESKTOP_VERSION)
     expect(resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: '0.2.0' })).toBe('0.2.0')
     expect(() => resolveTakoDesktopVersion({ DSH_TAKO_DESKTOP_VERSION: 'v0.2' })).toThrow(/strict semantic version/u)
-    expect(resolveTakoDesktopUpdateChannel({})).toBe('latest')
+    expect(resolveTakoDesktopUpdateChannel({})).toBe('stable')
   })
 
   it('installs the dsh-tako terminal command, never the official dsh', () => {

@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../packages/util/official-bundles"
+    },
+    {
       "path": "../../vendor/cordis"
     },
     {
@@ -19,6 +22,9 @@
     },
     {
       "path": "../../packages/boot/app-boot"
+    },
+    {
+      "path": "../../packages/util/official-bundles"
     },
     {
       "path": "../../packages/boot/cmdline"

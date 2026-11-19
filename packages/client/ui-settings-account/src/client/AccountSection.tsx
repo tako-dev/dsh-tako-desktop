@@ -10,7 +10,6 @@ import { formatBalance } from './formatBalance.ts'
 import { AccountAvatar } from './AccountAvatar.tsx'
 import type { AccountAvatarSnapshot } from './account-avatar.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
-import type { BonusNotice } from './bonus-notices.ts'
 import css from './AccountSection.module.css'
 
 /** Redacted Tako quota projection received through the account Remote. */
@@ -42,9 +41,6 @@ export interface TakoQuotaView {
 
 /** Safe account snapshot shared by the settings page and launcher. */
 export interface AccountSnapshot {
-  /** Server-authored notices in front-to-back order, absent when none are available. */
-  notices?: readonly BonusNotice[]
-
   /** Latest Host state, absent until the stream responds. */
   view: AccountView | undefined
   /** Sanitized profile and balance query outcomes, absent while loading. */
@@ -57,7 +53,7 @@ export interface AccountSnapshot {
   loginVisible?: boolean
   /** Latest explicit start request failed before a Host state was available. */
   loginFailed?: boolean
-  /** Model credential onboarding owns the login dialog and delays bonus notices while mounted. */
+  /** Model credential onboarding owns the login dialog and delays account notifications while mounted. */
   onboarding?: boolean
   /** Latest read-only Tako quota, independent of the DeepSeek account session. */
   takoQuota?: TakoQuotaView | null
@@ -95,7 +91,7 @@ export interface AccountSectionInjected {
     theme: HostObservable<ThemeSnapshot>
   }
   /**
-   * Retry a failed avatar and read the profile, balance, bonus wallets and unnotified bonus once. The Settings launcher
+   * Retry a failed avatar, read the profile and balances, and notify account refresh extensions. The Settings launcher
    * calls it on each entry, and a page opener on return from top-up.
    * @returns after the account queries settle; image loading completes independently.
    */
@@ -106,10 +102,6 @@ export interface AccountSectionInjected {
   showLogin: (visible: boolean) => void
   /** Claim dialog ownership for the onboarding step. */
   setOnboarding: (active: boolean) => void
-  /** @param orderId - notice whose card finished a presented frame while visible. */
-  bonusNoticeShown: (orderId: BonusNotice['orderId']) => void
-  /** @param orderId - notice the user closed. */
-  bonusNoticeDismissed: (orderId: BonusNotice['orderId']) => void
   /** @returns after the login attempt is created. */
   start: () => Promise<void>
   /** @param id - attempt to cancel. @returns after cancellation or an already-admitted commit. */

@@ -25,15 +25,15 @@ function nonEmptyString(value, label) {
  * Resolve the one macOS feed from the final electron-builder configuration: the official generic
  * HTTPS feed, or the GitHub Releases feed DSH Tako publishes to.
  * @param {unknown} publish - Final electron-builder publish setting.
- * @returns {{ publicUrl: string, channel?: 'nightly' | 'latest' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'latest' }} Resolved feed used by the packaged App.
+ * @returns {{ publicUrl: string, channel?: 'nightly' | 'stable' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'stable' }} Resolved feed used by the packaged App.
  */
 export function resolveMacOSAppUpdateFeed(publish) {
   if (!Array.isArray(publish) || publish.length !== 1) {
     throw new Error('desktop macOS update config: publish must contain exactly one provider')
   }
   const provider = object(publish[0], 'publish provider')
-  if (!['generic', 'github'].includes(provider.provider) || !['nightly', 'latest'].includes(provider.channel)) {
-    throw new Error('desktop macOS update config: publish provider must be generic or github with nightly or latest channel')
+  if (!['generic', 'github'].includes(provider.provider) || !['nightly', 'stable'].includes(provider.channel)) {
+    throw new Error('desktop macOS update config: publish provider must be generic or github with nightly or stable channel')
   }
   const channel = resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: provider.channel })
   if (provider.provider === 'github') {
@@ -45,7 +45,7 @@ export function resolveMacOSAppUpdateFeed(publish) {
 
 /**
  * Create the electron-updater configuration embedded before code signing.
- * @param {{ publicUrl: string, channel?: 'nightly' | 'latest' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'latest' }} update - Resolved update feed.
+ * @param {{ publicUrl: string, channel?: 'nightly' | 'stable' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'stable' }} update - Resolved update feed.
  * @param {string} updaterCacheDirName - electron-builder application cache directory.
  * @returns {object} Packaged updater fields.
  */
@@ -72,7 +72,7 @@ export function createMacOSAppUpdateConfig(update, updaterCacheDirName) {
 /**
  * Write the updater configuration into an assembled App before signing.
  * @param {string} resourcesDir - App Contents/Resources directory.
- * @param {object} update - Resolved update feed.
+ * @param {{ publicUrl: string, channel?: 'nightly' | 'stable' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'stable' }} update - Resolved update feed.
  * @param {string} updaterCacheDirName - electron-builder application cache directory.
  * @returns {Promise<void>} Resolves after the configuration is durable.
  */
@@ -84,7 +84,7 @@ export async function writeMacOSAppUpdateConfig(resourcesDir, update, updaterCac
 /**
  * Verify the updater configuration inside an assembled macOS App.
  * @param {string} appPath - Application bundle path.
- * @param {object} update - Expected update feed.
+ * @param {{ publicUrl: string, channel?: 'nightly' | 'stable' } | { provider: 'github', owner: string, repo: string, channel?: 'nightly' | 'stable' }} update - Expected update feed.
  * @param {string | undefined} updaterCacheDirName - Exact cache directory when known.
  * @returns {Promise<void>} Resolves when the packaged configuration matches the release destination.
  */

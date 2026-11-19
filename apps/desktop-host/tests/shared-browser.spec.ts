@@ -2,9 +2,11 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit'
 import type { DesktopBrowserAction } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 import * as sharedBrowser from '../src/shared-browser.ts'
 
@@ -19,6 +21,7 @@ it('registers desktop_browser and routes the executing chat to the live-tab tran
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   const transport = {
     run: vi.fn(async (sessionId: string, action: DesktopBrowserAction, _signal: AbortSignal) => {
       expect(sessionId).toBe('shared-session')
@@ -32,7 +35,7 @@ it('registers desktop_browser and routes the executing chat to the live-tab tran
 
   const session = SessionId('shared-session')
   const agent = { id: session, session: { id: session } } as Agent
-  const result = await ctx.tools.execute({
+  const result = await executeModelToolFixture(ctx, {
     signal: new AbortController().signal,
     callId: ToolCallId('shared-browser-1'),
     name: 'desktop_browser',

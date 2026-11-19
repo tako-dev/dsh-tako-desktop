@@ -12,10 +12,16 @@
   ],
   "references": [
     {
+      "path": "../../util/official-bundles"
+    },
+    {
       "path": "../../../vendor/include"
     },
     {
       "path": "../../boot/app-boot"
+    },
+    {
+      "path": "../../util/official-bundles"
     },
     {
       "path": "../webworker-runtime"

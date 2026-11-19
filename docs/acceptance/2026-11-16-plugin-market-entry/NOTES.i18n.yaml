@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for NOTES.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/acceptance/2026-11-16-plugin-market-entry/NOTES.md
+/plugin-market-entry-acceptance-2026-11-16:
+  en: e2d1a8a5654271f9
+  zh: 934c0d1c9d704fea
+/plugin-market-entry-acceptance-2026-11-16/what-changed:
+  en: ecc8972f91f4b38f
+  zh: 2b534baba3c685a8
+/plugin-market-entry-acceptance-2026-11-16/how-it-was-verified:
+  en: b6248da125885552
+  zh: d000127d090864de
+/plugin-market-entry-acceptance-2026-11-16/screenshots:
+  en: a8dcfdcbec570d9d
+  zh: 9f75e8e9492d8c2e
+/plugin-market-entry-acceptance-2026-11-16/when-verified:
+  en: edb4230be47ca2fa
+  zh: fd85203ec7e12a83
+/plugin-market-entry-acceptance-2026-11-16/not-verified-not-verifiable:
+  en: a8761d735b5dd16a
+  zh: 454188f1a0a52fd0

@@ -38,8 +38,8 @@ function lines(view: ReturnType<typeof render>): string[] {
 describe('TakoQuotaAction', () => {
   it.each([
     [null, '打开钱包'],
-    [{ status: 'failed', code: 'MISSING_CREDENTIAL' } as const, '登录后显示额度'],
-    [{ status: 'failed', code: 'UNAVAILABLE' } as const, '额度暂不可用'],
+    [{ status: 'failed', code: 'MISSING_CREDENTIAL' } as const, '登录后查看额度'],
+    [{ status: 'failed', code: 'UNAVAILABLE' } as const, '额度不可用'],
   ])('uses a short wallet call-to-action when quota is empty %#', (quota, copy) => {
     const view = mount(quota)
     expect(lines(view)).toEqual(['Tako', copy])
@@ -59,7 +59,7 @@ describe('TakoQuotaAction', () => {
         usage: { windowCost: 0.05, weeklyCost: 7 },
       },
     })
-    expect(lines(view)).toEqual(['Tako', '套餐', '5h', '0.05 / 200', '本周', '7 / 50'])
+    expect(lines(view)).toEqual(['Tako', '套餐', '5h', '0.05 / 200', '每周', '7 / 50'])
     expect(view.container.querySelector('[data-tako-quota="plan"]')).not.toBeNull()
     expect(view.container.textContent).not.toContain('余额')
   })
@@ -81,6 +81,6 @@ describe('TakoQuotaAction', () => {
         usage: { weeklyCost: 420, windowCost: 1 },
       },
     })
-    expect(lines(view)).toEqual(['Tako', '套餐', '5h', '1 / 200', '本周', '420 / 930'])
+    expect(lines(view)).toEqual(['Tako', '套餐', '5h', '1 / 200', '每周', '420 / 930'])
   })
 })

@@ -1,36 +1,38 @@
-# 插件市场入口验收 · 2026-11-16
+# Plugin Market Entry Acceptance · 2026-11-16
 
-工单 a9372170（父单 5c8b788e，tako-dev/dsh-tako-desktop#35）。改动：插件页 Tako 优选中前置「自定义插件市场」入口，修复桌面 profile 检测与 MORE 返回路径，默认关闭、不信任任意索引。
+English | [中文](NOTES.zh.md)
 
-## 改了哪
+Ticket a9372170 (parent 5c8b788e, tako-dev/dsh-tako-desktop#35). Change: surface the **Custom plugin markets** entry at the top of Tako picks on the Plugins page, fix desktop profile detection and the back path from More, keep it off by default, and trust no arbitrary index.
 
-- `packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx`：`TAKO_CURATED_BUNDLES` 加入 `@deepseek-ai/dsh-experimental-plugin-market-bundle`（Tako 优选首项）；`takoProfile` 检测从 `listed`（卡片过滤后）改为 `state.packages`（桌面 profile 声明 `@deepseek-ai/dsh-tako` 但不安装它，旧检测漏判）；`detailFromMore` 增补 `!curatedNames.has(view.name)`，修复从 Tako 优选进详情返回时误跳 MORE 列表。
-- `packages/experimental/plugin-market-bundle/README.md` / `README.zh.md`：入口说明改为「Tako profile → Tako 优选；其他 profile → More」。
+## What changed
 
-## 怎么验
+- `packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx`: `TAKO_CURATED_BUNDLES` gains `@deepseek-ai/dsh-experimental-plugin-market-bundle` (first in Tako picks); `takoProfile` detection moves from `listed` (post card filtering) to `state.packages` (the desktop profile declares `@deepseek-ai/dsh-tako` without installing it, which the old detection missed); `detailFromMore` adds `!curatedNames.has(view.name)`, fixing the wrong jump back to the More list when returning from a Tako-picks detail view.
+- `packages/experimental/plugin-market-bundle/README.md` / `README.zh.md`: the entry instructions now read "Tako profile → Tako picks; other profiles → More".
 
-Tako profile 下启动应用 → 打开插件页 → Tako 优选首项看到「自定义插件市场」，默认关闭 → 开启该 bundle → 出现「发现」tab → 进入发现页 → 打开索引源弹窗（含第三方信任警告）→ 添加示例索引 → 列出条目 → 打开条目详情 → 点击安装 → 安装确认弹窗（含权限警告）→ 安装进行中。无用户交互时不拉取任何外部索引。
+## How it was verified
 
-## 截图
+Launch the app under the Tako profile → open the Plugins page → see **Custom plugin markets** as the first Tako picks entry, off by default → enable the bundle → the **Discover** tab appears → enter Discover → open the index sources dialog (with the third-party trust warning) → add the sample index → entries are listed → open an entry detail → click install → the install confirmation dialog (with permission warnings) → install running. No external index is fetched without user interaction.
 
-| 文件 | 证明什么 |
+## Screenshots
+
+| File | What it proves |
 |---|---|
-| `03-plugins-list.png` | 插件页 Tako 优选分组中「自定义插件市场」为首项 |
-| `04-market-enabled.png` | bundle 默认关闭，手动开启后出现在已启用区 |
-| `05-discover-empty.png` | 开启后出现「发现」tab，未加索引源前为空 |
-| `06-sources-dialog.png` | 索引源管理弹窗，含第三方索引信任警告文案 |
-| `07-source-added.png` | 手动添加示例索引源成功 |
-| `08-discover-listing.png` | 发现页列出示例索引中的插件条目 |
-| `09-entry-detail.png` | 条目详情页（名称、描述、来源） |
-| `10-install-confirm.png` | 安装确认弹窗，含权限/信任警告 |
-| `11-install-running.png` | 安装进行中状态 |
+| `03-plugins-list.png` | **Custom plugin markets** is the first entry of the Tako picks group on the Plugins page |
+| `04-market-enabled.png` | The bundle is off by default and appears in the enabled area after manual switch-on |
+| `05-discover-empty.png` | The **Discover** tab appears after enabling and is empty before adding an index source |
+| `06-sources-dialog.png` | The index source management dialog, with the third-party index trust warning copy |
+| `07-source-added.png` | The sample index source was added successfully |
+| `08-discover-listing.png` | Discover lists the plugin entries of the sample index |
+| `09-entry-detail.png` | The entry detail page (name, description, source) |
+| `10-install-confirm.png` | The install confirmation dialog, with permission/trust warnings |
+| `11-install-running.png` | Install in progress |
 
-## 验的时刻
+## When verified
 
-`2026-11-16 12:47–12:48 CST`（截图实际生成时间，macOS 桌面）。
+`2026-11-16 12:47–12:48 CST` (actual screenshot capture time, macOS desktop).
 
-## 没验 / 验不了
+## Not verified / not verifiable
 
-- 改前截图未单独采集：base `fdcb93f728` 的 `TAKO_CURATED_BUNDLES` 不含 market bundle，改前该卡只可能从 More 进入，此差异由 diff 与新增测试覆盖。
-- 移动端 / Windows 未验（仅 macOS 桌面真实 UI）。
-- 安装完成态未验：截图停在「安装检查中」，未等到安装成功/失败终态。
+- No separate before screenshots: base `v0.1.49` keeps the market bundle out of `TAKO_CURATED_BUNDLES`, so before the change the card could only be reached from More; this difference is covered by the diff and the new tests.
+- Mobile / Windows not verified (real macOS desktop UI only).
+- The install-completed state was not verified: screenshots stop at "install checking" and did not wait for the final success/failure state.

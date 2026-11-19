@@ -36,7 +36,7 @@ describe('macOS packaged updater configuration', () => {
   })
 
   it('writes and verifies the DSH Tako GitHub Releases feed', async () => {
-    const github = { provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' } as const
+    const github = { provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' } as const
     expect(resolveMacOSAppUpdateFeed([github])).toEqual(github)
     const paths = await fixture()
     expect(createMacOSAppUpdateConfig(github, 'dsh-tako-desktop-updater')).toEqual({ ...github, updaterCacheDirName: 'dsh-tako-desktop-updater' })
@@ -77,10 +77,10 @@ describe('macOS packaged updater configuration', () => {
 })
 
 
-it('seals latest into the macOS updater file and rejects a different expected channel', async () => {
+it('seals stable into the macOS updater file and rejects a different expected channel', async () => {
   const paths = await fixture()
-  const latest = resolveMacOSAppUpdateFeed([{ provider: 'generic', url: update.publicUrl, channel: 'latest' }])
-  await writeMacOSAppUpdateConfig(paths.resourcesDir, latest, 'fixture-updater')
-  await expect(verifyMacOSAppUpdateConfig(paths.appPath, latest)).resolves.toBeUndefined()
+  const stable = resolveMacOSAppUpdateFeed([{ provider: 'generic', url: update.publicUrl, channel: 'stable' }])
+  await writeMacOSAppUpdateConfig(paths.resourcesDir, stable, 'fixture-updater')
+  await expect(verifyMacOSAppUpdateConfig(paths.appPath, stable)).resolves.toBeUndefined()
   await expect(verifyMacOSAppUpdateConfig(paths.appPath, update)).rejects.toThrow(/does not match/u)
 })

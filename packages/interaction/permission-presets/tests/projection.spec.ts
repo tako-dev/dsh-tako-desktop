@@ -9,13 +9,13 @@
  * registry, and removes the projection key on unload (HMR safety).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { Context } from '@deepseek-ai/cordis'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createScope } from '@deepseek-ai/dsh-scope'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import PermissionPresetService from '@deepseek-ai/dsh-permission-presets'
 import { AUTO_PRESET } from '@deepseek-ai/dsh-permission-presets'
@@ -28,8 +28,9 @@ async function harness(options: {
   ctx?: Context
 } = {}): Promise<{ ctx: Context; session: Session }> {
   const ctx = options.ctx ?? new Context()
-  await ctx.plugin(SessionStore)
-  await ctx.plugin(SessionProjectionRegistry)
+  onTestFinished(() => ctx.fiber.dispose())
+  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestHarness(ctx)
   await ctx.plugin(CommandRuntime)
   ctx.provide('shell', {
     sandboxMode: 'workspace-write',
@@ -39,7 +40,8 @@ async function harness(options: {
   })
   await ctx.plugin(ApprovalService)
   if (options.withPermission !== false) await ctx.plugin(PermissionPresetService, options.config ?? {})
-  return { ctx, session: ctx.sessions.create(SessionId('perm-projected')) }
+  const { agent } = await ctx.agents.create({ sessionId: SessionId('perm-projected') })
+  return { ctx, session: agent.session }
 }
 
 /** Mint a scoped agent over a live session (the command executor's addressing shape). */
@@ -48,6 +50,11 @@ async function agentFor(ctx: Context, session: Session) {
   const agent = { id: session.id, session, inject } as unknown as Agent
   await ctx.plugin(Object.assign((inner: Context) => { createScope(inner, agent) }, { inject: ['commands'] }))
   return { agent, inject }
+}
+
+/** Raw `permissions` unit state through the persisted checkpoint read (host tests need the internal `turnStarted` flag). */
+function permissionState(ctx: Context, session: Session): { turnStarted?: boolean } {
+  return ctx.sessionProjections.checkpoint(session).permissions?.val as { turnStarted?: boolean }
 }
 
 async function mountAuto(ctx: Context) {
@@ -78,7 +85,7 @@ describe('permissions projection unit', () => {
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     session.append('turn/start', { turn: 2 })
     expect(changes).toHaveLength(3)
-    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     expect(ctx.sessionProjections.snapshot(session).values.permissions).toEqual({ currentValue: 'danger-full-access' })
   })
 
@@ -157,12 +164,12 @@ describe('permissions projection unit', () => {
     const config = { defaultPreset: 'danger-full-access' }
     const fiber = await ctx.plugin(PermissionPresetService, config)
     expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
-    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     const before = session.snapshotEvents()
     await fiber.dispose()
     await ctx.plugin(PermissionPresetService, config)
     expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
-    expect(ctx.sessionProjections.stateOf(session, 'permissions')?.turnStarted).toBe(true)
+    expect(permissionState(ctx, session).turnStarted).toBe(true)
     expect(session.snapshotEvents()).toEqual(before)
   })
 
@@ -201,7 +208,7 @@ describe('/permission command', () => {
     expect(inject.mock.calls[0]?.[0]).toMatchObject({
       content: [{
         type: 'text',
-        text: 'The approval policy changed from "ask" to "never" (changed by the user).',
+        text: 'The user changed the approval policy from "ask the user for approval" to "never ask the user for approval".',
       }],
     })
     const run = session.snapshotEvents().find(event => event.type === 'command/run')

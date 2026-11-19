@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-tako",
   "description": "Tako provider and billed media/search tools for DeepSeek Harness",
-  "version": "0.2.1-rc.5",
+  "version": "0.2.2-rc.3",
   "publishConfig": {
     "access": "public"
   },
@@ -77,6 +77,7 @@
     "@deepseek-ai/dsh-system-prompt": "workspace:*",
     "@deepseek-ai/dsh-timeout": "workspace:*",
     "@deepseek-ai/dsh-tools": "workspace:*",
+    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
     "@deepseek-ai/dsh-session": "workspace:*"
   }
 }

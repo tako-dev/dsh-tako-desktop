@@ -1,3 +1,4 @@
+import { SHIPPED_LOCALE_IDS } from '../../../scripts/shipped-locales.ts'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -52,6 +53,7 @@ describe('desktop macOS release signature', () => {
     expect(config.protocols).toEqual([{ name: 'DSH Tako', schemes: ['dsh-tako'] }])
     expect(portablePath(config.directories.output)).toContain('/.desktop-build/targets/mac-arm64/artifacts')
     expect(config.mac.extendInfo.NSMicrophoneUsageDescription).toContain('microphone')
+    expect(config.mac.extendInfo.CFBundleLocalizations).toEqual(SHIPPED_LOCALE_IDS.map(id => id === 'zh' ? 'zh_CN' : id))
     expect(config.mac.entitlementsInherit).toBe(config.mac.entitlements)
     const entitlements = readFileSync(config.mac.entitlements, 'utf8')
     for (const key of ['com.apple.security.cs.allow-jit', 'com.apple.security.cs.allow-unsigned-executable-memory',
@@ -72,6 +74,7 @@ describe('desktop macOS release signature', () => {
     expect(config.asarUnpack).toEqual(expect.arrayContaining([
       '**/*.{node,dylib,dll,so,exe}',
       '**/@vscode/ripgrep-*/bin/rg',
+      '**/node_modules/@deepseek-ai/dsh-experimental-cua-macos/native/bin/**/*',
     ]))
     expect(config).toMatchObject({
       appId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
@@ -87,21 +90,21 @@ describe('desktop macOS release signature', () => {
         writeUpdateInfo: false,
       },
       // DSH Tako updates come from GitHub Releases; the official COS deployment settings are ignored.
-      publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }],
+      publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' }],
       productName: 'DSH Tako',
       extraMetadata: { dshDesktopAppId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID, name: 'dsh-tako-desktop', version: TAKO_DESKTOP_VERSION },
     })
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
 
-  it('records the DSH Tako latest channel in signed and unsigned manifests alike', async () => {
+  it('records the DSH Tako stable channel in signed and unsigned manifests alike', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const signed = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
-    expect(signed.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
-    expect(signed.publish).toEqual([expect.objectContaining({ channel: 'latest' })])
+    expect(signed.extraMetadata.dshDesktopUpdateChannel).toBe('stable')
+    expect(signed.publish).toEqual([expect.objectContaining({ channel: 'stable' })])
     const unsigned = createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1' }, 'darwin', 'arm64')
     expect(unsigned.publish).toBeNull()
-    expect(unsigned.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
+    expect(unsigned.extraMetadata.dshDesktopUpdateChannel).toBe('stable')
     const requested = createElectronBuilderConfig({
       ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1', DSH_DESKTOP_UPDATE_CHANNEL: 'nightly',
     }, 'darwin', 'arm64')
@@ -117,7 +120,7 @@ describe('desktop macOS release signature', () => {
     const signed = createElectronBuilderConfig(withoutPolicy, 'darwin', 'arm64')
     expect(signed.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
     expect(signed.mac).toMatchObject({ forceCodeSigning: true, notarize: true })
-    expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
+    expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' }])
   })
 
   it('refuses the unsigned Windows release mode for macOS builds', async () => {

@@ -39,15 +39,15 @@ export function resolveTakoDesktopVersion(env?: NodeJS.ProcessEnv): string
 /**
  * Resolve the update channel embedded in a DSH Tako build.
  * @param env - Packaging environment.
- * @returns Validated channel; `latest` when unset.
+ * @returns Validated channel; `stable` when unset.
  */
-export function resolveTakoDesktopUpdateChannel(env?: NodeJS.ProcessEnv): 'nightly' | 'latest'
+export function resolveTakoDesktopUpdateChannel(env?: NodeJS.ProcessEnv): 'nightly' | 'stable'
 
 /**
  * The electron-builder publish entry for a signed DSH Tako build.
  * @param channel - Embedded update channel.
  * @returns Publish provider.
  */
-export function takoDesktopPublish(channel: 'nightly' | 'latest'): {
-  provider: 'github'; owner: 'tako-dev'; repo: 'dsh-tako-desktop'; channel: 'nightly' | 'latest'
+export function takoDesktopPublish(channel: 'nightly' | 'stable'): {
+  provider: 'github'; owner: 'tako-dev'; repo: 'dsh-tako-desktop'; channel: 'nightly' | 'stable'
 }
