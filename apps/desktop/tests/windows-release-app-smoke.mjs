@@ -3,7 +3,7 @@
  * request are retained as evidence, because the application records shutdown-window failures by design. */
 import assert from 'node:assert/strict'
 import { existsSync, writeFileSync, writeSync } from 'node:fs'
-import { copyFile, mkdir, readdir, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,7 +40,7 @@ process.on('exit', code => {
 let application
 let launchedProcess
 let exited
-let shutdownRequestedAt
+let preShutdownCrashes
 let stderr = ''
 let stdout = ''
 try {
@@ -141,7 +141,14 @@ try {
     let timer
     try {
       assert.equal(report.launchedProcess.exited, false, 'Installed application exited before normal shutdown was requested')
-      shutdownRequestedAt = Date.now()
+      // Snapshot the crash reports written before the shutdown request itself. Ordering a
+      // write the helper did not make by mtime is unreliable: coarse filesystem timestamp
+      // granularity can backdate a file written after the request, so membership in this
+      // set — not a clock comparison — is the verified session boundary.
+      if (report.application && existsSync(report.application.logs)) {
+        preShutdownCrashes = new Set((await readdir(report.application.logs))
+          .filter(name => name.startsWith('crash-') && name.endsWith('.log')))
+      }
       await Promise.race([Promise.all([application.close(), exited]), new Promise((_, reject) => {
         timer = setTimeout(() => { reject(new Error('Installed application did not shut down within 60 s')) }, 60000)
       })])
@@ -156,20 +163,20 @@ try {
   try {
     if (report.application && existsSync(report.application.logs)) {
       // The application writes crash reports for failures during its designed shutdown too; the
-      // boundary of the verified session is the helper's own shutdown request, so a report written
-      // after it is evidence of the interrupted quit, not a session failure.
-      const written = new Map()
+      // boundary of the verified session is the set snapshot taken when the helper requested
+      // shutdown, so a report that only appears after it is evidence of the interrupted quit,
+      // not a session failure.
+      const written = []
       for (const name of await readdir(report.application.logs)) {
-        if (!name.startsWith('crash-') || !name.endsWith('.log')) continue
-        written.set(name, (await stat(join(report.application.logs, name))).mtimeMs)
+        if (name.startsWith('crash-') && name.endsWith('.log')) written.push(name)
       }
-      report.crashes = [...written].filter(([, at]) => shutdownRequestedAt === undefined || at < shutdownRequestedAt).map(([name]) => name)
-      report.shutdownCrashes = [...written].filter(([, at]) => shutdownRequestedAt !== undefined && at >= shutdownRequestedAt).map(([name]) => name)
+      report.crashes = written.filter(name => preShutdownCrashes === undefined || preShutdownCrashes.has(name))
+      report.shutdownCrashes = written.filter(name => preShutdownCrashes !== undefined && !preShutdownCrashes.has(name))
       if (report.crashes.length > 0) fail(new Error(`Installed application wrote crash logs: ${report.crashes.join(', ')}`), 'crashError')
-      if (written.size > 0) {
+      if (written.length > 0) {
         const crashOutput = join(output, 'crashes')
         await mkdir(crashOutput, { recursive: true })
-        for (const name of written.keys()) await copyFile(join(report.application.logs, name), join(crashOutput, name))
+        for (const name of written) await copyFile(join(report.application.logs, name), join(crashOutput, name))
       }
     }
   } catch (error) {
