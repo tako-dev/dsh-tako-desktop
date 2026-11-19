@@ -1,9 +1,9 @@
 /** Verifies the installed Host and welcome renderer without credentials or substituted application code.
- * Crash reports written before the helper requests shutdown fail the check; reports written after that
+ * Crash reports present when the helper requests shutdown fail the check; reports that appear after that
  * request are retained as evidence, because the application records shutdown-window failures by design. */
 import assert from 'node:assert/strict'
 import { existsSync, writeFileSync, writeSync } from 'node:fs'
-import { copyFile, mkdir, readdir, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,7 +40,8 @@ process.on('exit', code => {
 let application
 let launchedProcess
 let exited
-let shutdownRequestedAt
+let crashLogsAtShutdownRequest
+const isCrashLog = name => name.startsWith('crash-') && name.endsWith('.log')
 let stderr = ''
 let stdout = ''
 try {
@@ -141,7 +142,13 @@ try {
     let timer
     try {
       assert.equal(report.launchedProcess.exited, false, 'Installed application exited before normal shutdown was requested')
-      shutdownRequestedAt = Date.now()
+      // Filesystem mtimes trail the wall clock on coarse-grained clocks (Linux inode timestamps are
+      // tick-cached), so the boundary of the verified session is the crash-log listing captured when
+      // the helper requests shutdown, never a timestamp comparison across the two clocks.
+      crashLogsAtShutdownRequest = new Set(
+        report.application?.logs && existsSync(report.application.logs)
+          ? (await readdir(report.application.logs)).filter(isCrashLog)
+          : [])
       await Promise.race([Promise.all([application.close(), exited]), new Promise((_, reject) => {
         timer = setTimeout(() => { reject(new Error('Installed application did not shut down within 60 s')) }, 60000)
       })])
@@ -155,21 +162,17 @@ try {
   report.stage = 'collect-diagnostics'
   try {
     if (report.application && existsSync(report.application.logs)) {
-      // The application writes crash reports for failures during its designed shutdown too; the
-      // boundary of the verified session is the helper's own shutdown request, so a report written
-      // after it is evidence of the interrupted quit, not a session failure.
-      const written = new Map()
-      for (const name of await readdir(report.application.logs)) {
-        if (!name.startsWith('crash-') || !name.endsWith('.log')) continue
-        written.set(name, (await stat(join(report.application.logs, name))).mtimeMs)
-      }
-      report.crashes = [...written].filter(([, at]) => shutdownRequestedAt === undefined || at < shutdownRequestedAt).map(([name]) => name)
-      report.shutdownCrashes = [...written].filter(([, at]) => shutdownRequestedAt !== undefined && at >= shutdownRequestedAt).map(([name]) => name)
+      // The application writes crash reports for failures during its designed shutdown too; a report
+      // that first appears after the helper's shutdown request is evidence of the interrupted quit,
+      // not a session failure.
+      const written = (await readdir(report.application.logs)).filter(isCrashLog)
+      report.crashes = written.filter(name => !crashLogsAtShutdownRequest || crashLogsAtShutdownRequest.has(name))
+      report.shutdownCrashes = written.filter(name => crashLogsAtShutdownRequest !== undefined && !crashLogsAtShutdownRequest.has(name))
       if (report.crashes.length > 0) fail(new Error(`Installed application wrote crash logs: ${report.crashes.join(', ')}`), 'crashError')
-      if (written.size > 0) {
+      if (written.length > 0) {
         const crashOutput = join(output, 'crashes')
         await mkdir(crashOutput, { recursive: true })
-        for (const name of written.keys()) await copyFile(join(report.application.logs, name), join(crashOutput, name))
+        for (const name of written) await copyFile(join(report.application.logs, name), join(crashOutput, name))
       }
     }
   } catch (error) {

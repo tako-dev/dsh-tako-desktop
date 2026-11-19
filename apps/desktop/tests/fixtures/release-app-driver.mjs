@@ -1,7 +1,7 @@
 /** Replaces only Playwright in an isolated helper process; no Electron executable or installer runs. */
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -116,8 +116,15 @@ export const _electron = { async launch(options) {
       assert.equal(hidden.listenerCount('domcontentloaded'), 0)
       assert.equal(welcome.listenerCount('domcontentloaded'), 0)
       if (child.exitCode !== null || child.signalCode !== null) return
-      // A failure during the helper-requested shutdown is reported after close() begins.
-      if (scenario === 'shutdown-crash-report') writeFileSync(join(logs, 'crash-test-shutdown-web-boot.log'), 'shutdown crash contents\n')
+      // A failure during the helper-requested shutdown is reported after close() begins; the mtime is
+      // backdated so a filesystem clock lagging the wall clock (CI's coarse kernel timestamps) cannot
+      // move a shutdown-window report onto the pre-shutdown side of the helper's request.
+      if (scenario === 'shutdown-crash-report') {
+        const crashFile = join(logs, 'crash-test-shutdown-web-boot.log')
+        writeFileSync(crashFile, 'shutdown crash contents\n')
+        const backdated = new Date(Date.now() - 1000)
+        utimesSync(crashFile, backdated, backdated)
+      }
       setImmediate(() => terminate(scenario === 'nonzero-exit' ? 7 : scenario === 'signal-exit' ? null : 0,
         scenario === 'signal-exit' ? 'SIGSEGV' : null))
     },
