@@ -74,3 +74,106 @@ jobs:
           scripts/tako-build-graph.spec.ts
           scripts/tako-removed-upstream-paths.spec.ts
           scripts/client-build-environment.client.spec.ts
+
+  windows-install-smoke:
+    name: Windows release installer smoke
+    runs-on: windows-latest
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: |
+          "path=$(pnpm store path --silent)" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node-${{ env.NODE_VERSION }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node-${{ env.NODE_VERSION }}-pnpm-
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            apps/desktop/.desktop-build/downloads
+            ~/AppData/Local/electron/Cache
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-${{ hashFiles('scripts/primary-runtime/lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-downloads-
+
+      - name: Install (frozen lockfile)
+        run: |
+          pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+
+      - name: Select the default packaging settings
+        run: |
+          Set-Content -LiteralPath apps/desktop/.env.windows -Value '# DSH Tako release - defaults only'
+          $version = node --input-type=module -e "import { TAKO_DESKTOP_VERSION } from './apps/desktop/scripts/tako-desktop-identity.mjs'; console.log(TAKO_DESKTOP_VERSION)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Verify release-smoke lifecycle and protocol cleanup
+        run: |
+          pnpm exec vitest run apps/desktop/tests/tako-release.spec.ts --testTimeout=30000 --hookTimeout=30000
+          exit $LASTEXITCODE
+
+      - name: Build installer and verify packaged runtime
+        run: |
+          pnpm run package:desktop:win:x64:unsigned-release
+          exit $LASTEXITCODE
+
+      - name: Verify cleanup after an installed-version failure
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          pwsh -NoProfile -ExecutionPolicy Bypass -File apps/desktop/tests/windows-release-install-smoke.ps1 `
+            -Installer "apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/DSH-Tako-$env:VERSION-win-x64.exe" `
+            -Version 0.0.0 -OutputDirectory "$env:RUNNER_TEMP/release-install-control"
+          if ($LASTEXITCODE -eq 0) { throw 'Expected the mismatched version check to fail' }
+          $control = Get-Content -LiteralPath "$env:RUNNER_TEMP/release-install-control/result.json" -Raw | ConvertFrom-Json
+          if ($control.status -ne 'failed' -or $control.stage -ne 'installed-version' -or $control.cleanup -ne 'passed' -or
+              $control.installExitCode -ne 0 -or $control.uninstallExitCode -ne 0) {
+            throw 'The negative control did not fail after installation with verified cleanup'
+          }
+          $global:LASTEXITCODE = 0
+
+      - name: Install, launch, and uninstall the built installer
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File apps/desktop/tests/windows-release-install-smoke.ps1 `
+            -Installer "apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/DSH-Tako-$env:VERSION-win-x64.exe" `
+            -Version $env:VERSION -OutputDirectory "$env:RUNNER_TEMP/release-install-smoke"
+          exit $LASTEXITCODE
+
+      - name: Retain installation evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-release-install-evidence
+          path: ${{ runner.temp }}/release-install-*/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Retain packaging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-packaging-logs-win-x64
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: ignore
+          retention-days: 14

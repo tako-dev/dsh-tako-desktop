@@ -17,7 +17,7 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时运行 typecheck、lint 和以下 vitest 子集：`apps/desktop`（含 `apps/desktop-host`）、`packages/tako`、`ui-brand-official`、`ui-settings-account`、`ui-conversation`、`ui-layout`、`app-boot`，以及本 fork 新增的脚本测试。全量测试由官方仓库负责；改动其他包时在本地补跑相关测试。
+CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时由 Ubuntu 运行 typecheck、lint 和以下 vitest 子集：`apps/desktop`（含 `apps/desktop-host`）、`packages/tako`、`ui-brand-official`、`ui-settings-account`、`ui-conversation`、`ui-layout`、`app-boot`，以及本 fork 新增的脚本测试。只读权限的 Windows job 构建发布安装包并运行[安装后验证](#windows-installer-verification)，包括失败清理，不执行发布。全量测试由官方仓库负责；改动其他包时在本地补跑相关测试。
 
 ## 本地打包
 
@@ -28,6 +28,16 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 | `pnpm run package:desktop:win:x64:unsigned-release`（Windows 主机） | `…/win-x64/unsigned-artifacts/` 下 `DSH-Tako-<版本>-win-x64.exe`、`.exe.blockmap`、`latest.yml` | 无代码签名，但写入 GitHub 更新源；需要存在 `apps/desktop/.env.windows`（可为空） |
 
 任一命令加 `--check` 只校验配置和工具链。打包日志在 `apps/desktop/.desktop-build/packaging-runs/`。细节见[打包说明](../../apps/desktop/packaging/README.zh.md)。
+
+<a id="windows-installer-verification"></a>
+
+## Windows 安装包验证
+
+Windows CI job 构建与发布工作流相同的 unsigned-release 安装包。它先要求版本为 `0.0.0`，并要求检查在 `installed-version` 阶段失败、安装和卸载均以成功状态退出且清理验证通过，再检查真实版本。发布 job 要求真实版本检查通过后才能收集或上传发布文件。这些 job 不验收签名版本升级、安装器 UI 页面、登录、模型请求或自动重启。
+
+[`windows-release-install-smoke.ps1`](../../apps/desktop/tests/windows-release-install-smoke.ps1) 要求 Windows x64、PowerShell 7.3 或更高版本、按冻结锁文件安装的工作区依赖，以及具有交互式桌面的干净账户。应用检查脚本使用 `PATH` 中首个 `node` 可执行文件。它在安装前拒绝已有的产品进程、卸载项（包括带版本后缀的名称）、快捷方式、协议注册或产品数据。检查独占私有安装目录、Harness 主目录和 Electron userData 目录，验证安装文件及版本、注册表和快捷方式，再通过 Playwright 等待已安装 Host 的欢迎页并操作 API-key 表单，不提交凭据。欢迎页等待会忽略空、无效及无关页面 URL，直至导航到 `/welcome.html`；非预期的检查异常会使等待失败，但仍执行正常关闭和诊断收集。正常关闭必须独立观测到进程以退出码 0 结束，且未收到终止信号。即使检查失败，清理也会尝试运行复制到安装目录外的卸载器；退出状态与残留状态分别检查。卸载后，仅当遗留的 Electron 协议注册命令精确指向私有可执行文件时，冒烟测试才删除该注册，并与安装器清理分开报告。
+
+Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 记录安装器 SHA-256、检查阶段、安装器/辅助脚本/卸载器退出码、主要错误及独立的清理结果。每个子进程将 stdout 和 stderr 持续写入 `<install|node|uninstall>-<stdout|stderr>.log`，包括辅助脚本初始化前的 Node 错误。应用检查脚本在 `application.json` 中记录当前阶段、首次失败阶段、实际解析的 Playwright 版本与入口、进程退出码与信号、限定长度的应用输出，以及失败前已获取的截图；它在清理前将应用生成的崩溃日志复制到私有状态目录外；辅助脚本请求关停之前写下的崩溃日志会使检查失败，关停期间写下的崩溃日志仅作为证据保留。初始化错误、未捕获异常、未处理的 Promise rejection 和辅助脚本提前退出会写入 stderr，并尝试同步写入报告；辅助脚本被强制终止时仍保留启动前报告。诊断复制、输出写入和报告写入错误分别使检查失败，最终报告还会写入 stdout。清理失败会使 job 失败并保留私有目录供检查；调查报告中的残留之前，不要在该账户重跑。工作流运行记录标识所测提交，报告和截图仅适用于该次执行及安装器哈希。辅助脚本回归测试替换了 Playwright，不证明 Windows 启动或回滚。
 
 ## 版本
 
@@ -42,8 +52,9 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 3. [release.yml](../../.github/workflows/release.yml) 自动运行：
    - `plan`：要求 tag 等于 `v` + `TAKO_DESKTOP_VERSION`，否则立即失败。
    - `macos`（`macos-15`，arm64）：六个 Apple secrets 齐全时导入证书、签名并公证；缺少任一 secret 时失败并列出缺失项。
-   - `windows`（`windows-latest`）：构建未签名的 NSIS 安装包，写入 GitHub 更新源。
+   - `windows`（`windows-latest`）：构建未签名的 NSIS 安装包，写入 GitHub 更新源，并要求[安装后验证](#windows-installer-verification)通过后才能收集发布文件。
    - `publish`：两个平台都成功后，生成 `SHA256SUMS.txt` 和发布说明（模板 [.github/tako-release-notes.md](../../.github/tako-release-notes.md)），用 `gh release create <tag> --verify-tag` 创建 Release；Release 已存在时改用 `gh release upload --clobber` 替换附件，不改动已有说明。只有这个 job 拥有 `contents: write`。
+   - `china-mirror`：由大陆主机把产物拉进 `dsh-dl.shiroha.tech`，再镜像到 OSS `dsh-tako-dl` 并重写 `latest.json` 双源清单，最后逐条验证 OSS 直链；见[国内下载通道](china-download.zh.md)。
 4. 检查 Release 附件：`DSH-Tako-<版本>-mac-arm64.dmg`、`.zip`、`.zip.blockmap`、`latest-mac.yml`、`DSH-Tako-<版本>-win-x64.exe`、供手动下载的同名 `.zip`、`.exe.blockmap`、`latest.yml`、`SHA256SUMS.txt`。Windows ZIP 必须只包含 EXE；updater 元数据仍指向 EXE。
 
 发布说明包含 GitHub 生成的本次合并 PR 清单与版本比较链接、实际构建提交、内置 DSH 版本及其构建清单和上游项目。缺少变更详情时停止发布；重跑不改写已有发布说明。稳定版客户端可直接更新到最新兼容稳定版，无需逐版安装；兼容性检查、包校验、下载和安装的独立确认及禁止降级仍然生效。
@@ -51,6 +62,7 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 在 Actions 页面手动运行 Release（`workflow_dispatch`）可以输入已有 tag，并选择：
 
 - `dry_run`：只构建并保留 Actions artifact（`release-mac-arm64`、`release-win-x64`），在运行摘要中显示校验和与发布说明，不创建或修改 Release。
+- `force_older`：允许 `latest.json` 回退到本次重跑的 tag。重跑旧版本时保持不勾选：国内镜像步骤会失败，而不是把国内下载通道回退。
 - `allow_unsigned_mac`：缺少 Apple secrets 时仍发布 `DSH-Tako-<版本>-mac-arm64-unsigned.dmg`。该包不含 zip 和 `latest-mac.yml`，没有自动更新；已安装签名版本的 mac 用户手动检查更新时会因缺少 `latest-mac.yml` 看到失败提示。
 
 重跑失败的工作流是幂等的：构建产物相同名称会覆盖已有附件。

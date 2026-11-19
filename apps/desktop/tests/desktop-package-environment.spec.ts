@@ -102,23 +102,63 @@ describe('Desktop local packaging configuration', () => {
         .toEqual({ DSH_DESKTOP_PACKAGE_CACHE_DIR: directory })
     })
   })
-  it('selects macOS local defaults while excluding inherited release settings and retaining build networking', () => {
-    const parent = {
-      PATH: 'build-tools', HTTPS_PROXY: 'http://proxy.example:8080', DSH_DESKTOP_NPM_REGISTRY: 'https://registry.npmmirror.com',
-      DSH_DESKTOP_APP_ID: 'com.example.release', DSH_DESKTOP_UNSIGNED: '0',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production', DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: 'invalid-json',
-      DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Release identity', CSC_LINK: 'missing.p12',
-      APPLE_API_KEY: 'missing.p8', DOWNLOAD_PROD_COS_SECRET_KEY: 'unused-secret',
-    }
-    const local = localMacOSPackageEnvironment(parent)
-    expect(local).toEqual({
-      PATH: parent.PATH, HTTPS_PROXY: parent.HTTPS_PROXY, DSH_DESKTOP_NPM_REGISTRY: parent.DSH_DESKTOP_NPM_REGISTRY,
-      DSH_DESKTOP_APP_ID: 'tech.shiroha.dsh-tako', DSH_DESKTOP_UNSIGNED: '1',
+
+  it('selects macOS local defaults while excluding inherited release settings and retaining build networking', async () => {
+    await withDirectory(async (directory) => {
+      const parent = {
+        PATH: 'build-tools', HTTPS_PROXY: 'http://proxy.example:8080', DSH_DESKTOP_NPM_REGISTRY: 'https://registry.npmmirror.com',
+        DSH_DESKTOP_APP_ID: 'com.example.release', DSH_DESKTOP_UNSIGNED: '0',
+        DSH_DESKTOP_AUTO_UPDATE_ENV: 'production', DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: 'invalid-json',
+        DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
+        DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Release identity', CSC_LINK: 'missing.p12',
+        APPLE_API_KEY: 'missing.p8', DOWNLOAD_PROD_COS_SECRET_KEY: 'unused-secret',
+      }
+      const local = localMacOSPackageEnvironment(parent, directory)
+      expect(local).toEqual({
+        PATH: parent.PATH, HTTPS_PROXY: parent.HTTPS_PROXY, DSH_DESKTOP_NPM_REGISTRY: parent.DSH_DESKTOP_NPM_REGISTRY,
+        DSH_DESKTOP_APP_ID: 'tech.shiroha.dsh-tako', DSH_DESKTOP_UNSIGNED: '1',
+      })
+      expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
+      expect(parent.DSH_DESKTOP_UNSIGNED).toBe('0')
+      expect(parent.DSH_DESKTOP_APP_ID).toBe('com.example.release')
     })
-    expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
-    expect(parent.DSH_DESKTOP_UNSIGNED).toBe('0')
-    expect(parent.DSH_DESKTOP_APP_ID).toBe('com.example.release')
+  })
+
+  it('reads only download and tuning fields from the local file while ignoring its release settings', async () => {
+    await withDirectory(async (directory) => {
+      await writeFile(join(directory, '.env.macos'), [
+        'DSH_DESKTOP_APP_ID=com.ignored.release',
+        'DSH_DESKTOP_MACOS_SIGNING_IDENTITY=Ignored identity',
+        'DSH_DESKTOP_MACOS_NOTARIZATION_PROXY=http://apple.example:8081',
+        'DSH_DESKTOP_MACOS_DOWNLOAD_PROXY=http://downloads.example:8080',
+        'DSH_DESKTOP_MACOS_PACK_CONCURRENCY=2',
+        'DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com',
+        'ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/',
+        'ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/',
+        '',
+      ].join('\n'))
+      const parent = { DSH_DESKTOP_MACOS_DOWNLOAD_PROXY: 'http://ambient.example:8080', ELECTRON_MIRROR: 'https://stale.example/' }
+      const local = localMacOSPackageEnvironment(parent, directory)
+      expect(local).toMatchObject({
+        DSH_DESKTOP_MACOS_DOWNLOAD_PROXY: 'http://downloads.example:8080',
+        DSH_DESKTOP_MACOS_PACK_CONCURRENCY: '2',
+        DSH_DESKTOP_NPM_REGISTRY: 'https://registry.npmmirror.com',
+        ELECTRON_MIRROR: 'https://npmmirror.com/mirrors/electron/',
+        ELECTRON_BUILDER_BINARIES_MIRROR: 'https://npmmirror.com/mirrors/electron-builder-binaries/',
+        DSH_DESKTOP_APP_ID: 'tech.shiroha.dsh-tako',
+        DSH_DESKTOP_UNSIGNED: '1',
+      })
+      expect(local).not.toHaveProperty('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
+      expect(local).not.toHaveProperty('DSH_DESKTOP_MACOS_NOTARIZATION_PROXY')
+      expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
+      await writeFile(join(directory, '.env.macos'), 'DSH_DESKTOP_MACOS_DOWNLOAD_PROXY=invalid\n')
+      expect(() => localMacOSPackageEnvironment(parent, directory)).not.toThrow()
+      expect(() => {
+        validateDesktopPackageEnvironment(localMacOSPackageEnvironment(parent, directory), MACOS, { unsigned: true })
+      }).toThrow('DOWNLOAD_PROXY')
+      await writeFile(join(directory, '.env.macos'), 'DSH_DESKTOP_MACOS_DOWNLOAD_PROXY=http://a\0b')
+      expect(() => localMacOSPackageEnvironment(parent, directory)).toThrow('NUL')
+    })
   })
 
   it('takes cache concurrency from the Windows file and defaults to four without ambient overrides', async () => {
@@ -263,12 +303,14 @@ describe('Desktop local packaging configuration', () => {
     }).not.toThrow()
   })
 
-  it('accepts unsigned macOS configuration without Apple settings while keeping release validation', () => {
-    const local = localMacOSPackageEnvironment({})
-    expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
-    expect(() => { validateDesktopPackageEnvironment(local, MACOS) })
-      .toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
-    expect(() => { validateDesktopPackageEnvironment(RELEASE, MACOS) }).toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
+  it('accepts unsigned macOS configuration without Apple settings while keeping release validation', async () => {
+    await withDirectory(async (directory) => {
+      const local = localMacOSPackageEnvironment({}, directory)
+      expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()
+      expect(() => { validateDesktopPackageEnvironment(local, MACOS) })
+        .toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
+      expect(() => { validateDesktopPackageEnvironment(RELEASE, MACOS) }).toThrow('DSH_DESKTOP_MACOS_SIGNING_IDENTITY')
+    })
   })
 
   it('accepts one local npm registry mirror and rejects other registry forms', () => {

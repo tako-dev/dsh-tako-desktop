@@ -19,6 +19,8 @@ DSH Tako 是基于 DeepSeek Harness（MIT 许可）构建的非官方桌面 Agen
 
 Windows 手动下载 ZIP 只包含 NSIS 安装程序 EXE，解压后运行；应用内 Windows 更新仍使用 `latest.yml` 指向的 EXE。`latest-mac.yml`、macOS ZIP 和 `.blockmap` 文件供应用内自动更新，不需要手动下载。`SHA256SUMS.txt` 列出每个文件的 SHA-256，可用 `shasum -a 256 <文件>`（macOS）或 `Get-FileHash <文件>`（Windows）核对。目前不提供 Intel Mac 和 Linux 安装包。
 
+GitHub 下载慢的网络环境可以走阿里云 OSS 镜像：[latest.json](https://dsh-tako-dl.oss-cn-shanghai.aliyuncs.com/latest.json) 列出每个文件的国内和 GitHub 双源地址（见[国内下载通道](china-download.zh.md)）。
+
 **macOS**：双击 dmg，把 DSH Tako 拖到“应用程序”文件夹，再从“应用程序”或启动台打开。不要直接在 dmg 窗口里运行。
 
 **Windows**：双击 exe 安装。安装包未签名，Windows SmartScreen 可能提示“Windows 已保护你的电脑”：点“更多信息”，再点“仍要运行”。安装程序按当前用户安装到 `%LOCALAPPDATA%\Programs\DSH Tako`，不需要管理员权限。

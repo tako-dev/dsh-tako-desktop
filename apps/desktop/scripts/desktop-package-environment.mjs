@@ -3,7 +3,7 @@
 import { accessSync, constants, statSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readDesktopPackageSettings as readSettings } from './desktop-file-settings.mjs'
+import { readDesktopPackageSettings as readSettings, readOptionalDesktopPackageSettings as readOptionalSettings } from './desktop-file-settings.mjs'
 import { resolveDesktopAppId, resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment, resolveNpmRegistry } from './desktop-release-environment.mjs'
 import { TAKO_DESKTOP_APP_ID, resolveTakoDesktopUpdateChannel, resolveTakoDesktopVersion } from './tako-desktop-identity.mjs'
 import { createWindowsTokenSigner } from './windows-sign.mjs'
@@ -20,15 +20,20 @@ const SHARED_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|M
 const WINDOWS_SETTING = /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN|SIGNATURE_CACHE_DIR|SIGNATURE_CACHE_CONCURRENCY|PACK_CONCURRENCY|COMPRESSION_LEVEL)$/u
 const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|ZIP_COMPRESSION_LEVEL|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
 const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
+const LOCAL_MACOS_SETTING = /^(?:DSH_DESKTOP_NPM_REGISTRY|DSH_DESKTOP_MACOS_(?:PACK_CONCURRENCY|DOWNLOAD_PROXY)|ELECTRON_MIRROR|ELECTRON_BUILDER_BINARIES_MIRROR)$/u
 
 /**
- * Select local macOS test defaults without reading dotenv files or inheriting release settings.
+ * Select local macOS test defaults without inheriting release settings.
+ * A present `.env.macos` contributes only the download and tuning fields an unsigned build consumes;
+ * its release and signing settings are ignored, and a missing file keeps the configuration-free defaults.
  * @param {NodeJS.ProcessEnv} environment Parent environment, retained for build tools and networking.
+ * @param {string} appRoot Desktop application directory whose optional `.env.macos` supplies local download settings.
  * @returns {NodeJS.ProcessEnv} Unsigned build environment with the DSH Tako application identifier and no update policy.
  */
-export function localMacOSPackageEnvironment(environment = process.env) {
+export function localMacOSPackageEnvironment(environment = process.env, appRoot = APP_ROOT) {
   return {
     ...Object.fromEntries(Object.entries(environment).filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name))),
+    ...readOptionalSettings(join(appRoot, '.env.macos'), name => LOCAL_MACOS_SETTING.test(name)),
     DSH_DESKTOP_APP_ID: TAKO_DESKTOP_APP_ID,
     DSH_DESKTOP_UNSIGNED: '1',
   }

@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for china-download.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/tako/china-download.md
+/china-download-channel:
+  en: c4682751db5de968
+  zh: edffb08e4d1086b2
+/china-download-channel/latest-json-contract:
+  en: e17b8fb47b077ca6
+  zh: 0d28f26f58ea37a4
+/china-download-channel/layout-on-oss:
+  en: 0b157cc91d440892
+  zh: 306ee56c1bf3f0d6
+/china-download-channel/operation:
+  en: 4c23b3ec28eeebe2
+  zh: 566128a95ee8ae73
