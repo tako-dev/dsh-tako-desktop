@@ -40,6 +40,7 @@ describe('desktop package-set selection', () => {
         peerDependencies: { '@deepseek-ai/cordis': '^1.0.0' },
       })],
       ['@deepseek-ai/cordis', packed('@deepseek-ai/cordis')],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
       ['@deepseek-ai/platform-package', packed('@deepseek-ai/platform-package')],
       ['@deepseek-ai/unused', packed('@deepseek-ai/unused')],
     ])
@@ -48,6 +49,7 @@ describe('desktop package-set selection', () => {
       '@deepseek-ai/dsh',
       '@deepseek-ai/dsh-base',
       '@deepseek-ai/dsh-desktop-host',
+      '@deepseek-ai/dsh-tako',
       '@deepseek-ai/platform-package',
     ])
   })
@@ -62,6 +64,7 @@ describe('desktop package-set selection', () => {
       ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host', {
         dependencies: { '@deepseek-ai/dsh': '^1.0.0' },
       })],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
     ])
     expect(() => selectDesktopPackageClosure(available, { platform: 'win32', arch: 'x64' })).toThrow(/unpacked package/u)
     expect(() => selectDesktopPackageClosure(new Map([
@@ -78,9 +81,10 @@ describe('desktop package-set selection', () => {
         },
       })],
       ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+      ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
     ])
     expect(selectDesktopPackageClosure(available, { platform: 'win32', arch: 'x64' }).map(entry => entry.manifest.name)).toEqual([
-      '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host',
+      '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-tako',
     ])
   })
 
@@ -104,6 +108,7 @@ const cuaBundle = '@deepseek-ai/dsh-cua-bundle'
 const targetManifests = () => new Map<string, PackedDesktopPackage>([
   ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', { dependencies: { [cuaBundle]: '1.0.0' } })],
   ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+  ['@deepseek-ai/dsh-tako', packed('@deepseek-ai/dsh-tako')],
   [cuaBundle, packed(cuaBundle, {
     optionalDependencies: { [macProvider]: '1.0.0' }, dependencies: { '@deepseek-ai/dsh-cua': '1.0.0' },
   })],

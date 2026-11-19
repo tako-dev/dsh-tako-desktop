@@ -90,21 +90,21 @@ describe('desktop macOS release signature', () => {
         writeUpdateInfo: false,
       },
       // DSH Tako updates come from GitHub Releases; the official COS deployment settings are ignored.
-      publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }],
+      publish: [{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' }],
       productName: 'DSH Tako',
       extraMetadata: { dshDesktopAppId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID, name: 'dsh-tako-desktop', version: TAKO_DESKTOP_VERSION },
     })
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
 
-  it('records the DSH Tako latest channel in signed and unsigned manifests alike', async () => {
+  it('records the DSH Tako stable channel in signed and unsigned manifests alike', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const signed = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
-    expect(signed.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
-    expect(signed.publish).toEqual([expect.objectContaining({ channel: 'latest' })])
+    expect(signed.extraMetadata.dshDesktopUpdateChannel).toBe('stable')
+    expect(signed.publish).toEqual([expect.objectContaining({ channel: 'stable' })])
     const unsigned = createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1' }, 'darwin', 'arm64')
     expect(unsigned.publish).toBeNull()
-    expect(unsigned.extraMetadata.dshDesktopUpdateChannel).toBe('latest')
+    expect(unsigned.extraMetadata.dshDesktopUpdateChannel).toBe('stable')
     const requested = createElectronBuilderConfig({
       ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1', DSH_DESKTOP_UPDATE_CHANNEL: 'nightly',
     }, 'darwin', 'arm64')
@@ -120,7 +120,7 @@ describe('desktop macOS release signature', () => {
     const signed = createElectronBuilderConfig(withoutPolicy, 'darwin', 'arm64')
     expect(signed.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
     expect(signed.mac).toMatchObject({ forceCodeSigning: true, notarize: true })
-    expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
+    expect(signed.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' }])
   })
 
   it('refuses the unsigned Windows release mode for macOS builds', async () => {

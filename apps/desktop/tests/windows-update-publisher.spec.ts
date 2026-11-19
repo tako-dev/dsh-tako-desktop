@@ -84,7 +84,7 @@ describe('Windows update publisher', () => {
     expect(release.win.signtoolOptions.publisherName).toBeUndefined()
     expect(release.artifactName).toBe('DSH-Tako-${version}-${os}-${arch}.${ext}')
     expect(release.directories.output.replaceAll('\\', '/')).toContain('/.desktop-build/targets/win-x64/unsigned-artifacts')
-    expect(release.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'latest' }])
+    expect(release.publish).toEqual([{ provider: 'github', owner: 'tako-dev', repo: 'dsh-tako-desktop', channel: 'stable' }])
     expect(release.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
     const local = createElectronBuilderConfig(base, 'win32', 'x64')
     expect(local.artifactName).toBe('DSH-Tako-${version}-${os}-${arch}-unsigned.${ext}')

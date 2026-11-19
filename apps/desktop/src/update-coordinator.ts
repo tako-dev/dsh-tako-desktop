@@ -281,7 +281,7 @@ export class DesktopUpdateCoordinator {
       if (!this.enabled()) throw new Error('desktop update: this application has no packaged update source')
       const result = await this.checkFromCurrentFeed()
       if (generation !== this.generation || this.disposed) return this.current
-      return this.setState(await this.applyCheckResult(result, generation))
+      return await this.applyCheckResult(result, generation)
     } catch (error) {
       if (generation !== this.generation || this.disposed) return this.current
       return this.failure(error, 'check')
