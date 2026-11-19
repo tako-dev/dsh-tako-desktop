@@ -17,7 +17,7 @@ Installers are published on [GitHub Releases](https://github.com/tako-dev/dsh-ta
 | macOS (Apple Silicon, M-series) | `DSH-Tako-<version>-mac-arm64.dmg` | Signed and notarized; if only `-unsigned.dmg` is present, see "Unsigned macOS builds" below |
 | Windows 10/11 (x64) | `DSH-Tako-<version>-win-x64.zip` | Contains the unsigned installer EXE; extract before running |
 
-The Windows manual-download ZIP contains only the NSIS installer EXE; extract it before running. In-app Windows updates continue to use the EXE named by `latest.yml`. `latest-mac.yml`, the macOS ZIP, and `.blockmap` files feed in-app updates and need no manual download. `SHA256SUMS.txt` lists every file's SHA-256; compare with `shasum -a 256 <file>` (macOS) or `Get-FileHash <file>` (Windows). Intel Mac and Linux installers are not provided.
+The Windows manual-download ZIP contains only the NSIS installer EXE; extract it before running. In-app Windows updates continue to use the EXE named by the updater metadata (`stable.yml`; `latest.yml` on installs before the 0.2.2 channel rename). `stable-mac.yml`/`latest-mac.yml`, the macOS ZIP, and `.blockmap` files feed in-app updates and need no manual download. `SHA256SUMS.txt` lists every file's SHA-256; compare with `shasum -a 256 <file>` (macOS) or `Get-FileHash <file>` (Windows). Intel Mac and Linux installers are not provided.
 
 On networks where GitHub downloads are slow, the same files are mirrored to Aliyun OSS; [latest.json](https://dsh-tako-dl.oss-cn-shanghai.aliyuncs.com/latest.json) lists each asset's China and GitHub URLs (see [China download channel](china-download.md)).
 

@@ -24,8 +24,8 @@ CI ([ci.yml](../../.github/workflows/ci.yml)) runs on pushes to `main` and on pu
 | Command | Output | Notes |
 |---|---|---|
 | `pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64:unsigned` | `apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/DSH-Tako-<version>-mac-arm64-unsigned.dmg` | Ignores `.env.macos`; ad-hoc signature; no automatic updates |
-| `pnpm run package:desktop:mac:arm64` | dmg, zip, zip.blockmap, and `latest-mac.yml` under `…/mac-arm64/artifacts/` | Signed and notarized; needs `apps/desktop/.env.macos` (template `.env.macos.example`) |
-| `pnpm run package:desktop:win:x64:unsigned-release` (Windows host) | `DSH-Tako-<version>-win-x64.exe`, `.exe.blockmap`, and `latest.yml` under `…/win-x64/unsigned-artifacts/` | No code signing, but embeds the GitHub update feed; needs `apps/desktop/.env.windows` to exist (it may be empty) |
+| `pnpm run package:desktop:mac:arm64` | dmg, zip, zip.blockmap, and `stable-mac.yml` under `…/mac-arm64/artifacts/` | Signed and notarized; needs `apps/desktop/.env.macos` (template `.env.macos.example`) |
+| `pnpm run package:desktop:win:x64:unsigned-release` (Windows host) | `DSH-Tako-<version>-win-x64.exe`, `.exe.blockmap`, and `stable.yml` under `…/win-x64/unsigned-artifacts/` | No code signing, but embeds the GitHub update feed; needs `apps/desktop/.env.windows` to exist (it may be empty) |
 
 Add `--check` to any command to validate only the configuration and toolchain. Packaging logs are in `apps/desktop/.desktop-build/packaging-runs/`. See the [packaging guide](../../apps/desktop/packaging/README.md) for details.
 
@@ -41,9 +41,9 @@ Actions evidence artifacts stay separate from public Release assets and retain `
 
 ## Version
 
-The single source of the application version is `TAKO_DESKTOP_VERSION` in [tako-desktop-identity.mjs](../../apps/desktop/scripts/tako-desktop-identity.mjs). Packaging writes it into installer names, `latest*.yml`, and the app's `app.getVersion()`. The `version` in `apps/desktop/package.json` and the root `package.json` is the bundled DSH runtime version (for example `0.2.1-rc.2`); it follows upstream and must not become the Tako version, and packaging checks that the two agree. The `DSH_TAKO_DESKTOP_VERSION` environment variable is for local experiments only; the release workflow never sets it.
+The single source of the application version is `TAKO_DESKTOP_VERSION` in [tako-desktop-identity.mjs](../../apps/desktop/scripts/tako-desktop-identity.mjs). Packaging writes it into installer names, the update channel's `stable*.yml`, and the app's `app.getVersion()`. The `version` in `apps/desktop/package.json` and the root `package.json` is the bundled DSH runtime version (for example `0.2.1-rc.2`); it follows upstream and must not become the Tako version, and packaging checks that the two agree. The `DSH_TAKO_DESKTOP_VERSION` environment variable is for local experiments only; the release workflow never sets it.
 
-Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is `latest`, and electron-builder refuses to publish a prerelease on it.
+Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is `stable`, and electron-builder refuses to publish a prerelease on it. Releases also republish the identical updater metadata under `latest.yml`/`latest-mac.yml` so installs up to 0.1.53 keep finding their feed until they update.
 
 ## Release process
 
@@ -55,7 +55,7 @@ Releases accept only stable `MAJOR.MINOR.PATCH` versions: the update channel is 
    - `windows` (`windows-latest`) builds the unsigned NSIS installer with the GitHub update feed and requires [installed-payload verification](#windows-installer-verification) before collecting release files.
    - `publish`, after both platforms succeed, writes `SHA256SUMS.txt` and the release notes (template [.github/tako-release-notes.md](../../.github/tako-release-notes.md)) and creates the release with `gh release create <tag> --verify-tag`; when the release already exists it replaces the assets with `gh release upload --clobber` and leaves the notes alone. Only this job has `contents: write`.
    - `china-mirror` has the mainland host pull the assets into `dsh-dl.shiroha.tech`, mirror them to OSS `dsh-tako-dl`, and rewrite the `latest.json` dual-source manifest, then verifies every OSS link; see [China download channel](china-download.md).
-4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, its manual-download `.zip`, `.exe.blockmap`, `latest.yml`, and `SHA256SUMS.txt`. The Windows ZIP must contain exactly the EXE; updater metadata continues to name the EXE.
+4. Check the release assets: `DSH-Tako-<version>-mac-arm64.dmg`, `.zip`, `.zip.blockmap`, `stable-mac.yml`, `latest-mac.yml`, `DSH-Tako-<version>-win-x64.exe`, its manual-download `.zip`, `.exe.blockmap`, `stable.yml`, `latest.yml`, and `SHA256SUMS.txt`. The Windows ZIP must contain exactly the EXE; updater metadata continues to name the EXE.
 
 Release notes include GitHub's version-specific merged-PR summary and changelog comparison, the exact built commit, and the bundled DSH version with its build manifest and upstream project. Missing change details stop publication; reruns do not rewrite existing release descriptions. Stable installations update directly to the latest compatible stable release, without intermediate versions; compatibility checks, package verification, explicit download/install approvals and downgrade rejection still apply.
 
@@ -63,7 +63,7 @@ Running Release manually from the Actions page (`workflow_dispatch`) takes an ex
 
 - `dry_run` builds and keeps the Actions artifacts (`release-mac-arm64`, `release-win-x64`), shows the checksums and notes in the run summary, and creates or changes no release.
 - `force_older` lets `latest.json` move back to the tag being rerun. Leave it off when rerunning an older release: the China mirror step then fails instead of rolling the China download channel back.
-- `allow_unsigned_mac` publishes `DSH-Tako-<version>-mac-arm64-unsigned.dmg` when Apple secrets are missing. That build has no zip or `latest-mac.yml` and no automatic updates; Mac users of a signed version who check for updates manually see a failure because `latest-mac.yml` is missing.
+- `allow_unsigned_mac` publishes `DSH-Tako-<version>-mac-arm64-unsigned.dmg` when Apple secrets are missing. That build has no zip or `stable-mac.yml`/`latest-mac.yml` and no automatic updates; Mac users of a signed version who check for updates manually see a failure because the metadata file is missing.
 
 Rerunning a failed workflow is idempotent: assets with the same names replace the existing ones.
 
@@ -84,10 +84,10 @@ The workflow writes these values to `apps/desktop/.env.macos` (mode 600, deleted
 
 ## Automatic updates
 
-The app reads GitHub Releases through electron-updater (`provider: github`, `owner: tako-dev`, `repo: dsh-tako-desktop`, channel `latest`). This configuration lives in the packaged `app-update.yml`: the packaging scripts write and verify it on macOS, and electron-builder writes it on Windows. The app enables updates only when `app-update.yml` exists.
+The app reads GitHub Releases through electron-updater (`provider: github`, `owner: tako-dev`, `repo: dsh-tako-desktop`, channel `stable` since the 0.2.2 channel rename; installs before that release read channel `latest`, which is why releases keep publishing `latest*.yml` aliases of the same metadata). This configuration lives in the packaged `app-update.yml`: the packaging scripts write and verify it on macOS, and electron-builder writes it on Windows. The app enables updates only when `app-update.yml` exists.
 
 - macOS updates require an app signed with Developer ID and notarized; Squirrel.Mac refuses to install updates for an unsigned app, so unsigned Mac builds embed no update feed.
-- The Windows installer is unsigned and its `app-update.yml` has no publisher name, so electron-updater checks only the SHA-512 in `latest.yml`, not an update signature.
+- The Windows installer is unsigned and its `app-update.yml` has no publisher name, so electron-updater checks only the SHA-512 in the channel metadata (`stable.yml`, or `latest.yml` for installs before the channel rename), not an update signature.
 
 The mandatory-update policy (`dshMandatoryUpdatePolicy`) is disabled: without `DSH_DESKTOP_MANDATORY_UPDATE_*_ORIGIN` and `DSH_DESKTOP_MANDATORY_UPDATE_CONFIG`, packaging embeds no policy and the app makes no policy requests. Setting either enables the official policy and requires a complete configuration; see [desktop-policy-environment.mjs](../../apps/desktop/scripts/desktop-policy-environment.mjs) and the [desktop README](../../apps/desktop/README.md#mandatory-update-policy).
 

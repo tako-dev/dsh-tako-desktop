@@ -385,13 +385,15 @@ describe('release assets', () => {
       expect(join(APP_ROOT, actual)).toBe(output)
     }
     const signed = takoReleaseAssets('mac-arm64', version, 'signed')
-    expect(signed.files).toEqual([`${base}-mac-arm64.dmg`, `${base}-mac-arm64.zip`, `${base}-mac-arm64.zip.blockmap`, 'latest-mac.yml'])
+    expect(signed.files).toEqual([`${base}-mac-arm64.dmg`, `${base}-mac-arm64.zip`, `${base}-mac-arm64.zip.blockmap`, 'stable-mac.yml', 'latest-mac.yml'])
+    expect(signed).toMatchObject({ updateMetadata: 'stable-mac.yml', legacyMetadata: 'latest-mac.yml' })
     expectDirectory('mac-arm64', { unsigned: false }, signed.directory)
     const unsigned = takoReleaseAssets('mac-arm64', version, 'unsigned')
     expect(unsigned).toMatchObject({ files: [`${base}-mac-arm64-unsigned.dmg`], updateMetadata: undefined })
     expectDirectory('mac-arm64', { unsigned: true }, unsigned.directory)
     const windows = takoReleaseAssets('win-x64', version, 'signed')
-    expect(windows.files).toEqual([`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'latest.yml'])
+    expect(windows.files).toEqual([`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'stable.yml', 'latest.yml'])
+    expect(windows).toMatchObject({ updateMetadata: 'stable.yml', legacyMetadata: 'latest.yml' })
     expect(windows.manualArchive).toBe(`${base}-win-x64.zip`)
     expectDirectory('win-x64', { unsigned: true, unsignedRelease: true }, windows.directory)
   })
@@ -417,18 +419,18 @@ describe('release assets', () => {
     mkdirSync(directory, { recursive: true })
     const artifact = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.exe`
     const archive = `${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64.zip`
-    const expected = [artifact, `${artifact}.blockmap`, 'latest.yml', archive]
+    const expected = [artifact, `${artifact}.blockmap`, 'stable.yml', 'latest.yml', archive]
     writeFileSync(join(directory, artifact), 'installer')
     const output = join(appRoot, 'release')
     const request = { target: 'win-x64', version: TAKO_DESKTOP_VERSION, mode: 'signed', output, appRoot } as const
     expect(() => collectTakoReleaseAssets(request)).toThrow('missing or empty release file')
     writeFileSync(join(directory, `${artifact}.blockmap`), 'blockmap')
-    writeFileSync(join(directory, 'latest.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64-unsigned.exe\n`)
+    writeFileSync(join(directory, 'stable.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${TAKO_DESKTOP_ARTIFACT_PREFIX}-${TAKO_DESKTOP_VERSION}-win-x64-unsigned.exe\n`)
     expect(() => collectTakoReleaseAssets(request)).toThrow('must refer only to published files')
     // A metadata file for another release is stale and must be rejected.
-    writeFileSync(join(directory, 'latest.yml'), `version: 0.0.9\nfiles:\n  - url: ${artifact}\n`)
+    writeFileSync(join(directory, 'stable.yml'), `version: 0.0.9\nfiles:\n  - url: ${artifact}\n`)
     expect(() => collectTakoReleaseAssets(request)).toThrow('declares version 0.0.9')
-    writeFileSync(join(directory, 'latest.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${artifact}\npath: ${artifact}\n`)
+    writeFileSync(join(directory, 'stable.yml'), `version: ${TAKO_DESKTOP_VERSION}\nfiles:\n  - url: ${artifact}\npath: ${artifact}\n`)
     const createArchive = vi.fn((directory: string) => { writeFileSync(join(directory, archive), 'zip'); return archive })
     expect(collectTakoReleaseAssets(request, createArchive)).toEqual(expected)
     expect(createArchive).toHaveBeenCalledExactlyOnceWith(output, TAKO_DESKTOP_VERSION)

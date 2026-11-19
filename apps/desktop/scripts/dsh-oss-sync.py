@@ -76,8 +76,14 @@ class OssClient:
 def read_tag(data_dir, explicit):
     if explicit:
         return explicit
-    for name in ("latest.yml", "latest-mac.yml"):
-        for line in open(os.path.join(data_dir, name)):
+    # Releases ≥0.1.55 publish the stable channel's stable*.yml and keep latest*.yml
+    # aliases for installs on the pre-0.1.54 feed; either name carries the version.
+    for name in ("stable.yml", "stable-mac.yml", "latest.yml", "latest-mac.yml"):
+        try:
+            lines = open(os.path.join(data_dir, name))
+        except OSError:
+            continue
+        for line in lines:
             if line.startswith("version:"):
                 return "v" + line.split(":", 1)[1].strip()
     raise SystemExit("cannot determine tag: pass --tag")

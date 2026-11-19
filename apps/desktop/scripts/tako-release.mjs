@@ -140,16 +140,20 @@ export function renderTakoReleaseSizeReport(rows, thresholdPercent) {
 
 /**
  * Name the files one platform job publishes and the build directory that holds them.
+ * The stable channel is `stable`, so electron-builder writes `stable.yml`/`stable-mac.yml`;
+ * every release also re-publishes the identical metadata under the legacy `latest*.yml`
+ * names that installs up to 0.1.53 keep requesting until they update.
  * @param {'mac-arm64' | 'win-x64'} target - Release target.
  * @param {string} version - Application version.
  * @param {'signed' | 'unsigned'} mode - macOS signing mode; Windows releases are always unsigned.
- * @returns {{ directory: string, files: string[], updateMetadata: string | undefined, manualArchive?: string }} Directory relative to apps/desktop, builder file names, updater metadata, and any generated manual-download wrapper.
+ * @returns {{ directory: string, files: string[], updateMetadata: string | undefined, legacyMetadata?: string, manualArchive?: string }} Directory relative to apps/desktop, builder file names, updater metadata with its legacy alias, and any generated manual-download wrapper.
  */
 export function takoReleaseAssets(target, version, mode) {
   const base = `${ARTIFACT_PREFIX}-${version}`
   if (target === 'win-x64') {
     return { directory: '.desktop-build/targets/win-x64/unsigned-artifacts',
-      files: [`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'latest.yml'], updateMetadata: 'latest.yml',
+      files: [`${base}-win-x64.exe`, `${base}-win-x64.exe.blockmap`, 'stable.yml', 'latest.yml'],
+      updateMetadata: 'stable.yml', legacyMetadata: 'latest.yml',
       manualArchive: `${base}-win-x64.zip` }
   }
   if (target !== 'mac-arm64') throw new Error(`tako release: unsupported target ${String(target)}`)
@@ -157,8 +161,8 @@ export function takoReleaseAssets(target, version, mode) {
     return { directory: '.desktop-build/targets/mac-arm64/unsigned-artifacts', files: [`${base}-mac-arm64-unsigned.dmg`], updateMetadata: undefined }
   }
   return { directory: '.desktop-build/targets/mac-arm64/artifacts',
-    files: [`${base}-mac-arm64.dmg`, `${base}-mac-arm64.zip`, `${base}-mac-arm64.zip.blockmap`, 'latest-mac.yml'],
-    updateMetadata: 'latest-mac.yml' }
+    files: [`${base}-mac-arm64.dmg`, `${base}-mac-arm64.zip`, `${base}-mac-arm64.zip.blockmap`, 'stable-mac.yml', 'latest-mac.yml'],
+    updateMetadata: 'stable-mac.yml', legacyMetadata: 'latest-mac.yml' }
 }
 
 /**
@@ -208,12 +212,14 @@ export function collectTakoReleaseAssets(request, createManualArchive = createTa
   const assets = takoReleaseAssets(request.target, request.version, request.mode)
   const source = join(request.appRoot ?? APP_ROOT, assets.directory)
   for (const file of assets.files) {
+    // `legacyMetadata` exists only in the output; on disk the stable file stands in for it.
+    const sourceName = file === assets.legacyMetadata ? assets.updateMetadata : file
     let size = 0
-    try { size = statSync(join(source, file)).size } catch (error) {
+    try { size = statSync(join(source, sourceName)).size } catch (error) {
       // A missing file is reported below together with an empty one.
       if (error?.code !== 'ENOENT') throw error
     }
-    if (size === 0) throw new Error(`tako release: missing or empty release file ${join(assets.directory, file)}`)
+    if (size === 0) throw new Error(`tako release: missing or empty release file ${join(assets.directory, sourceName)}`)
   }
   if (assets.updateMetadata !== undefined) {
     const references = takoUpdateMetadataReferences(readFileSync(join(source, assets.updateMetadata), 'utf8'))
@@ -226,7 +232,11 @@ export function collectTakoReleaseAssets(request, createManualArchive = createTa
     }
   }
   mkdirSync(request.output, { recursive: true })
-  for (const file of assets.files) copyFileSync(join(source, file), join(request.output, file))
+  for (const file of assets.files) {
+    // The stable-channel metadata file is copied a second time under its legacy
+    // `latest*` name so pre-0.1.54 installs keep finding their update feed.
+    copyFileSync(join(source, file === assets.legacyMetadata ? assets.updateMetadata : file), join(request.output, file))
+  }
   const generated = assets.manualArchive === undefined ? [] : [createManualArchive(request.output, request.version)]
   return [...assets.files, ...generated]
 }

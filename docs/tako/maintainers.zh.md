@@ -24,8 +24,8 @@ CI（[ci.yml](../../.github/workflows/ci.yml)）在推送到 `main` 和 PR 时�
 | 命令 | 产物 | 说明 |
 |---|---|---|
 | `pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64:unsigned` | `apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/DSH-Tako-<版本>-mac-arm64-unsigned.dmg` | 不读取 `.env.macos`，ad-hoc 签名，无自动更新 |
-| `pnpm run package:desktop:mac:arm64` | `…/mac-arm64/artifacts/` 下 dmg、zip、zip.blockmap、`latest-mac.yml` | 签名并公证，需要 `apps/desktop/.env.macos`（模板 `.env.macos.example`） |
-| `pnpm run package:desktop:win:x64:unsigned-release`（Windows 主机） | `…/win-x64/unsigned-artifacts/` 下 `DSH-Tako-<版本>-win-x64.exe`、`.exe.blockmap`、`latest.yml` | 无代码签名，但写入 GitHub 更新源；需要存在 `apps/desktop/.env.windows`（可为空） |
+| `pnpm run package:desktop:mac:arm64` | `…/mac-arm64/artifacts/` 下 dmg、zip、zip.blockmap、`stable-mac.yml` | 签名并公证，需要 `apps/desktop/.env.macos`（模板 `.env.macos.example`） |
+| `pnpm run package:desktop:win:x64:unsigned-release`（Windows 主机） | `…/win-x64/unsigned-artifacts/` 下 `DSH-Tako-<版本>-win-x64.exe`、`.exe.blockmap`、`stable.yml` | 无代码签名，但写入 GitHub 更新源；需要存在 `apps/desktop/.env.windows`（可为空） |
 
 任一命令加 `--check` 只校验配置和工具链。打包日志在 `apps/desktop/.desktop-build/packaging-runs/`。细节见[打包说明](../../apps/desktop/packaging/README.zh.md)。
 
@@ -41,9 +41,9 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
 
 ## 版本
 
-应用版本的唯一来源是 [tako-desktop-identity.mjs](../../apps/desktop/scripts/tako-desktop-identity.mjs) 中的 `TAKO_DESKTOP_VERSION`。打包时它写入安装包文件名、`latest*.yml` 和应用的 `app.getVersion()`。`apps/desktop/package.json` 与根 `package.json` 的 `version` 是内置 DSH 运行时版本（例如 `0.2.1-rc.2`），跟随官方，不要改成 Tako 版本，打包会校验两者一致。`DSH_TAKO_DESKTOP_VERSION` 环境变量只用于本地试验，发版工作流不设置它。
+应用版本的唯一来源是 [tako-desktop-identity.mjs](../../apps/desktop/scripts/tako-desktop-identity.mjs) 中的 `TAKO_DESKTOP_VERSION`。打包时它写入安装包文件名、更新通道的 `stable*.yml` 和应用的 `app.getVersion()`。`apps/desktop/package.json` 与根 `package.json` 的 `version` 是内置 DSH 运行时版本（例如 `0.2.1-rc.2`），跟随官方，不要改成 Tako 版本，打包会校验两者一致。`DSH_TAKO_DESKTOP_VERSION` 环境变量只用于本地试验，发版工作流不设置它。
 
-发版只接受稳定版本 `MAJOR.MINOR.PATCH`：更新通道是 `latest`，electron-builder 拒绝在该通道发布预发布版本。
+发版只接受稳定版本 `MAJOR.MINOR.PATCH`：更新通道是 `stable`，electron-builder 拒绝在该通道发布预发布版本。每次发版同时以 `latest.yml`/`latest-mac.yml` 名称再发布同一份 updater 元数据，让 0.1.53 及更早的安装端在完成更新前仍能取到更新源。
 
 ## 发版流程
 
@@ -55,7 +55,7 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
    - `windows`（`windows-latest`）：构建未签名的 NSIS 安装包，写入 GitHub 更新源，并要求[安装后验证](#windows-installer-verification)通过后才能收集发布文件。
    - `publish`：两个平台都成功后，生成 `SHA256SUMS.txt` 和发布说明（模板 [.github/tako-release-notes.md](../../.github/tako-release-notes.md)），用 `gh release create <tag> --verify-tag` 创建 Release；Release 已存在时改用 `gh release upload --clobber` 替换附件，不改动已有说明。只有这个 job 拥有 `contents: write`。
    - `china-mirror`：由大陆主机把产物拉进 `dsh-dl.shiroha.tech`，再镜像到 OSS `dsh-tako-dl` 并重写 `latest.json` 双源清单，最后逐条验证 OSS 直链；见[国内下载通道](china-download.zh.md)。
-4. 检查 Release 附件：`DSH-Tako-<版本>-mac-arm64.dmg`、`.zip`、`.zip.blockmap`、`latest-mac.yml`、`DSH-Tako-<版本>-win-x64.exe`、供手动下载的同名 `.zip`、`.exe.blockmap`、`latest.yml`、`SHA256SUMS.txt`。Windows ZIP 必须只包含 EXE；updater 元数据仍指向 EXE。
+4. 检查 Release 附件：`DSH-Tako-<版本>-mac-arm64.dmg`、`.zip`、`.zip.blockmap`、`stable-mac.yml`、`latest-mac.yml`、`DSH-Tako-<版本>-win-x64.exe`、供手动下载的同名 `.zip`、`.exe.blockmap`、`stable.yml`、`latest.yml`、`SHA256SUMS.txt`。Windows ZIP 必须只包含 EXE；updater 元数据仍指向 EXE。
 
 发布说明包含 GitHub 生成的本次合并 PR 清单与版本比较链接、实际构建提交、内置 DSH 版本及其构建清单和上游项目。缺少变更详情时停止发布；重跑不改写已有发布说明。稳定版客户端可直接更新到最新兼容稳定版，无需逐版安装；兼容性检查、包校验、下载和安装的独立确认及禁止降级仍然生效。
 
@@ -63,7 +63,7 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
 
 - `dry_run`：只构建并保留 Actions artifact（`release-mac-arm64`、`release-win-x64`），在运行摘要中显示校验和与发布说明，不创建或修改 Release。
 - `force_older`：允许 `latest.json` 回退到本次重跑的 tag。重跑旧版本时保持不勾选：国内镜像步骤会失败，而不是把国内下载通道回退。
-- `allow_unsigned_mac`：缺少 Apple secrets 时仍发布 `DSH-Tako-<版本>-mac-arm64-unsigned.dmg`。该包不含 zip 和 `latest-mac.yml`，没有自动更新；已安装签名版本的 mac 用户手动检查更新时会因缺少 `latest-mac.yml` 看到失败提示。
+- `allow_unsigned_mac`：缺少 Apple secrets 时仍发布 `DSH-Tako-<版本>-mac-arm64-unsigned.dmg`。该包不含 zip 和 `stable-mac.yml`/`latest-mac.yml`，没有自动更新；已安装签名版本的 mac 用户手动检查更新时会因缺少元数据文件看到失败提示。
 
 重跑失败的工作流是幂等的：构建产物相同名称会覆盖已有附件。
 
@@ -84,10 +84,10 @@ Actions 验证产物与公开 Release 附件分开保留，其中 `result.json` 
 
 ## 自动更新
 
-应用通过 electron-updater 读取 GitHub Releases（`provider: github`、`owner: tako-dev`、`repo: dsh-tako-desktop`、通道 `latest`）。这一配置写入安装包内的 `app-update.yml`：macOS 由打包脚本写入并校验，Windows 由 electron-builder 写入。应用只在 `app-update.yml` 存在时启用更新。
+应用通过 electron-updater 读取 GitHub Releases（`provider: github`、`owner: tako-dev`、`repo: dsh-tako-desktop`；自 0.2.2 通道改名起通道为 `stable`，改名前的安装端读取通道 `latest`，因此每次发版同时发布 `latest*.yml` 别名的同一份元数据）。这一配置写入安装包内的 `app-update.yml`：macOS 由打包脚本写入并校验，Windows 由 electron-builder 写入。应用只在 `app-update.yml` 存在时启用更新。
 
 - macOS 自动更新要求应用已用 Developer ID 签名并公证；Squirrel.Mac 拒绝为未签名应用安装更新，因此未签名 mac 包不写入更新源。
-- Windows 安装包未签名，`app-update.yml` 不含 publisher 名称，electron-updater 不校验更新包签名，只校验 `latest.yml` 中的 SHA-512。
+- Windows 安装包未签名，`app-update.yml` 不含 publisher 名称，electron-updater 不校验更新包签名，只校验通道元数据（`stable.yml`，改名前安装端为 `latest.yml`）中的 SHA-512。
 
 强制更新策略（`dshMandatoryUpdatePolicy`）未启用：未设置 `DSH_DESKTOP_MANDATORY_UPDATE_*_ORIGIN` 和 `DSH_DESKTOP_MANDATORY_UPDATE_CONFIG` 时不写入策略，应用不发起策略请求。设置其中任一项会启用官方策略并要求完整配置，见 [desktop-policy-environment.mjs](../../apps/desktop/scripts/desktop-policy-environment.mjs) 和[桌面 README](../../apps/desktop/README.zh.md#mandatory-update-policy)。
 

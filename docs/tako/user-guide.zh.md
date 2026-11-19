@@ -17,7 +17,7 @@ DSH Tako 是基于 DeepSeek Harness（MIT 许可）构建的非官方桌面 Agen
 | macOS（Apple Silicon，M 系列芯片） | `DSH-Tako-<版本>-mac-arm64.dmg` | 已签名并公证；若只有 `-unsigned.dmg`，见下文“未签名的 macOS 版本” |
 | Windows 10/11（x64） | `DSH-Tako-<版本>-win-x64.zip` | 内含未签名安装程序 EXE；解压后运行 |
 
-Windows 手动下载 ZIP 只包含 NSIS 安装程序 EXE，解压后运行；应用内 Windows 更新仍使用 `latest.yml` 指向的 EXE。`latest-mac.yml`、macOS ZIP 和 `.blockmap` 文件供应用内自动更新，不需要手动下载。`SHA256SUMS.txt` 列出每个文件的 SHA-256，可用 `shasum -a 256 <文件>`（macOS）或 `Get-FileHash <文件>`（Windows）核对。目前不提供 Intel Mac 和 Linux 安装包。
+Windows 手动下载 ZIP 只包含 NSIS 安装程序 EXE，解压后运行；应用内 Windows 更新仍使用 updater 元数据（`stable.yml`；0.2.2 通道改名前的安装端为 `latest.yml`）指向的 EXE。`stable-mac.yml`/`latest-mac.yml`、macOS ZIP 和 `.blockmap` 文件供应用内自动更新，不需要手动下载。`SHA256SUMS.txt` 列出每个文件的 SHA-256，可用 `shasum -a 256 <文件>`（macOS）或 `Get-FileHash <文件>`（Windows）核对。目前不提供 Intel Mac 和 Linux 安装包。
 
 GitHub 下载慢的网络环境可以走阿里云 OSS 镜像：[latest.json](https://dsh-tako-dl.oss-cn-shanghai.aliyuncs.com/latest.json) 列出每个文件的国内和 GitHub 双源地址（见[国内下载通道](china-download.zh.md)）。
 

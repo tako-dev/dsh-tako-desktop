@@ -40,7 +40,7 @@
 | `assets[].sha256` | 取自 `SHA256SUMS.txt` 的 SHA-256；校验和文件本身为 `null` |
 | `assets[].size` | 字节数；OSS 保存同一对象，`Content-Length` 一致 |
 
-消费方应对国内用户选用 `ossUrl`、其他用户选用 `githubUrl`，两者可互为回退。`role` 标识各系统安装包；`role: null` 的文件（`.zip`、`.blockmap`、`latest*.yml`、`SHA256SUMS.txt`）是更新元数据或备用格式，同样镜像在该前缀下。
+消费方应对国内用户选用 `ossUrl`、其他用户选用 `githubUrl`，两者可互为回退。`role` 标识各系统安装包；`role: null` 的文件（`.zip`、`.blockmap`、`stable*.yml`/`latest*.yml`、`SHA256SUMS.txt`）是更新元数据或备用格式，同样镜像在该前缀下。
 
 ## OSS 上的目录布局
 

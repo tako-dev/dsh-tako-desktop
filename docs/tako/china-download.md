@@ -40,7 +40,7 @@ Fetch `https://dsh-tako-dl.oss-cn-shanghai.aliyuncs.com/latest.json`. It is rewr
 | `assets[].sha256` | SHA-256 from `SHA256SUMS.txt`; `null` for the checksums file itself |
 | `assets[].size` | Bytes; OSS serves the same object, so `Content-Length` matches |
 
-Consumers should pick `ossUrl` for China users and `githubUrl` otherwise, and may fall back between them. `role` identifies the per-OS installer; assets with `role: null` (`.zip`, `.blockmap`, `latest*.yml`, `SHA256SUMS.txt`) are updater metadata or alternate formats, mirrored at the same prefix.
+Consumers should pick `ossUrl` for China users and `githubUrl` otherwise, and may fall back between them. `role` identifies the per-OS installer; assets with `role: null` (`.zip`, `.blockmap`, `stable*.yml`/`latest*.yml`, `SHA256SUMS.txt`) are updater metadata or alternate formats, mirrored at the same prefix.
 
 ## Layout on OSS
 
