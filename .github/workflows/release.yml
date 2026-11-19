@@ -444,25 +444,27 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
           chmod 600 ~/.ssh/dsh_cn_key
           printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
-          FILES=$(cd "$RUNNER_TEMP/mirror" && ls)
-          ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" '
-            set -e
+          # The asset list travels on stdin: interpolating it into the remote command line
+          # puts every file name on one `for` word list, which breaks on names with spaces.
+          ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
+            "set -e
             export https_proxy=http://172.17.66.4:3128
             mkdir -p /srv/dsh-dl/data.tmp && rm -rf /srv/dsh-dl/data.tmp/*
             cd /srv/dsh-dl/data.tmp
-            for f in '"$FILES"'; do
+            while IFS= read -r f; do
+              [ -n \"\$f\" ] || continue
               for try in 1 2 3 4 5; do
                 curl -sfL -C - --max-time 900 \
-                  -o "$f" "https://github.com/'"$GH_REPO"'/releases/download/'"$RELEASE_TAG"'/$f" \
+                  -o \"\$f\" \"https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/\$f\" \
                   && break
-                [ "$try" = 5 ] && exit 1
+                [ \"\$try\" = 5 ] && exit 1
                 sleep 10
               done
             done
             sha256sum -c SHA256SUMS.txt
-            for f in *; do mv -f "$f" /srv/dsh-dl/data/"$f"; done
-            cd /srv/dsh-dl && rmdir data.tmp
-          '
+            for f in *; do mv -f \"\$f\" /srv/dsh-dl/data/\"\$f\"; done
+            cd /srv/dsh-dl && rmdir data.tmp" \
+            < <(cd "$RUNNER_TEMP/mirror" && ls)
 
       # Reruns of older releases keep calling /usr/local/bin/dsh-oss-sync.py, so
       # the host copy is what protects the channel there; fail before uploading
