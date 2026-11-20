@@ -21,6 +21,7 @@ Build Desktop installers locally or through Windows or macOS Actions, choose dep
 - [Local macOS DMG without release signing](#local-macos-dmg-without-release-signing)
 - [macOS release signing and diagnostics](#macos-release-signing)
 - [Directory builds and preparation](#directory-and-preparation)
+- [Optional plugin candidates](#optional-plugin-candidates)
 - [Local Official bundles from a loopback registry](#local-official-bundles-from-a-loopback-registry)
 - [Runtime file selection and installation checks](#runtime-file-selection)
 - [Desktop runtime preparation](#desktop-runtime-preparation)
@@ -225,6 +226,12 @@ pnpm run prepare:desktop
 ```
 
 This diagnostic command is an alternative stopping point, not the first half of a two-command build. A later `package:desktop*` command repeats the build selected by its signing mode and all preparation so it cannot consume stale dsh packages, runtime files, or dsh content.
+
+<a id="optional-plugin-candidates"></a>
+
+## Optional plugin candidates
+
+Reviewed third-party plugins can ride beside the core package set as opt-in candidates under `apps/desktop/optional-plugins/<name>/`. A candidate pins its npm archive by SHA-512 integrity and its frozen lockfile and importer files by raw-byte SHA-256 in `candidate.json`; `scripts/im-candidate.ts` hashes the lockfile bytes before parsing them, checks the importer against the manifest and the resolved snapshot closure, and stages the captured bytes without a second disk read. Fetch the pinned archive with `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch`, check it with `verify`, and write a private stage directory with `stage <dir>`. The `@xmanrui/dsh-im` candidate keeps `releaseEligible: false` while its documented blockers stand, so a `--with-im-candidate` packaging run refuses to build unless the operator also passes `--allow-ineligible-im-candidate`; the candidate's own `stage` command takes `--allow-ineligible` for the same override. A refused request builds nothing.
 
 <a id="local-official-bundles-from-a-loopback-registry"></a>
 

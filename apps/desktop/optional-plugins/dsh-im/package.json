@@ -1,0 +1,9 @@
+{
+  "name": "dsh-im-candidate",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@xmanrui/dsh-im": "5.10.0"
+  },
+  "packageManager": "pnpm@11.28.5"
+}

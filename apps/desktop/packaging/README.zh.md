@@ -21,6 +21,7 @@ description: "在本地或 Windows／macOS Actions 中生成 Desktop 安装包�
 - [无发布签名的本地 macOS DMG](#local-macos-dmg-without-release-signing)
 - [macOS 发布签名与诊断](#macos-release-signing)
 - [目录构建与准备](#directory-and-preparation)
+- [可选插件候选](#optional-plugin-candidates)
 - [用回环 registry 安装本地 Official 包](#local-official-bundles-from-a-loopback-registry)
 - [运行时文件筛选与安装检查](#runtime-file-selection)
 - [Desktop 运行时准备](#desktop-runtime-preparation)
@@ -225,6 +226,12 @@ pnpm run prepare:desktop
 ```
 
 这条诊断命令是另一种停止位置，并非两条命令构建流程的前半段。之后执行 `package:desktop*` 时仍会重新完成按签名模式选择的构建与全部准备，避免使用陈旧的 dsh 包、运行时文件或 dsh 内容。
+
+<a id="optional-plugin-candidates"></a>
+
+## 可选插件候选
+
+经审查的第三方插件可以作为可选候选随核心包集一起交付，存放在 `apps/desktop/optional-plugins/<name>/`。候选在 `candidate.json` 中以 SHA-512 integrity 锁定其 npm 归档，并以原始字节的 SHA-256 锁定冻结 lockfile 与 importer 文件；`scripts/im-candidate.ts` 在解析前先对 lockfile 原始字节做哈希，再核对 importer 与清单、已解析的快照闭包，并把捕获到的字节原样暂存，不再二次读盘。用 `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch` 获取锁定的归档，用 `verify` 校验，用 `stage <dir>` 写入私有暂存目录。`@xmanrui/dsh-im` 候选在其已记录的阻塞项未解除前保持 `releaseEligible: false`，因此带 `--with-im-candidate` 的打包请求会拒绝构建，除非操作者再加 `--allow-ineligible-im-candidate`；候选自身的 `stage` 命令用 `--allow-ineligible` 做同样的覆盖。被拒绝的请求不会构建任何内容。
 
 <a id="local-official-bundles-from-a-loopback-registry"></a>
 
