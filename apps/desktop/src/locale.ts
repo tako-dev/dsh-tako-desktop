@@ -205,6 +205,9 @@ export const en = {
   mandatoryCopyFailed: 'Could not copy the link. Select and copy it below.',
   mandatoryAddress: 'Download link',
   mandatoryNotification: 'Return to the application to confirm installation and restart.',
+  launchAtLoginTitle: 'Open DSH Tako at login?',
+  launchAtLoginDetail: 'DSH Tako will start automatically when you sign in to this computer. You can turn this off anytime in Settings.',
+  launchAtLoginEnable: 'Open at Login',
 } as const
 
 /** Every Desktop locale supplies the complete English key set. */
@@ -415,6 +418,9 @@ export const zh = {
   mandatoryCopyFailed: '复制失败，请手动选择并复制下方链接。',
   mandatoryAddress: '下载链接',
   mandatoryNotification: '返回应用确认安装并重启。',
+  launchAtLoginTitle: '登录时自动打开 DSH Tako？',
+  launchAtLoginDetail: '登录这台电脑后，DSH Tako 会自动启动。可随时在设置中关闭。',
+  launchAtLoginEnable: '登录时打开',
 } as const satisfies DesktopMessages
 
 /** Japanese copy, checked against the English keys. */
@@ -623,6 +629,9 @@ export const ja = {
   mandatoryCopyFailed: 'リンクをコピーできませんでした。以下から選択してコピーしてください。',
   mandatoryAddress: 'ダウンロードリンク',
   mandatoryNotification: 'アプリに戻り、インストールと再起動を確認してください。',
+  launchAtLoginTitle: 'ログイン時に DSH Tako を開きますか？',
+  launchAtLoginDetail: 'このコンピューターにサインインすると、DSH Tako が自動的に起動します。設定でいつでもオフにできます。',
+  launchAtLoginEnable: 'ログイン時に開く',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -831,6 +840,9 @@ export const es = {
   mandatoryCopyFailed: 'No se pudo copiar el enlace. Selecciónelo y cópielo a continuación.',
   mandatoryAddress: 'Enlace de descarga',
   mandatoryNotification: 'Regrese a la aplicación para confirmar la instalación y reiniciar.',
+  launchAtLoginTitle: '¿Abrir DSH Tako al iniciar sesión?',
+  launchAtLoginDetail: 'DSH Tako se iniciará automáticamente al iniciar sesión en este equipo. Puede desactivarlo en Ajustes en cualquier momento.',
+  launchAtLoginEnable: 'Abrir al iniciar sesión',
 } satisfies DesktopMessages
 
 /** French dictionary, checked against the English keys. */
@@ -1039,6 +1051,9 @@ export const fr = {
   mandatoryCopyFailed: 'Impossible de copier le lien. Sélectionnez-le et copiez-le ci-dessous.',
   mandatoryAddress: 'Lien de téléchargement',
   mandatoryNotification: "Revenez à l'application pour confirmer l'installation et redémarrer.",
+  launchAtLoginTitle: 'Ouvrir DSH Tako à la connexion ?',
+  launchAtLoginDetail: 'DSH Tako démarrera automatiquement lorsque vous vous connecterez à cet ordinateur. Vous pouvez désactiver cette option à tout moment dans les paramètres.',
+  launchAtLoginEnable: 'Ouvrir à la connexion',
 } satisfies DesktopMessages
 
 /** German dictionary, checked against the English keys. */
@@ -1247,6 +1262,9 @@ export const de = {
   mandatoryCopyFailed: 'Der Link konnte nicht kopiert werden. Wählen Sie es aus und kopieren Sie es unten.',
   mandatoryAddress: 'Download-Link',
   mandatoryNotification: 'Kehren Sie zur Anwendung zurück, um die Installation zu bestätigen und neu zu starten.',
+  launchAtLoginTitle: 'DSH Tako bei der Anmeldung öffnen?',
+  launchAtLoginDetail: 'DSH Tako startet automatisch, wenn Sie sich an diesem Computer anmelden. Sie können dies jederzeit in den Einstellungen deaktivieren.',
+  launchAtLoginEnable: 'Bei Anmeldung öffnen',
 } satisfies DesktopMessages
 
 /** Russian dictionary, checked against the English keys. */
@@ -1455,6 +1473,9 @@ export const ru = {
   mandatoryCopyFailed: 'Не удалось скопировать ссылку. Выделите и скопируйте его ниже.',
   mandatoryAddress: 'Ссылка для скачивания',
   mandatoryNotification: 'Вернитесь в приложение, чтобы подтвердить установку и перезапустить.',
+  launchAtLoginTitle: 'Открывать DSH Tako при входе?',
+  launchAtLoginDetail: 'DSH Tako будет запускаться автоматически при входе в систему на этом компьютере. Вы можете отключить это в любое время в настройках.',
+  launchAtLoginEnable: 'Открывать при входе',
 } satisfies DesktopMessages
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -1663,6 +1684,9 @@ export const pt = {
   mandatoryCopyFailed: 'Não foi possível copiar o link. Selecione e copie abaixo.',
   mandatoryAddress: 'Link de download',
   mandatoryNotification: 'Retorne ao aplicativo para confirmar a instalação e reinicie.',
+  launchAtLoginTitle: 'Abrir DSH Tako ao iniciar sessão?',
+  launchAtLoginDetail: 'O DSH Tako será iniciado automaticamente quando você iniciar sessão neste computador. Você pode desativar isso a qualquer momento nas Configurações.',
+  launchAtLoginEnable: 'Abrir ao iniciar sessão',
 } satisfies DesktopMessages
 
 const dictionaries = { en, zh, ja, es, fr, de, ru, pt }

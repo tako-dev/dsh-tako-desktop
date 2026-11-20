@@ -57,6 +57,29 @@ export type DesktopChannelChangeResult =
   | { readonly kind: 'applied' | 'unchanged'; readonly state: DesktopChannelState }
   | { readonly kind: 'failed'; readonly state: DesktopChannelState; readonly reason: 'save' | 'format' | 'permission' | 'apply' | 'uncertain' }
 
+/** Shell login-item status; `supported` is false where the OS has no login items. */
+export interface DesktopLaunchAtLoginState {
+  readonly supported: boolean
+  readonly enabled: boolean
+}
+
+/** Outcome of one toggle request; only `applied` and `unchanged` carry a committed state. */
+export interface DesktopLaunchAtLoginChangeResult {
+  readonly kind: 'applied' | 'unchanged' | 'cancelled' | 'unsupported'
+  readonly enabled: boolean
+}
+
+/** Shell-owned login-item control exposed through the isolated preload. */
+export interface DesktopLaunchAtLoginBridge {
+  /** @returns OS registration state, without writing anything. */
+  get(): Promise<DesktopLaunchAtLoginState>
+  /**
+   * @param open - Explicit user choice; enabling may ask for a native confirmation.
+   * @returns The resulting registration; `cancelled` leaves the OS state unchanged.
+   */
+  set(open: boolean): Promise<DesktopLaunchAtLoginChangeResult>
+}
+
 /** UI choices persist in the shell configuration, independently of Host settings. */
 export interface DesktopChannelBridge {
   /** @returns Current shell selection and application status, without reading disk again. */

@@ -21,9 +21,18 @@ export async function applyIndexInjections(
 ): Promise<void> {
   for (const row of rows) {
     switch (row.kind) {
-      case 'global':
-        (globalThis as Record<string, unknown>)[row.name] = row.value
+      case 'global': {
+        const global = globalThis as Record<string, unknown>
+        const existing = Object.getOwnPropertyDescriptor(global, row.name)
+        if (existing !== undefined && existing.configurable === false && existing.writable === false) {
+          // A preload may already own the name with the same value (the Tako
+          // profile marker); a different frozen value is a real conflict.
+          if (existing.value === row.value) break
+          throw new Error(`web boot: index injection ${JSON.stringify(row.name)} conflicts with a read-only global`)
+        }
+        global[row.name] = row.value
         break
+      }
       case 'script': {
         const el = document.createElement('script')
         el.textContent = row.text

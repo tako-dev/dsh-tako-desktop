@@ -319,3 +319,17 @@ it('exposes channel choices and scoped subscriptions without exposing updater ob
   dispose()
   expect(electron.ipcRenderer.off).toHaveBeenCalledWith(DESKTOP_IPC.updatesChannelChanged, handler)
 })
+
+it('round-trips the launch-at-login preference through product IPC', async () => {
+  vi.stubGlobal('location', new URL('dsh-app://app/index.html'))
+  await import('../src/preload-app.ts')
+  const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'dshDesktop')?.[1] as DshDesktopProductApi
+  await api.launchAtLogin.get()
+  await api.launchAtLogin.set(true)
+  await api.launchAtLogin.set(false)
+  expect(electron.ipcRenderer.invoke.mock.calls).toEqual([
+    [DESKTOP_IPC.launchAtLoginGet],
+    [DESKTOP_IPC.launchAtLoginSet, true],
+    [DESKTOP_IPC.launchAtLoginSet, false],
+  ])
+})
