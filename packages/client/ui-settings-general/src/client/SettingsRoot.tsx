@@ -1,8 +1,8 @@
 /**
  * Settings shell root: the sidebar-foot trigger row plus the centered modal
- * panel with the section nav rail. In browsers below 768px the panel fills
- * the viewport and the rail turns into a horizontal strip; Windows and macOS
- * desktop windows retain the rail
+ * panel with the section nav rail. Below 768px the panel fills
+ * the viewport and the rail turns into a horizontal strip; Windows
+ * desktop windows, whose caption bar must stay reachable, retain the rail
  * (SettingsRoot.module.css). The shell is a pure composition face —
  * slot-owned text (trigger label, panel title, close label, sections) arrives
  * from registrants through slots; accessible names resolve from localized

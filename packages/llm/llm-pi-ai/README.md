@@ -81,7 +81,7 @@ Each profile may set a `retryPolicy`; omission uses normal mode with five retrie
 | `api` | catalog protocol | Wire protocol; only needed for routes the catalog does not supply |
 | `baseURL` | catalog endpoint | Endpoint of every model on the route |
 | `models` | installed catalog | Replaces the route's catalog wholesale; each entry defaults from the installed model |
-| `modelOverrides` | none | Reshapes individual installed-catalog models without replacing the rest |
+| `modelOverrides` | none | Overrides individual served models without changing catalog membership |
 | `compat` | catalog detection | Wire-compatibility switches for unrecognized endpoints |
 | `defaultContextWindow` | `1,000,000` | Capacity fallback for undescribed models |
 | `defaultMaxTokens` | `128,000` | Output-cap fallback for undescribed models |
@@ -100,7 +100,7 @@ A provider pi-ai ships a login for can be signed into through the harness author
 
 ### Resolve the model catalog
 
-A profile's `models` list replaces the route's installed catalog rather than extending it; each entry defaults its unset fields from the installed model of the same id, so narrowing a route to two models, correcting one capacity, or adding a model newer than the installed catalog are one-line edits. `modelOverrides` reshapes individual installed-catalog models without that cost — correct one model, keep the other thirty-seven — and is refused when set beside a `models` list, on a hand-declared route, or naming a model the catalog does not describe, because a silently unchanged model would be a typo someone hunts for later.
+A profile's `models` list replaces the route's installed catalog rather than extending it; unset fields inherit from the installed model of the same id. Profile `modelOverrides` applies sparse fields above either that list or the installed catalog without adding models. Section-level `modelCapacityOverrides.<provider>.<model>` stores user `contextWindow` and `maxTokens` above both. Catalog synchronizers can replace `providers.<provider>` without deleting these independent user values. Unsetting one field restores its latest inherited value; unsetting a model entry restores both capacities. Capacities must be positive safe integers. New overrides must name a served model; saved overrides for removed models remain editable diagnostics and do not restore catalog membership.
 
 ### Run with reasoning and wire compatibility
 
@@ -112,7 +112,7 @@ For self-hosted Chat Completions endpoints, `thinkingTokenBudgetField` selects t
 
 ### Change configuration at runtime
 
-Each operation captures the current `providers` Config reference. New or changed provider profiles are validated before form persistence; unchanged catalog failures remain editable. Route-set or retry-policy changes update registration atomically, preserving previous routes if another adapter owns a requested route.
+Each operation captures the current `providers` and `modelCapacityOverrides` Config references. New or changed provider profiles and user capacities are validated before form persistence; unchanged catalog failures remain editable. Route-set or retry-policy changes update registration atomically, preserving previous routes if another adapter owns a requested route.
 
 ### Discover models from endpoints
 

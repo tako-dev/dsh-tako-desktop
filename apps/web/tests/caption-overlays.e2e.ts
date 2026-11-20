@@ -93,10 +93,12 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
         await page.setViewportSize({ width: platform === 'darwin' ? 520 : 521, height: 600 })
         await page.locator('[data-sidebar-drawer]').waitFor()
         await openSettings(page, 'zh')
-        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(platform === 'darwin' ? 68 : 0)
+        // Below 768px every non-Windows window fills the viewport; the panel
+        // covers the chrome row on macOS, whose native buttons still paint.
+        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(0)
         expect((await settingsMask.boundingBox())?.y).toBe(0)
-        expect(await permissionText.evaluate(el => getComputedStyle(el).paddingRight)).toBe(platform === 'darwin' ? '48px' : '16px')
-        expect(await cubes.first().evaluate(el => getComputedStyle(el).flexBasis)).toBe(platform === 'darwin' ? '180px' : '0px')
+        expect(await permissionText.evaluate(el => getComputedStyle(el).paddingRight)).toBe('16px')
+        expect(await cubes.first().evaluate(el => getComputedStyle(el).flexBasis)).toBe('0px')
         await page.keyboard.press('Escape')
         await settings.waitFor({ state: 'hidden' })
       }
