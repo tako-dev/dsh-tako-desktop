@@ -32,6 +32,12 @@ import {
   resolveTakoDesktopUpdateChannel,
   resolveTakoDesktopVersion,
 } from './tako-desktop-identity.mjs'
+import {
+  IM_CANDIDATE_DIR,
+  assertImCandidateReleaseEligible,
+  readImCandidateDescriptorFile,
+  type ImCandidateDescriptor,
+} from './im-candidate.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -201,7 +207,8 @@ export function resolveDesktopPackageTarget(
   return target
 }
 
-interface DesktopPackageInvocation {
+/** One validated packaging request and its mode switches. */
+export interface DesktopPackageInvocation {
   readonly target: DesktopPackageTarget
   readonly directory: boolean
   readonly prepareOnly: boolean
@@ -212,6 +219,10 @@ interface DesktopPackageInvocation {
   readonly check: boolean
   /** Build identifier to publish under, when this build does not publish the product version. */
   readonly requestedBuildVersion: string | undefined
+  /** Add the reviewed optional IM plugin candidate to the installer package set. */
+  readonly imCandidate: boolean
+  /** Explicit opt-in that overrides the candidate's releaseEligible=false gate. */
+  readonly allowIneligibleImCandidate: boolean
 }
 
 function hostTargetName(platform: NodeJS.Platform, arch: string): DesktopPackageTargetName {
@@ -245,6 +256,8 @@ export function parseDesktopPackageInvocation(
       'skip-notarization': { type: 'boolean', default: false },
       check: { type: 'boolean', default: false },
       'build-version': { type: 'string' },
+      'with-im-candidate': { type: 'boolean', default: false },
+      'allow-ineligible-im-candidate': { type: 'boolean', default: false },
     },
   })
   if (positionals.length > 1) throw new Error('desktop package: expected at most one target')
@@ -261,6 +274,9 @@ export function parseDesktopPackageInvocation(
   if (values['build-version'] !== undefined && (requestedBuildVersion === undefined || requestedBuildVersion === '')) {
     throw new Error('desktop package: --build-version requires a value')
   }
+  if (values['allow-ineligible-im-candidate'] && !values['with-im-candidate']) {
+    throw new Error('desktop package: --allow-ineligible-im-candidate requires --with-im-candidate')
+  }
   return {
     target: resolveDesktopPackageTarget(name, hostPlatform, hostArch),
     directory: values.dir,
@@ -270,7 +286,26 @@ export function parseDesktopPackageInvocation(
     skipNotarization: values['skip-notarization'],
     check: values.check,
     requestedBuildVersion,
+    imCandidate: values['with-im-candidate'],
+    allowIneligibleImCandidate: values['allow-ineligible-im-candidate'],
   }
+}
+
+/**
+ * Enforce the optional IM candidate's release gate for one packaging run.
+ * @param invocation - Validated packaging request.
+ * @param descriptor - Reviewed candidate descriptor, or a test substitute.
+ * @returns Nothing; ineligible requests throw before any build work starts.
+ */
+export function assertDesktopImCandidateRequest(
+  invocation: Pick<DesktopPackageInvocation, 'imCandidate' | 'allowIneligibleImCandidate'>,
+  descriptor?: ImCandidateDescriptor,
+): void {
+  if (!invocation.imCandidate) return
+  assertImCandidateReleaseEligible(
+    descriptor ?? readImCandidateDescriptorFile(join(APP_ROOT, IM_CANDIDATE_DIR)),
+    invocation.allowIneligibleImCandidate,
+  )
 }
 
 /**
@@ -542,7 +577,13 @@ export async function packageTarget(
     await prepareRuntime()
   }
   if (signPrimaryRuntime) await execute(['run', 'sign:primary-runtime'], electronBuilderEnv)
-  await execute(['run', 'prepare:packages'], targetEnv)
+  assertDesktopImCandidateRequest(invocation)
+  await execute([
+    'run',
+    'prepare:packages',
+    ...(invocation.imCandidate ? ['--with-im-candidate'] : []),
+    ...(invocation.imCandidate && invocation.allowIneligibleImCandidate ? ['--allow-ineligible-im-candidate'] : []),
+  ], targetEnv)
   await execute(['run', 'prepare:dsh', ...(signPrimaryRuntime ? ['--defer-runtime-smoke'] : [])], downloadEnv)
   if (signPrimaryRuntime) await execute(['run', 'sign:primary-runtime', '--dsh'], electronBuilderEnv)
   if (invocation.prepareOnly) return
