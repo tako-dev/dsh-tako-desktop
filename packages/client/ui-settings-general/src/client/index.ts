@@ -34,9 +34,11 @@ import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client
 import { createSettingsShellStore } from './shell-store.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
-import type { DesktopUpdateBridge } from '../types.ts'
+import type { DesktopLaunchAtLoginBridge, DesktopUpdateBridge } from '../types.ts'
 import { DesktopChannelSource } from './desktop-channel-source.ts'
 import { DesktopChannelRow, DesktopChannelToast } from './DesktopChannelRow.tsx'
+import { DesktopLaunchAtLoginSource } from './desktop-launch-at-login-source.ts'
+import { LaunchAtLoginRow } from './LaunchAtLoginRow.tsx'
 import { DesktopUpdateSource } from './desktop-update-source.ts'
 import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
@@ -103,6 +105,7 @@ export function apply(ctx: ClientContext): void {
     dshDesktop?: {
       protocolVersion: number
       updates?: DesktopUpdateBridge
+      launchAtLogin?: DesktopLaunchAtLoginBridge
       productVersion?: string
     }
   }).dshDesktop
@@ -138,6 +141,15 @@ export function apply(ctx: ClientContext): void {
       inject: () => ({ hooks: { channel: channel.store },
         dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() } }),
     }, DesktopChannelToast))
+  }
+  const launchAtLoginBridge = carrier?.protocolVersion === 1 ? carrier.launchAtLogin : undefined
+  if (launchAtLoginBridge !== undefined) {
+    const launchAtLogin = new DesktopLaunchAtLoginSource(launchAtLoginBridge)
+    ctx.effect(() => () => { launchAtLogin.dispose() }, 'ui-settings-general: launch at login')
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+      name: 'settings.general.item', id: 'desktop-launch-at-login', order: 96, locale: NS,
+      inject: () => ({ hooks: { launchAtLogin: launchAtLogin.store }, select: (open: boolean) => launchAtLogin.select(open) }),
+    }, LaunchAtLoginRow))
   }
 
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({

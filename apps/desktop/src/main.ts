@@ -2,7 +2,8 @@
 
 import { installFileActions } from './file-actions.ts'
 import { configurationFailure, channelSaveFailure, configurationMessage } from './update-configuration.ts'
-import type { DesktopChannelState, DesktopChannelChangeResult } from '@deepseek-ai/dsh-client-ui-settings-general/types'
+import type { DesktopChannelState, DesktopChannelChangeResult,
+  DesktopLaunchAtLoginState, DesktopLaunchAtLoginChangeResult } from '@deepseek-ai/dsh-client-ui-settings-general/types'
 import { DesktopUpdateSettings } from './update-settings.ts'
 import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
@@ -63,6 +64,7 @@ import { desktopClientMetadata, desktopClientVersion } from './client-metadata.t
 import { DesktopMandatoryUpdateWindow } from './mandatory-update-window.ts'
 import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
 import { readDesktopSettings } from './settings.ts'
+import { DesktopLaunchAtLogin, electronLoginItems } from './login-items.ts'
 import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
 import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
@@ -496,6 +498,13 @@ async function main(): Promise<void> {
       ].join('\n'),
       buttons: [locale.messages.updateAcknowledge], cancelId: 0 })
   }
+  const launchAtLogin = new DesktopLaunchAtLogin({
+    loginItems: electronLoginItems(app),
+    executable: process.execPath,
+    platform: process.platform,
+    messages: () => currentDesktopLocale().messages,
+    confirm: ordinaryMessageBox,
+  })
   const commandManager = new DesktopCommandManager({
     resources: process.resourcesPath,
     isPackaged: app.isPackaged,
@@ -981,6 +990,15 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.updatesStatus, (event) => {
     assertProductSender(event)
     return updatePresentation(updates.state)
+  })
+  ipcMain.handle(DESKTOP_IPC.launchAtLoginGet, (event): DesktopLaunchAtLoginState => {
+    assertProductSender(event)
+    return { supported: launchAtLogin.supported(), enabled: launchAtLogin.enabled() }
+  })
+  ipcMain.handle(DESKTOP_IPC.launchAtLoginSet, (event, open: unknown): Promise<DesktopLaunchAtLoginChangeResult> => {
+    assertProductSender(event)
+    if (typeof open !== 'boolean') throw new Error('desktop launch at login: expected a boolean request')
+    return launchAtLogin.set(open)
   })
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
     assertProductSender(event)

@@ -302,6 +302,8 @@ Windows lists the installed application by product name without a version suffix
 
 Keep the generated installer, its version and packaging records together. Review signatures and runtime checks before installation, then follow the [installed-update qualification procedure](../tests/installed-update/README.md) for installed launch and upgrade evidence. The [Desktop test record](../tests/README.md) owns verification limits; a successful workflow alone does not establish production preset, new-workstation or installed-upgrade acceptance.
 
+Launch at login stays off until the user confirms the Settings toggle through a native dialog, and the Settings row is hidden on Linux, which has no login-item support. On Windows the toggle writes a per-user `Run` value named after the AppUserModelId plus its `StartupApproved\Run` record, and the uninstaller removes both under the application, product, and package names even when it retains application data. On macOS the registration lives in the account's Login Items outside the application bundle: deleting the .app leaves a stale entry, so users should turn the toggle off before removing the application. Repackaging changes neither behavior; qualification only needs the toggle to survive an install upgrade and the registry values to disappear after an uninstall.
+
 ## Dev Note
 
 XXX: Evaluate disk-space monitoring, a maintenance entry point and automatic eviction if disk shortages, sustained cache growth or frequent manual cleanup occur. Any automated cleanup would need coordination with every cache user.

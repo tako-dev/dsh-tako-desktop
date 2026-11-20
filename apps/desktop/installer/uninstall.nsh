@@ -13,6 +13,17 @@ Function un.CleanData
   ${If} ${isUpdated}
     Return
   ${EndIf}
+  ; Launch at login registers a per-user Run entry; it must not outlive the installation.
+  ; Electron names the value after AppUserModelId by default (${APP_ID}), with older
+  ; registrations possibly stored under the product or package name.
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_FILENAME}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${APP_ID}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${PRODUCT_FILENAME}"
+  !ifdef APP_PACKAGE_NAME
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_PACKAGE_NAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${APP_PACKAGE_NAME}"
+  !endif
   ; The installer runs an older uninstaller with /KEEP_APP_DATA when replacing it from another directory.
   ${GetParameters} $R0
   ClearErrors
