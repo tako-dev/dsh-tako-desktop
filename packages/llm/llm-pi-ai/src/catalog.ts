@@ -640,11 +640,9 @@ export interface PiAiModelProfile {
 }
 
 /**
- * Customization of one installed catalog model, keyed by its id in the
- * route's `modelOverrides` dict — the same fields a `models` entry may set,
- * with the id living in the key. Unlike a `models` list, overrides leave the
- * rest of the catalog serving untouched, which is what makes "correct one
- * model, keep the other thirty-seven" a three-line edit.
+ * Fields overriding one served model, keyed by id in `modelOverrides`.
+ * Overrides take precedence over an explicit `models` entry or the installed
+ * catalog without changing membership; omitting a field restores inheritance.
  */
 export type PiAiModelOverride = Omit<PiAiModelProfile, 'id'>
 
@@ -658,7 +656,7 @@ export interface RouteCatalogRequest {
   baseURL?: string
   /** Configured catalog; absent means the whole installed catalog for this route. */
   models?: readonly PiAiModelProfile[]
-  /** Installed-catalog customizations by model id; only meaningful while `models` is absent. */
+  /** Per-model fields winning over `models`, or the installed catalog when no list is configured. */
   modelOverrides?: Readonly<Record<string, PiAiModelOverride>>
   /** Route-level wire-compatibility switches, landing on each model whose protocol declares them; entries override per field. */
   compat?: PiAiCompatProfile
@@ -867,37 +865,42 @@ export function resolveRouteModels(
   // serve no request anyway, so both mean "serve the installed catalog".
   const configured = request.models ?? []
   const overrides = request.modelOverrides ?? {}
+  const sourceEntries: readonly PiAiModelProfile[] = configured.length > 0
+    ? configured
+    : [...defaults.values()].map(model => ({ id: model.id }))
+  const servedIds = new Set(sourceEntries.map(model => model.id))
   const modelErrors = new Map<string, string>()
   // Writes reject missing referents. Stored overrides retain a diagnostic
   // after catalog removal rather than silently disappearing.
   for (const [id, override] of Object.entries(overrides)) {
     if (id.length === 0) invalid(provider, 'has a modelOverrides entry with an empty model id')
-    if (defaults.size === 0) {
+    if (defaults.size === 0 && configured.length === 0) {
       invalid(provider, `sets modelOverrides for "${id}", but the installed catalog does not describe this route;`
         + ' a declared route spells every model out in its models list')
     }
-    if (configured.length > 0) {
-      invalid(provider, `sets modelOverrides for "${id}" beside a models list; models already replaces the served`
-        + ' catalog, so declare the fields on its entries')
-    }
-    if (!defaults.has(id)) {
-      const message = `modelOverrides names "${id}", which the installed catalog does not describe`
+    if (!servedIds.has(id)) {
+      const source = configured.length > 0 ? 'configured' : 'installed'
+      const message = `modelOverrides names "${id}", which the ${source} catalog does not describe`
       if (validation === 'strict') invalid(provider, message)
       modelErrors.set(id, `llm-pi-ai: provider "${provider}" ${message}`)
     }
-    // The id lives in the dict key; a value carrying its own would quietly
-    // rename the model it meant to customize. The static shape already omits
-    // it — this guards the schema boundary, which passes unknown keys through.
+    // The schema passes unknown keys through; the model id must stay the dict key.
     if ('id' in override) {
       invalid(provider, `modelOverrides entry "${id}" sets "id", which is the dict key`)
     }
   }
-  // An override becomes the catalog entry's configuration, so everything a
-  // models entry may declare — capacities, efforts, compat — resolves through
-  // the same path with the same diagnostics and request-default semantics.
-  const entries: readonly PiAiModelProfile[] = configured.length > 0
-    ? configured
-    : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
+  const entries = sourceEntries.map((entry): PiAiModelProfile => {
+    const override = overrides[entry.id]
+    if (override === undefined) return entry
+    const input = declaredInput(override.input) ?? entry.input
+    const compat = override.compat === undefined ? entry.compat : { ...entry.compat, ...override.compat }
+    return {
+      ...entry,
+      ...override,
+      ...input === undefined ? {} : { input },
+      ...compat === undefined ? {} : { compat },
+    }
+  })
   if (entries.length === 0) {
     invalid(provider, 'resolves no models; the installed catalog does not describe this route, so its models'
       + ' must be listed in configuration')
@@ -929,12 +932,12 @@ export function resolveRouteModels(
     // is a guess by construction, which is why it is a configurable route field
     // rather than a constant buried here.
     const contextWindow = entry.contextWindow ?? base?.contextWindow ?? request.defaultContextWindow
-    if (!Number.isInteger(contextWindow) || contextWindow <= 0) {
-      invalid(provider, `model "${entry.id}" contextWindow must be a positive integer`)
+    if (!Number.isSafeInteger(contextWindow) || contextWindow <= 0) {
+      invalid(provider, `model "${entry.id}" contextWindow must be a positive integer no greater than ${Number.MAX_SAFE_INTEGER}`)
     }
     const maxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
-    if (!Number.isInteger(maxTokens) || maxTokens <= 0) {
-      invalid(provider, `model "${entry.id}" maxTokens must be a positive integer`)
+    if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) {
+      invalid(provider, `model "${entry.id}" maxTokens must be a positive integer no greater than ${Number.MAX_SAFE_INTEGER}`)
     }
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.

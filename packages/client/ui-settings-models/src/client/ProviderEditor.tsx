@@ -33,6 +33,8 @@ import type { DeepSeekModelsValidationFailure } from './DeepSeekModelsEditor.tsx
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
+import { ModelCapacityOverridesEditor, overrideRecord } from './ModelCapacityOverridesEditor.tsx'
+import type { CapacityField } from './ModelCapacityOverridesEditor.tsx'
 import { validateReasoningEfforts } from './ModelReasoningEfforts.tsx'
 import type { ReasoningEffortsFailure } from './ModelReasoningEfforts.tsx'
 import { deriveKeyRef, protocolChoices, reasoningLevelChoices } from './store.ts'
@@ -200,6 +202,9 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const { mode } = retryPolicyDefaults(schema, node, schema.getPath(namespace.base, path))
     return { ...loaded, retryPolicy: { ...policy, mode } }
   })
+  const capacityPath = ['modelCapacityOverrides', props.provider]
+  const [capacityDraft, setCapacityDraft] = useState<Record<string, unknown>>(() => draftAt(schema, namespace, capacityPath))
+  const [committedCapacities, setCommittedCapacities] = useState<unknown>(() => schema.getPath(namespace.user, capacityPath))
   // Undefined is untouched; strings hold new input and a reference stages removal.
   const [keyDraft, setKeyDraft] = useState<string | { readonly ref: string; readonly removed?: true }>()
   const keyText = typeof keyDraft === 'string' ? keyDraft : ''
@@ -222,6 +227,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const fallback = schema.getPath(namespace.value, settingsPath)
   const disabled = props.readOnly || busy
   const layout = layoutOf(namespace.ns)
+  const editsSyncedCapacities = layout === 'pi-ai' && props.provider === 'tako'
   const keyRef = refFor(schema, namespace, settingsPath, props.provider)
   // The same schema read the create card makes, so the choices offered here
   // and there cannot drift apart: both come from the adapter's own `Config`.
@@ -266,10 +272,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const validateModels = (value: unknown): DeepSeekModelsValidationFailure | ReasoningEffortsFailure | undefined =>
     validateDeepSeekModels(value)
     ?? (editsReasoning ? validateReasoningEfforts(value, reasoning.levelsOnly ? reasoning.levels : undefined) : undefined)
-  // Inherited models are checked too where the protocol narrows their levels:
-  // switching an inherited route's protocol must not write a route its own models break.
-  const modelFailure = validateModels(schema.getPath(draft, ['models'])
-    ?? (reasoning.levelsOnly ? schema.getPath(fallback, ['models']) : undefined))
+  // The draft profile plus the capacity rows: inherited models are checked too
+  // where the protocol narrows their levels — switching an inherited route's
+  // protocol must not write a route its own models break.
+  const validateDraft = (value: Record<string, unknown>): DeepSeekModelsValidationFailure | ReasoningEffortsFailure | undefined =>
+    validateModels(schema.getPath(value, ['models'])
+      ?? (reasoning.levelsOnly ? schema.getPath(fallback, ['models']) : undefined))
+      ?? validateDeepSeekModels(Object.entries(capacityDraft)
+        .map(([id, fields]) => ({ ...overrideRecord(fields), id })))
+  const modelFailure = validateDraft(draft)
   const retryNode = useMemo(
     () => layout === 'unknown' ? undefined : schema.nodeAtPath(root, [...settingsPath, 'retryPolicy']),
     [layout, root, schema, settingsPath],
@@ -280,6 +291,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const retryFailure = retryNode === undefined || retryDefaults === undefined || props.credentialOnly === true
     ? undefined
     : retryPolicyFailure(schema, retryNode, schema.getPath(draft, ['retryPolicy']), retryDefaults, t)
+  const pruneCapacityOverride = (value: Record<string, unknown>, id: string): Record<string, unknown> =>
+    Object.keys(overrideRecord(value[id])).length === 0 ? schema.deletePath(value, [id]) : value
+  const setCapacityOverride = (id: string, field: CapacityField, value: number | undefined): void => {
+    setCapacityDraft((current) => {
+      const path = [id, field]
+      const next = value === undefined ? schema.deletePath(current, path) : schema.setPath(current, path, value)
+      return pruneCapacityOverride(next, id)
+    })
+  }
   const keyFailure = apiKeyFailure(keyText)
   // What a probe or a write must carry: the typed key with paste whitespace
   // removed. A blank field yields an empty string, which both call sites read
@@ -328,7 +348,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       // with a bad row; it stays because the schema check below would refuse
       // the write with a message naming a path instead of the row, and because
       // nothing but this function decides what is written.
-      const failure = validateModels(schema.getPath(next, ['models']))
+      const failure = validateDraft(next)
       /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
       if (failure !== undefined) {
         return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`
@@ -348,6 +368,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       : materializesNativeProfile
         ? [{ op: 'set', path: [...settingsPath], value: {} }]
         : pathOps(settingsPath, committedOriginal, next)
+    if (props.credentialOnly !== true && editsSyncedCapacities) {
+      const previous = overrideRecord(committedCapacities)
+      for (const [id, fields] of Object.entries(capacityDraft)) {
+        ops.push(...pathOps([...capacityPath, id], previous[id], overrideRecord(fields)))
+      }
+      for (const id of Object.keys(previous)) {
+        if (!(id in capacityDraft)) ops.push({ op: 'unset', path: [...capacityPath, id] })
+      }
+    }
     if (keyRemoval !== undefined && keyRemoval.removed !== true) {
       const removed = await operations.removeCredential(keyRemoval.ref)
       if (removed !== undefined) return removed
@@ -358,6 +387,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       const written = await operations.writeSettings(ns, ops, expectedRevision)
       if (written.kind !== 'written') return written.kind === 'conflict' ? t('conflict') : written.message
       setCommittedOriginal(schema.getPath(written.view.user, settingsPath))
+      setCommittedCapacities(schema.getPath(written.view.user, capacityPath))
       setExpectedRevision(written.view.revision)
       setDraft(next)
     }
@@ -416,7 +446,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const modelsOverridden = schema.hasPath(draft, ['models'])
     const models = modelDrafts(modelsOverridden ? customModels : inheritedModels())
     const defaultContextWindow = schema.getPath(fallback, ['defaultContextWindow'])
-    const defaultMaxTokens = schema.getPath(fallback, ['maxTokens'])
+    const defaultMaxTokens = schema.getPath(fallback, [family === 'pi-ai' ? 'defaultMaxTokens' : 'maxTokens'])
     const defaultInput = schema.getPath(fallback, ['defaultInput'])
     const baseURL = stringAt(fallback, 'baseURL') ?? props.defaultBaseURL
     const endpointEnv = props.baseURLEnv ?? []
@@ -628,7 +658,25 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                   defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
                 />
               )
-              : (
+              : editsSyncedCapacities ? (
+                <ModelCapacityOverridesEditor
+                  models={modelDrafts(schema.getPath(fallback, ['models']))}
+                  overrides={capacityDraft}
+                  inheritedOverrides={overrideRecord(schema.getPath(namespace.base, capacityPath))}
+                  defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
+                  defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
+                  disabled={disabled}
+                  t={t}
+                  onFieldChange={setCapacityOverride}
+                  onReset={(id) => {
+                    setCapacityDraft((current) => {
+                      const next = schema.deletePath(schema.deletePath(current,
+                        [id, 'contextWindow']), [id, 'maxTokens'])
+                      return pruneCapacityOverride(next, id)
+                    })
+                  }}
+                />
+              ) : (
                 <ModelListEditor
                   {...catalogProps}
                   catalogProvider={props.declared === true ? undefined : props.provider}

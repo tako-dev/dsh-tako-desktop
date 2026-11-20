@@ -27,6 +27,7 @@ import {
   CHAT_TEMPLATE_VARS,
   MAX_TOKENS_FIELDS,
   MODALITIES,
+  catalogModels,
   PiAiCatalogError,
   resolveRouteModels,
   SUPPORTED_THINKING_FORMATS,
@@ -122,12 +123,12 @@ export interface PiAiProviderProfile {
    */
   models?: PiAiModelProfile[]
   /**
-   * Installed-catalog customizations by model id: each entry reshapes that
-   * one model with the same fields a {@link models} entry takes, while the
-   * rest of the catalog keeps serving untouched. Only meaningful on a catalog
-   * route with no `models` list — `models` already replaces the catalog, so
-   * an override beside it, on a route the catalog does not ship, or naming a
-   * model the catalog does not describe is refused rather than skipped.
+   * Per-model user fields applied over {@link models}, or the installed
+   * catalog when no list is configured. Unset fields inherit from that
+   * catalog; an override never adds or renames a model. Writes reject unknown
+   * ids, while stored overrides for removed models retain diagnostics.
+   * Catalog synchronization must preserve this dict rather than replacing
+   * the whole provider profile.
    */
   modelOverrides?: Record<string, PiAiModelOverride>
   /**
@@ -255,6 +256,22 @@ export interface Config {
    * and registers them the moment a settings section supplies profiles.
    */
   providers: Volatile<Record<string, PiAiProviderProfile>>
+  /**
+   * User capacity overrides keyed by provider route and model id. Stored outside
+   * {@link providers} so catalog synchronizers can replace a provider without
+   * deleting user values. Unset fields inherit the route's current catalog.
+   * Removed models keep their saved values and a diagnostic until restored or
+   * cleared; an override never creates a route or model.
+   */
+  modelCapacityOverrides: Volatile<Record<string, Record<string, ModelCapacityOverride>>>
+}
+
+/** Positive safe-integer token capacities for one served model. */
+export interface ModelCapacityOverride {
+  /** Context-window override; omission keeps the catalog value. */
+  contextWindow?: number
+  /** Output-cap override; omission keeps the catalog value and request default. */
+  maxTokens?: number
 }
 
 /** Plain options accepted by the provider resolver. */
@@ -331,8 +348,8 @@ const reasoningEfforts = z.dict(
 /** The fields a `models` entry and a `modelOverrides` value share; only the id's home differs. */
 const modelFields = {
   name: z.string(),
-  contextWindow: z.number().step(1).min(1),
-  maxTokens: z.number().step(1).min(1),
+  contextWindow: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
+  maxTokens: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
   // No explicit default, unlike the route's `defaultInput`: schemastery
   // materializes `[]` for an absent array, and resolution reads that as "no
   // answer here" so the catalog entry below still applies.
@@ -382,6 +399,10 @@ const profile = z.object({
 /** Runtime schema for {@link Config}. */
 export const Config = z.object({
   providers: z.dict(profile).default({}).volatile(),
+  modelCapacityOverrides: z.dict(z.dict(z.object({
+    contextWindow: modelFields.contextWindow,
+    maxTokens: modelFields.maxTokens,
+  }))).default({}).volatile(),
 })
 
 /**
@@ -393,9 +414,40 @@ export const Config = z.object({
  * @throws Error naming the route and configuration entry that cannot be served.
  */
 export function assertServiceable(config: Options, previous?: Options): void {
+  for (const [provider, overrides] of Object.entries(config.modelCapacityOverrides ?? {})) {
+    const source = config.providers?.[provider]
+    const ids = servedModelIds(provider, source)
+    for (const [id, fields] of Object.entries(overrides)) {
+      assertCapacityOverride(provider, id, fields)
+      if (deepEqualJson(fields, previous?.modelCapacityOverrides?.[provider]?.[id])) continue
+      if (source === undefined || !ids.has(id)) {
+        throw new Error(`llm-pi-ai: modelCapacityOverrides.${provider} names "${id}", which the current catalog does not describe`)
+      }
+    }
+  }
   const changed = Object.fromEntries(Object.entries(config.providers ?? {}).filter(([provider, profile]) =>
-    !deepEqualJson(profile, previous?.providers?.[provider])))
-  resolveProfiles(changed)
+    !deepEqualJson(profile, previous?.providers?.[provider])
+      || !deepEqualJson(config.modelCapacityOverrides?.[provider], previous?.modelCapacityOverrides?.[provider])))
+  resolveProfiles(changed, 'strict', config.modelCapacityOverrides)
+}
+
+/** An explicit nonempty catalog supplies membership; otherwise the installed catalog does. */
+function servedModelIds(provider: string, profile: PiAiProviderProfile | undefined): ReadonlySet<string> {
+  return new Set(profile?.models !== undefined && profile.models.length > 0
+    ? profile.models.map(model => model.id) : catalogModels(provider).keys())
+}
+
+/** Config objects pass unknown keys through, but this dictionary accepts only capacities. */
+function assertCapacityOverride(provider: string, id: string, fields: ModelCapacityOverride): void {
+  if (provider.length === 0 || id.length === 0) throw new Error('llm-pi-ai: modelCapacityOverrides requires nonempty provider and model ids')
+  for (const [field, value] of Object.entries(fields)) {
+    if (field !== 'contextWindow' && field !== 'maxTokens') {
+      throw new Error(`llm-pi-ai: modelCapacityOverrides.${provider}.${id} does not accept "${field}"`)
+    }
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`llm-pi-ai: modelCapacityOverrides.${provider}.${id}.${field} must be a positive safe integer`)
+    }
+  }
 }
 
 /** Reject removed pre-release profile fields and name their replacements. */
@@ -436,11 +488,13 @@ function assertValidHeaders(provider: string, headers: Readonly<Record<string, s
  * routes. An omitted dict resolves to the empty, dormant route set.
  * @param providers - configured provider profiles keyed by route.
  * @param validation - writes require a complete catalog; stored reads retain catalog diagnostics.
- * @returns validated profiles in configuration order.
+ * @param capacityOverrides - user capacities above provider-owned fields; absent means catalog inheritance.
+ * @returns validated profiles in configuration order, including saved removed-model diagnostics.
  */
 export function resolveProfiles(
   providers: Readonly<Record<string, PiAiProviderProfile>> | undefined,
   validation: 'strict' | 'deferred' = 'strict',
+  capacityOverrides: Options['modelCapacityOverrides'] = {},
 ): Map<string, ResolvedPiAiProviderProfile> {
   if (Array.isArray(providers)) {
     throw new Error('llm-pi-ai: providers is now a dict keyed by provider route, not an array of profiles')
@@ -498,6 +552,14 @@ export function resolveProfiles(
     // always shown route keys, and a catalog route must not silently rename
     // itself on every configuration surface just because it gained a profile.
     const displayName = source.displayName ?? provider
+    const ids = servedModelIds(provider, source)
+    const modelOverrides: Record<string, PiAiModelOverride> = { ...source.modelOverrides }
+    const unavailable = new Map<string, string>()
+    for (const [id, fields] of Object.entries(capacityOverrides[provider] ?? {})) {
+      assertCapacityOverride(provider, id, fields)
+      if (ids.has(id)) modelOverrides[id] = { ...modelOverrides[id], ...fields }
+      else unavailable.set(id, `llm-pi-ai: modelCapacityOverrides.${provider} names "${id}", which the current catalog does not describe; clear its override to restore inheritance`)
+    }
     let catalog: RouteCatalog | undefined
     let piProvider: Provider | undefined
     let catalogError: string | undefined
@@ -507,13 +569,13 @@ export function resolveProfiles(
         ...source.api === undefined ? {} : { api: source.api },
         ...source.baseURL === undefined ? {} : { baseURL: source.baseURL },
         ...source.models === undefined ? {} : { models: source.models },
-        ...source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides },
+        modelOverrides,
         ...source.compat === undefined ? {} : { compat: source.compat },
         defaultInput,
         defaultContextWindow: source.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
         defaultMaxTokens: source.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
       }, validation)
-      catalogError = catalog.modelErrors.values().next().value
+      catalogError = catalog.modelErrors.values().next().value ?? unavailable.values().next().value
       piProvider = buildProvider({
         provider,
         displayName,
@@ -542,7 +604,7 @@ export function resolveProfiles(
       ...rest.headers === undefined ? {} : { headers: { ...rest.headers } },
       ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
       configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
-      modelErrors: catalog?.modelErrors ?? new Map(),
+      modelErrors: new Map([...catalog?.modelErrors ?? [], ...unavailable]),
       ...piProvider === undefined ? {} : { piProvider },
       ...catalogError === undefined ? {} : { catalogError },
     })
