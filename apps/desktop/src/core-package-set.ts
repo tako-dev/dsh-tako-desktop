@@ -180,4 +180,45 @@ export function verifyDesktopCoreLockfile(
       throw new Error(`desktop package set: lockfile resolved ${record.name}@${record.version} outside the local package set`)
     }
   }
+  for (const record of packageSet.packages) {
+    const pin = DESKTOP_NPM_DEPENDENCY_PINS.get(record.name)
+    if (pin === undefined) continue
+    const resolution = new RegExp(
+      `^  '?${escapeRegExp(pin.name)}@${escapeRegExp(pin.version)}'?:\\r?\\n    resolution: \\{integrity: (sha512-[A-Za-z0-9+/]+={0,2})\\}`,
+      'mu',
+    )
+    const found = resolution.exec(lockfile)
+    if (found === null) {
+      throw new Error(`desktop package set: lockfile does not resolve ${pin.name}@${pin.version} for ${record.name}`)
+    }
+    if (found[1] !== pin.integrity) {
+      throw new Error(`desktop package set: lockfile integrity for ${pin.name}@${pin.version} does not match the reviewed pin`)
+    }
+  }
 }
+
+/** One npm-resolved dependency whose exact registry resolution a carrier's lockfile must reproduce. */
+export interface DesktopNpmDependencyPin {
+  readonly name: string
+  readonly version: string
+  readonly integrity: string
+}
+
+/** The observation-only Windows computer-use adapter that opt-in Windows builds carry. */
+export const DESKTOP_COMPUTER_USE_WIN_PACKAGE = '@deepseek-ai/dsh-desktop-computer-use-win'
+
+/**
+ * The upstream MCP runtime {@link DESKTOP_COMPUTER_USE_WIN_PACKAGE} wraps, with its reviewed registry
+ * resolution. The runtime install trusts the lockfile verbatim (`--trust-lockfile`), so preparation
+ * asserts this exact version and integrity there.
+ */
+export const DESKTOP_COMPUTER_USE_WIN_UPSTREAM: DesktopNpmDependencyPin = {
+  name: 'dsh-computer-use-win',
+  version: '0.5.7',
+  integrity: 'sha512-ASpBz1sefrX3ZwBDIgdMrJcclpVXsjmanGKSrIbbD2R+sHoxL9lKVwvDFsZaGiI/SIjhiCN6Lmfl6rVHZIyDug==',
+}
+
+/** The npm dependency pin each carried package requires, keyed by the package-set member name. */
+export const DESKTOP_NPM_DEPENDENCY_PINS: ReadonlyMap<string, DesktopNpmDependencyPin> = new Map([
+  [DESKTOP_COMPUTER_USE_WIN_PACKAGE, DESKTOP_COMPUTER_USE_WIN_UPSTREAM],
+])

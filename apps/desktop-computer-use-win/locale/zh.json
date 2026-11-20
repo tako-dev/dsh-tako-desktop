@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Windows 电脑使用（只读观察）",
+    "description": "为智能体提供只读的 Windows 桌面访问：UI 树、截图、OCR 与窗口列表。按设计拒绝一切输入、窗口修改与启动应用操作。仅限 Windows。"
+  }
+}

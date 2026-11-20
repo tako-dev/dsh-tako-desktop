@@ -253,6 +253,7 @@
     "apps/desktop/scripts/**/*.ts",
     "apps/desktop/tests/**/*.ts",
     "apps/desktop-host/tests/**/*.ts",
+    "apps/desktop-computer-use-win/tests/**/*.ts",
     "benchmarks/**/*.ts",
     "packages/*/*/tests/**/*.ts",
     "packages/experimental/cua-macos/native/generate-protocol.ts",
@@ -606,6 +607,7 @@
     { "path": "./apps/cli" },
     { "path": "./apps/plugin-market-generator" },
     { "path": "./apps/desktop-host" },
+    { "path": "./apps/desktop-computer-use-win" },
     { "path": "./apps/desktop/tsconfig.host.json" }
   ]
 }
