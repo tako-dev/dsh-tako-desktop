@@ -81,6 +81,10 @@ const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],
+  '@deepseek-ai/dsh-desktop-computer-use-win': [
+    'icon.svg', 'locale/*.json', 'cordis.patch.yml', 'lib/index.js',
+    'lib/types/**/*.d.ts', 'lib/types/**/*.d.ts.map', 'lib/**/*.js.map', 'src',
+  ],
   // The worker-preview surface (dist/preview.html and dist/preview/) backs
   // opt-in experimental packages and is not published.
   '@deepseek-ai/dsh-web-frontend': ['dist', '!dist/preview.html', '!dist/preview', 'src'],

@@ -67,6 +67,8 @@ export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-bas
 export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-personalized-recommendations',
   '@deepseek-ai/dsh-cua-bundle',
+  // Carried only by Windows Desktop builds that opt in at packaging; a runtime dependency of that installation.
+  '@deepseek-ai/dsh-desktop-computer-use-win',
   '@deepseek-ai/dsh-experimental-session-search',
   '@deepseek-ai/dsh-experimental-ralph-bundle',
   '@deepseek-ai/dsh-experimental-terminal-bundle',

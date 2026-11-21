@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Windows computer use (observation)",
+    "description": "Read-only Windows desktop access for the agent: UI tree, screenshots, OCR, and window listing. Input, window changes, and app launching are refused by design. Windows only."
+  }
+}

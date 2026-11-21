@@ -217,6 +217,8 @@ export interface DesktopPackageInvocation {
   readonly unsignedRelease: boolean
   readonly skipNotarization: boolean
   readonly check: boolean
+  /** Carry the observation-only Windows computer-use bundle; valid only for the Windows target. */
+  readonly computerUseWin: boolean
   /** Build identifier to publish under, when this build does not publish the product version. */
   readonly requestedBuildVersion: string | undefined
   /** Add the reviewed optional IM plugin candidate to the installer package set. */
@@ -255,6 +257,7 @@ export function parseDesktopPackageInvocation(
       'unsigned-release': { type: 'boolean', default: false },
       'skip-notarization': { type: 'boolean', default: false },
       check: { type: 'boolean', default: false },
+      'computer-use-win': { type: 'boolean', default: false },
       'build-version': { type: 'string' },
       'with-im-candidate': { type: 'boolean', default: false },
       'allow-ineligible-im-candidate': { type: 'boolean', default: false },
@@ -269,6 +272,9 @@ export function parseDesktopPackageInvocation(
   if (unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
   if (values['skip-notarization'] && (name === 'win-x64' || unsigned || values['prepare-only'])) {
     throw new Error('desktop package: --skip-notarization requires a signed macOS build, without --prepare-only')
+  }
+  if (values['computer-use-win'] && name !== 'win-x64') {
+    throw new Error('desktop package: --computer-use-win carries a Windows-only runtime and requires the win-x64 target')
   }
   const requestedBuildVersion = values['build-version']?.trim()
   if (values['build-version'] !== undefined && (requestedBuildVersion === undefined || requestedBuildVersion === '')) {
@@ -285,6 +291,7 @@ export function parseDesktopPackageInvocation(
     unsignedRelease: values['unsigned-release'],
     skipNotarization: values['skip-notarization'],
     check: values.check,
+    computerUseWin: values['computer-use-win'],
     requestedBuildVersion,
     imCandidate: values['with-im-candidate'],
     allowIneligibleImCandidate: values['allow-ineligible-im-candidate'],
@@ -495,6 +502,7 @@ export async function packageTarget(
     DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: invocation.skipNotarization ? '1' : '0',
     DSH_DESKTOP_TARGET_PLATFORM: target.platform,
     DSH_DESKTOP_TARGET_ARCH: target.arch,
+    DSH_DESKTOP_COMPUTER_USE_WIN: invocation.computerUseWin ? '1' : '0',
     [TAKO_UNSIGNED_RELEASE_ENV]: invocation.unsignedRelease ? '1' : '0',
   }
   const downloadEnv = macOSDownloadEnvironment(targetEnv, mac?.downloadProxy)

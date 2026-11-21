@@ -40,6 +40,9 @@ const ROOT_PACKAGES = [DSH_PACKAGE, DESKTOP_HOST_PACKAGE, TAKO_PACKAGE] as const
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
 
+/** Opt-in observation-only Windows computer-use bundle; extra root of the package set when requested. */
+export const COMPUTER_USE_WIN_PACKAGE = '@deepseek-ai/dsh-desktop-computer-use-win'
+
 const REQUIRED_DEPENDENCY_SECTIONS = ['dependencies', 'peerDependencies'] as const
 const OPTIONAL_DEPENDENCY_SECTION = 'optionalDependencies'
 
@@ -74,11 +77,13 @@ function dependencyNames(manifest: Readonly<Record<string, unknown>>, section: s
  * Reads the repository workspace manifest and package manifests to distinguish required local packages from npm-resolved externals.
  * @param available - Packed packages indexed by package name.
  * @param target - Platform and architecture of the installer payload.
+ * @param extraRoots - Opt-in packages admitted only when their own os/cpu gates admit the target.
  * @returns Selected packages sorted by name.
  */
 export function selectDesktopPackageClosure(
   available: ReadonlyMap<string, PackedDesktopPackage>,
   target: ReturnType<typeof desktopTargetPlatform>,
+  extraRoots: readonly string[] = [],
 ): PackedDesktopPackage[] {
   const workspace = yaml.load(readFileSync(join(REPOSITORY_ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }
   const workspaceNames = new Set(globSync(workspace.packages.map(pattern => `${pattern}/package.json`), { cwd: REPOSITORY_ROOT })
@@ -105,6 +110,14 @@ export function selectDesktopPackageClosure(
   }
   for (const name of ROOT_PACKAGES) {
     if (!available.has(name)) throw new Error(`desktop package set: packed inputs omit ${name}`)
+    visit(name)
+  }
+  for (const name of extraRoots) {
+    const packed = available.get(name)
+    if (packed === undefined) throw new Error(`desktop package set: packed inputs omit ${name}`)
+    if (!supportsTarget(packed.manifest, 'os', target.platform) || !supportsTarget(packed.manifest, 'cpu', target.arch)) {
+      throw new Error(`desktop package set: ${name} does not support ${target.platform}-${target.arch}; omit it for this target`)
+    }
     visit(name)
   }
   return [...selected.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, packed]) => packed)
@@ -184,12 +197,14 @@ export async function loadImCandidatePackage(candidateDir: string): Promise<ImCa
  * @param output - Destination package-set directory.
  * @param target - Platform and architecture of the installer payload.
  * @param imCandidate - Verified optional candidate to add beside the core closure.
+ * @param extraRoots - Opt-in packages admitted only when their own os/cpu gates admit the target.
  */
 export function prepareDesktopPackageSet(
   inputs: readonly string[], output: string, target: ReturnType<typeof desktopTargetPlatform>,
   imCandidate?: ImCandidatePackageInput,
+  extraRoots: readonly string[] = [],
 ): void {
-  const selected = selectDesktopPackageClosure(packedPackages(inputs), target)
+  const selected = selectDesktopPackageClosure(packedPackages(inputs), target, extraRoots)
   const host = selected.find(packed => packed.manifest.name === DESKTOP_HOST_PACKAGE)
   if (host === undefined) throw new Error(`desktop package set: selected closure omits ${DESKTOP_HOST_PACKAGE}`)
   assertDesktopHostPackageFiles(tarballFiles(host.tarball))
@@ -246,6 +261,7 @@ async function main(): Promise<void> {
     options: {
       from: { type: 'string', multiple: true },
       out: { type: 'string' },
+      'with-computer-use-win': { type: 'boolean', default: process.env.DSH_DESKTOP_COMPUTER_USE_WIN === '1' },
       'with-im-candidate': { type: 'boolean', default: false },
       'allow-ineligible-im-candidate': { type: 'boolean', default: false },
     },
@@ -263,7 +279,8 @@ async function main(): Promise<void> {
     assertImCandidateReleaseEligible(readImCandidateDescriptorFile(candidateDir), values['allow-ineligible-im-candidate'])
     imCandidate = await loadImCandidatePackage(candidateDir)
   }
-  prepareDesktopPackageSet(inputs, output, desktopTargetPlatform(resolveDesktopBuildTarget()), imCandidate)
+  const extraRoots = values['with-computer-use-win'] ? [COMPUTER_USE_WIN_PACKAGE] : []
+  prepareDesktopPackageSet(inputs, output, desktopTargetPlatform(resolveDesktopBuildTarget()), imCandidate, extraRoots)
   console.log(`desktop package set: prepared ${output}`)
 }
 

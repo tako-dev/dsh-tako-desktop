@@ -1,0 +1,7 @@
+# Observation-only Windows computer use, mounted only when the profile
+# selects this bundle. The bundle's dsh.bundle.platforms keeps it off
+# non-Windows hosts; the plugin's own Config refuses every input and
+# mutation tool upstream offers.
+- insert:
+    - id: desktop-computer-use-win
+      name: '@deepseek-ai/dsh-desktop-computer-use-win'
