@@ -181,6 +181,26 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`@deepseek-ai/dsh dependencies -> ${experimental}`)
   })
 
+  it('exempts a desktop-carried optional bundle from the apps/cli runtime dependency', () => {
+    const root = fixture()
+    const carried = '@deepseek-ai/dsh-carried-layer'
+    write(root, 'packages/bundle/carried-layer/package.json', {
+      name: carried, icon: './icon.svg', exports: { './locale/*.json': './locale/*.json' },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    })
+    const profileSource = `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
+      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
+      + `export const OPTIONAL_BUNDLES = ['${carried}']\n`
+    write(root, profile, `${profileSource}export const DESKTOP_CARRIED_BUNDLES = ['${carried}']\n`)
+    expect(verifyDefaultProductIsolation(root).failures).toEqual([])
+
+    // A declared carrier must still name an offered optional bundle.
+    write(root, profile, profileSource
+      + "export const DESKTOP_CARRIED_BUNDLES = ['@deepseek-ai/dsh-unlisted']\n")
+    expect(verifyDefaultProductIsolation(root).failures.join('\n'))
+      .toContain('desktop-carried bundle @deepseek-ai/dsh-unlisted must be an optional bundle')
+  })
+
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
     'rejects transitive experimental %s',
     (section) => {

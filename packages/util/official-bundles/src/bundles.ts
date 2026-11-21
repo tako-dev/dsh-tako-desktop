@@ -86,6 +86,15 @@ export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-deepseek-chat-import',
 ]
 
+/**
+ * The {@link OPTIONAL_BUNDLES} the `dsh` app does not install because opt-in Desktop packaging adds
+ * them as extra roots of its package set instead (`apps/desktop/scripts/prepare-package-set.ts`);
+ * they are runtime dependencies of that installation, not of `apps/cli`.
+ */
+export const DESKTOP_CARRIED_BUNDLES: readonly string[] = [
+  '@deepseek-ai/dsh-desktop-computer-use-win',
+]
+
 /** Public DSH release members available through the ordinary on-demand bundle installer. */
 export const ON_DEMAND_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-subagent-claude-code',
