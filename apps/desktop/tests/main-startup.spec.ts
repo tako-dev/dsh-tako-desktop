@@ -176,10 +176,13 @@ const harness = await vi.hoisted(async () => {
       readonly onPluginOperation?: ConstructorParameters<typeof DesktopHostProcess>[9],
     ) { hosts.push(this) }
   }
+  let openAtLogin = false
   const app = Object.assign(new EventEmitter(), {
     isPackaged: true,
     name: 'Desktop test',
     whenReady: () => Promise.resolve(),
+    getLoginItemSettings: () => ({ openAtLogin }),
+    setLoginItemSettings: vi.fn((settings: { openAtLogin?: boolean }) => { openAtLogin = settings.openAtLogin === true }),
     getLocale: (): string => 'en-US',
     getPreferredSystemLanguages: () => ['en-US'],
     getVersion: () => '1.0.0',
@@ -279,6 +282,7 @@ const harness = await vi.hoisted(async () => {
       shellDialog.isOpen = false
       powerMonitor.removeAllListeners()
       app.isPackaged = true
+      openAtLogin = false
       windowFailure = undefined
       pluginsEnabled = false
       closeWindowsOnQuit = false
@@ -534,6 +538,20 @@ describe('desktop main startup', () => {
       { channel: 'stable', packagedChannel: 'nightly', changing: false })
     await expect(invoke(DESKTOP_IPC.updatesChannelSet, 'app', 'alpha')).rejects.toThrow('unsupported channel')
     expect(await invoke(DESKTOP_IPC.updatesChannelGet, 'app')).toMatchObject({ channel: 'stable' })
+  })
+
+  it('registers the Run login item only after the user confirms through product IPC', async () => {
+    await readyForUpdate()
+    expect(await invoke(DESKTOP_IPC.launchAtLoginGet, 'app')).toEqual({ supported: true, enabled: false })
+    expect(await invoke(DESKTOP_IPC.launchAtLoginSet, 'app', true)).toEqual({ kind: 'cancelled', enabled: false })
+    expect(harness.app.setLoginItemSettings).not.toHaveBeenCalled()
+    harness.dialog.showMessageBox.mockImplementationOnce(async () => ({ response: 0, checkboxChecked: false }))
+    expect(await invoke(DESKTOP_IPC.launchAtLoginSet, 'app', true)).toEqual({ kind: 'applied', enabled: true })
+    expect(harness.app.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, path: process.execPath, enabled: true })
+    expect(await invoke(DESKTOP_IPC.launchAtLoginGet, 'app')).toEqual({ supported: true, enabled: true })
+    expect(await invoke(DESKTOP_IPC.launchAtLoginSet, 'app', false)).toEqual({ kind: 'applied', enabled: false })
+    expect(harness.app.setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, path: process.execPath, enabled: false })
+    expect(() => invoke(DESKTOP_IPC.launchAtLoginSet, 'app', 'yes')).toThrow('expected a boolean request')
   })
 
   it('reports a corrupt document without replacing it or pretending a UI save succeeded', async () => {

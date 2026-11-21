@@ -814,7 +814,6 @@ describe('modelOverrides', () => {
       'acme-gateway': {
         api: 'openai-completions',
         baseURL: 'https://acme.test',
-        models: [{ id: 'm' }],
         modelOverrides: { m: { name: 'renamed' } },
       },
     })).toThrow(/a declared route spells every model out/)
@@ -822,9 +821,9 @@ describe('modelOverrides', () => {
     expect(() => resolveProfiles({
       deepseek: {
         models: [{ id: declaredOnly.id }],
-        modelOverrides: { [declaredOnly.id]: { name: 'renamed' } },
+        modelOverrides: { 'not-in-configured-catalog': { name: 'renamed' } },
       },
-    })).toThrow(/models already replaces the served catalog/)
+    })).toThrow(/which the configured catalog does not describe/)
     expect(() => resolveProfiles({
       deepseek: { modelOverrides: { '': { name: 'nameless' } } },
     })).toThrow(/empty model id/)

@@ -38,12 +38,15 @@ export function parseCapacity(text: string): number | undefined {
   const match = CAPACITY_PATTERN.exec(trimmed)
   if (match === null) return Number.NaN
   const suffix = match[2]?.toLowerCase()
-  const scale = suffix === 'k' || suffix === 'm' ? CAPACITY_SCALE[suffix] : 1
-  const scaled = Number(match[1]) * scale
-  // A decimal multiple is exact in intent but not in binary floating point
-  // (2.3 * 1e6 lands a few ULPs high), so an integral intent snaps back.
-  const rounded = Math.round(scaled)
-  return Math.abs(scaled - rounded) < 1e-6 ? rounded : scaled
+  const scale = suffix === 'k' ? 3 : suffix === 'm' ? 6 : 0
+  // Shift decimal digits directly so floating-point multiplication cannot round
+  // a fractional token count into an accepted integer.
+  const [whole = '', decimal = ''] = (match[1] ?? '').split('.')
+  if (/[1-9]/.test(decimal.slice(scale))) {
+    const fractional = Number(match[1]) * 10 ** scale
+    return Number.isInteger(fractional) ? Number.NaN : fractional
+  }
+  return Number(`${whole}${decimal.slice(0, scale).padEnd(scale, '0')}`)
 }
 
 /**
@@ -102,12 +105,12 @@ export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidation
     }
     const contextWindow = model['contextWindow']
     if (contextWindow !== undefined
-      && (typeof contextWindow !== 'number' || !Number.isInteger(contextWindow) || contextWindow <= 0)) {
+      && (typeof contextWindow !== 'number' || !Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
       return { index, key: 'modelContextInvalid' }
     }
     const maxTokens = model['maxTokens']
     if (maxTokens !== undefined
-      && (typeof maxTokens !== 'number' || !Number.isInteger(maxTokens) || maxTokens <= 0)) {
+      && (typeof maxTokens !== 'number' || !Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
       return { index, key: 'modelMaxTokensInvalid' }
     }
   }

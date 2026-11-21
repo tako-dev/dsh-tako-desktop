@@ -21,6 +21,7 @@ Build Desktop installers locally or through Windows or macOS Actions, choose dep
 - [Local macOS DMG without release signing](#local-macos-dmg-without-release-signing)
 - [macOS release signing and diagnostics](#macos-release-signing)
 - [Directory builds and preparation](#directory-and-preparation)
+- [Optional plugin candidates](#optional-plugin-candidates)
 - [Local Official bundles from a loopback registry](#local-official-bundles-from-a-loopback-registry)
 - [Runtime file selection and installation checks](#runtime-file-selection)
 - [Desktop runtime preparation](#desktop-runtime-preparation)
@@ -226,6 +227,12 @@ pnpm run prepare:desktop
 
 This diagnostic command is an alternative stopping point, not the first half of a two-command build. A later `package:desktop*` command repeats the build selected by its signing mode and all preparation so it cannot consume stale dsh packages, runtime files, or dsh content.
 
+<a id="optional-plugin-candidates"></a>
+
+## Optional plugin candidates
+
+Reviewed third-party plugins can ride beside the core package set as opt-in candidates under `apps/desktop/optional-plugins/<name>/`. A candidate pins its npm archive by SHA-512 integrity and its frozen lockfile and importer files by raw-byte SHA-256 in `candidate.json`; `scripts/im-candidate.ts` hashes the lockfile bytes before parsing them, checks the importer against the manifest and the resolved snapshot closure, and stages the captured bytes without a second disk read. Fetch the pinned archive with `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch`, check it with `verify`, and write a private stage directory with `stage <dir>`. The `@xmanrui/dsh-im` candidate keeps `releaseEligible: false` while its documented blockers stand, so a `--with-im-candidate` packaging run refuses to build unless the operator also passes `--allow-ineligible-im-candidate`; the candidate's own `stage` command takes `--allow-ineligible` for the same override. A refused request builds nothing.
+
 <a id="local-official-bundles-from-a-loopback-registry"></a>
 
 ## Local Official bundles from a loopback registry
@@ -301,6 +308,8 @@ An unpacked artifact contains Electron, the materialized dsh production tree, pn
 Windows lists the installed application by product name without a version suffix; the version remains in the separate version field. Desktop's `package.json` `author.name` supplies the installer publisher and executable company name, independently of the signing certificate. Windows and macOS retain product-name copyright text. Installation or upgrade with a rebuilt installer applies the new metadata; existing installations retain their previous values until then.
 
 Keep the generated installer, its version and packaging records together. Review signatures and runtime checks before installation, then follow the [installed-update qualification procedure](../tests/installed-update/README.md) for installed launch and upgrade evidence. The [Desktop test record](../tests/README.md) owns verification limits; a successful workflow alone does not establish production preset, new-workstation or installed-upgrade acceptance.
+
+Launch at login stays off until the user confirms the Settings toggle through a native dialog, and the Settings row is hidden on Linux, which has no login-item support. On Windows the toggle writes a per-user `Run` value named after the AppUserModelId plus its `StartupApproved\Run` record, and the uninstaller removes both under the application, product, and package names even when it retains application data. On macOS the registration lives in the account's Login Items outside the application bundle: deleting the .app leaves a stale entry, so users should turn the toggle off before removing the application. Repackaging changes neither behavior; qualification only needs the toggle to survive an install upgrade and the registry values to disappear after an uninstall.
 
 ## Dev Note
 

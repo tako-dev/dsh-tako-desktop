@@ -21,6 +21,7 @@ description: "在本地或 Windows／macOS Actions 中生成 Desktop 安装包�
 - [无发布签名的本地 macOS DMG](#local-macos-dmg-without-release-signing)
 - [macOS 发布签名与诊断](#macos-release-signing)
 - [目录构建与准备](#directory-and-preparation)
+- [可选插件候选](#optional-plugin-candidates)
 - [用回环 registry 安装本地 Official 包](#local-official-bundles-from-a-loopback-registry)
 - [运行时文件筛选与安装检查](#runtime-file-selection)
 - [Desktop 运行时准备](#desktop-runtime-preparation)
@@ -226,6 +227,12 @@ pnpm run prepare:desktop
 
 这条诊断命令是另一种停止位置，并非两条命令构建流程的前半段。之后执行 `package:desktop*` 时仍会重新完成按签名模式选择的构建与全部准备，避免使用陈旧的 dsh 包、运行时文件或 dsh 内容。
 
+<a id="optional-plugin-candidates"></a>
+
+## 可选插件候选
+
+经审查的第三方插件可以作为可选候选随核心包集一起交付，存放在 `apps/desktop/optional-plugins/<name>/`。候选在 `candidate.json` 中以 SHA-512 integrity 锁定其 npm 归档，并以原始字节的 SHA-256 锁定冻结 lockfile 与 importer 文件；`scripts/im-candidate.ts` 在解析前先对 lockfile 原始字节做哈希，再核对 importer 与清单、已解析的快照闭包，并把捕获到的字节原样暂存，不再二次读盘。用 `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch` 获取锁定的归档，用 `verify` 校验，用 `stage <dir>` 写入私有暂存目录。`@xmanrui/dsh-im` 候选在其已记录的阻塞项未解除前保持 `releaseEligible: false`，因此带 `--with-im-candidate` 的打包请求会拒绝构建，除非操作者再加 `--allow-ineligible-im-candidate`；候选自身的 `stage` 命令用 `--allow-ineligible` 做同样的覆盖。被拒绝的请求不会构建任何内容。
+
 <a id="local-official-bundles-from-a-loopback-registry"></a>
 
 ## 用回环 registry 安装本地 Official 包
@@ -301,6 +308,8 @@ macOS 签名打包在组装 App 时、代码签名前写入 `Contents/Resources/
 Windows 以不带版本后缀的产品名称显示已安装应用，版本保留在单独的版本字段中。Desktop 的 `package.json` 中的 `author.name` 提供安装包发布者和可执行文件公司名称，与签名证书相互独立。Windows 和 macOS 的版权文本仍使用产品名称。重新构建的安装包在安装或升级时写入新元数据；既有安装在此之前保留原值。
 
 一起保留生成的安装包、版本和打包记录。安装前检查签名与运行时验证结果，再按[已安装更新验收流程](../tests/installed-update/README.zh.md)记录安装后启动及升级证据。[Desktop 测试记录](../tests/README.zh.md)维护验证限制；工作流成功本身不代表 production preset、新工作站或已安装升级验收通过。
+
+开机自动启动默认关闭，只有在设置中通过原生确认对话框打开开关才会启用；没有登录项机制的 Linux 不显示该设置项。Windows 下开关写入以 AppUserModelId 命名的每用户 `Run` 值及其 `StartupApproved\Run` 记录，卸载器会按应用 ID、产品名和包名删除这些注册表值，即使卸载时保留了应用数据。macOS 的注册保存在账户登录项中、位于应用包之外：直接删除 .app 会留下失效登录项，用户应在移除应用前先关闭开关。重新打包不改变上述行为；验收只需确认开关在安装升级后保持，以及卸载后注册表值消失。
 
 ## 开发备注
 

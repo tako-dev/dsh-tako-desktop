@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "package": "@xmanrui/dsh-im",
+  "version": "5.10.0",
+  "integrity": "sha512-gWM3D3Rq6z3Plh1nFFfrV1FKKGm1OWpjWGSgUZXjqbmt/xQ+AVT/M6YFV3hpnMjXTKxzDvrPUo01Nl1FarDdkQ==",
+  "archiveUrl": "https://registry.npmjs.org/@xmanrui/dsh-im/-/dsh-im-5.10.0.tgz",
+  "archiveFile": "dsh-im-5.10.0.tgz",
+  "lockSha256": "7f6798771352c626970783a65edeb301909fc4747ded8c4901e2ab96c7396007",
+  "manifestSha256": "122c1120e6f8653c6250ea4e656c1ec7811ef90c3cde0008f1c611f07e071509",
+  "workspaceSha256": "0b6e92e4394a751d71c75bb464ae3c034864a61679c52e5c14907cb35dc38a46",
+  "releaseEligible": false,
+  "blockers": [
+    "dsh.compatibility declares DSH up to 0.2.1-rc.2 and does not declare the current 0.2.2 runtime",
+    "dsh.client.inject loads @deepseek-ai/dsh-client-runtime internals instead of a stable client extension point",
+    "group messages and attachments are retained by default",
+    "a bundled tool can send arbitrary host-readable files"
+  ]
+}

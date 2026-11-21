@@ -81,6 +81,7 @@ export type { PiAiRequestHeaderContext } from './types.ts'
 export { Config } from './config.ts'
 export type {
   Options,
+  ModelCapacityOverride,
   PiAiCompatProfile,
   PiAiModality,
   PiAiModelOverride,
@@ -177,6 +178,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   const settingsNs = ctx.fiber.entry?.options.id ?? NS
   let lastRaw: ReturnType<Config['providers']['get']> | undefined
+  let lastCapacities: ReturnType<Config['modelCapacityOverrides']['get']> | undefined
   let memoized: ReadonlyMap<string, ResolvedPiAiProviderProfile> | undefined
   /**
    * The resolved profiles for the current configuration, memoized by the raw
@@ -189,9 +191,13 @@ export function apply(ctx: Context, config: Config): void {
    */
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     const raw = config.providers.get()
-    if (raw === lastRaw && memoized !== undefined) return memoized
-    const next = resolveProfiles(structuredClone(raw) as import('./config.ts').Options['providers'], 'deferred')
+    const capacities = config.modelCapacityOverrides.get()
+    if (raw === lastRaw && capacities === lastCapacities && memoized !== undefined) return memoized
+    const next = resolveProfiles(
+      structuredClone(raw) as import('./config.ts').Options['providers'], 'deferred', structuredClone(capacities),
+    )
     lastRaw = raw
+    lastCapacities = capacities
     memoized = next
     return next
   }
@@ -201,8 +207,8 @@ export function apply(ctx: Context, config: Config): void {
     if (fiber !== ctx.fiber) return raw
     const candidate = Config(raw as import('./config.ts').Options)
     assertServiceable(
-      { providers: structuredClone(candidate.providers.get()) } as import('./config.ts').Options,
-      { providers: structuredClone(config.providers.get()) } as import('./config.ts').Options,
+      { providers: structuredClone(candidate.providers.get()), modelCapacityOverrides: structuredClone(candidate.modelCapacityOverrides.get()) } as import('./config.ts').Options,
+      { providers: structuredClone(config.providers.get()), modelCapacityOverrides: structuredClone(config.modelCapacityOverrides.get()) } as import('./config.ts').Options,
     )
     return raw
   })

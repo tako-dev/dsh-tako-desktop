@@ -20,8 +20,8 @@
 }
 
 @media (max-width: 767px) {
-  /* The wide-row gutter squeezes labels beside steppers in narrow browser panels. */
-  :global(html:not([data-windows-titlebar]):not([data-platform='darwin'])) .row:not(.stacked) .rowText {
+  /* The wide-row gutter squeezes labels beside steppers in narrow panels. */
+  :global(html:not([data-windows-titlebar])) .row:not(.stacked) .rowText {
     padding-right: 16px;
   }
 

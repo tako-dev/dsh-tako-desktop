@@ -1,6 +1,6 @@
 /** Profile patch edits and credential updates reach the next real adapter request. */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -38,9 +38,9 @@ afterEach(async () => {
   vi.unstubAllEnvs()
 })
 
-/** Boot the dormant composition: a bare `llm-pi-ai` row with no config at all. */
+/** Boot the dormant composition; reuse its profile files when checking restart. */
 async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }> {
-  root = await mkdtemp(join(tmpdir(), 'dsh-pi-composition-'))
+  root ??= await mkdtemp(join(tmpdir(), 'dsh-pi-composition-'))
   await writeFile(join(root, '.credentials.yaml'), 'version: 1\nrefs:\n  PI_COMPOSITION_KEY: key-from-store\n', { mode: 0o600 })
 
   const configPath = join(root, 'cordis.yml')
@@ -105,6 +105,74 @@ describe('llm-pi-ai real dormant composition', () => {
     const result = await assemble(ctx, { model: 'deepseek-flash', messages: [], sessionId: SessionId('loader-session') })
     expect(result.finish).toEqual({ kind: 'stop' })
     expect(server.headers[0]?.['x-request-session']).toBe('loader-session')
+  })
+
+  it('preserves user capacities through whole-provider sync writes and restarts, then restores current inheritance', async () => {
+    const route = {
+      api: 'openai-completions', baseURL: 'https://fixture.invalid/v1',
+      models: [
+        { id: 'alpha', contextWindow: 128_000, maxTokens: 8192, input: ['text', 'image'] },
+        { id: 'beta', contextWindow: 64_000, maxTokens: 4096 },
+      ],
+    }
+    let { ctx, settingsPath } = await loadComposition()
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['providers', 'tako'], value: route }])
+    await ctx.settings.mutate('llm-pi-ai', [
+      { op: 'set', path: ['modelCapacityOverrides', 'tako', 'alpha', 'contextWindow'], value: 128_000 },
+      { op: 'set', path: ['modelCapacityOverrides', 'tako', 'alpha', 'maxTokens'], value: 16_000 },
+    ])
+    const refreshed = {
+      ...route,
+      models: route.models.map(model => ({ ...model, contextWindow: 512_000, maxTokens: 32_000 })),
+    }
+    // dsh-tako@0.5.17 replaces this whole provider, not just its models array.
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['providers', 'tako'], value: refreshed }])
+    const assertCustom = async (): Promise<void> => {
+      expect(await ctx.llm.resolveModelInfo('tako', 'alpha')).toMatchObject({
+        context: { contextWindow: 128_000 }, defaultMaxTokens: 16_000, inputModalities: ['text', 'image'],
+      })
+      expect(await ctx.llm.resolveModelInfo('tako', 'beta')).toMatchObject({
+        context: { contextWindow: 512_000 }, defaultMaxTokens: 32_000,
+      })
+      expect(await readFile(settingsPath, 'utf8')).toContain('modelCapacityOverrides:')
+    }
+    await assertCustom()
+    await ctx.fiber.dispose()
+    ;({ ctx, settingsPath } = await loadComposition())
+    await assertCustom()
+    await ctx.settings.mutate('llm-pi-ai', [{
+      op: 'unset', path: ['modelCapacityOverrides', 'tako', 'alpha', 'contextWindow'],
+    }])
+    expect(await ctx.llm.resolveModelInfo('tako', 'alpha')).toMatchObject({
+      context: { contextWindow: 512_000 }, defaultMaxTokens: 16_000,
+    })
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'unset', path: ['modelCapacityOverrides', 'tako', 'alpha'] }])
+    await ctx.fiber.dispose()
+    ;({ ctx } = await loadComposition())
+    expect(await ctx.llm.resolveModelInfo('tako', 'alpha')).toMatchObject({
+      context: { contextWindow: 512_000 }, defaultMaxTokens: 32_000,
+    })
+  })
+
+  it('retains an unavailable model override during refresh without blocking healthy models or restart', async () => {
+    let { ctx } = await loadComposition()
+    const route = { api: 'openai-completions', baseURL: 'https://fixture.invalid/v1', models: [{ id: 'alpha' }, { id: 'beta' }] }
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['providers', 'tako'], value: route }])
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['modelCapacityOverrides', 'tako', 'alpha'], value: { contextWindow: 128_000 } }])
+    const removed = { ...route, models: [{ id: 'beta', contextWindow: 256_000 }] }
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['providers', 'tako'], value: removed }])
+    expect(ctx.llm.listConfigurableProviders().find(row => row.provider === 'tako')?.error).toContain('modelCapacityOverrides.tako')
+    await expect(ctx.llm.resolveModelInfo('tako', 'alpha')).rejects.toThrow('current catalog does not describe')
+    expect(await ctx.llm.resolveModelInfo('tako', 'beta')).toMatchObject({ context: { contextWindow: 256_000 } })
+    await ctx.fiber.dispose()
+    ;({ ctx } = await loadComposition())
+    expect(ctx.settings.describe().find(row => row.ns === 'llm-pi-ai')?.user).toMatchObject({
+      modelCapacityOverrides: { tako: { alpha: { contextWindow: 128_000 } } },
+    })
+    await expect(ctx.settings.mutate('llm-pi-ai', [{ op: 'set', path: ['modelCapacityOverrides', 'tako', 'typo'], value: { contextWindow: 128_000 } }]))
+      .rejects.toThrow('current catalog does not describe')
+    await ctx.settings.mutate('llm-pi-ai', [{ op: 'unset', path: ['modelCapacityOverrides', 'tako', 'alpha'] }])
+    expect(ctx.llm.listConfigurableProviders().find(row => row.provider === 'tako')?.error).toBeUndefined()
   })
 
   it('boots with zero routes and registers one the moment settings supply a profile', async () => {
