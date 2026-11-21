@@ -14,7 +14,7 @@
   width: 100%;
   min-height: 52px;
   padding: 8px 10px;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   text-align: left;
   box-shadow: inset 3px 0 0 #F26D5B;
 }
@@ -101,6 +101,7 @@
   padding: 0 6px;
   border: 0.5px solid rgb(242 109 91 / 45%);
   border-radius: 999px;
+  corner-shape: round;
   background: rgb(242 109 91 / 16%);
   color: #F26D5B;
   font-size: 10px;
