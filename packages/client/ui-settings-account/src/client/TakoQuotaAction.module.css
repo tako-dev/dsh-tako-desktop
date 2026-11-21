@@ -14,7 +14,7 @@
   width: 100%;
   min-height: 52px;
   padding: 8px 10px;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   text-align: left;
   box-shadow: inset 3px 0 0 #F26D5B;
 }
@@ -24,9 +24,11 @@
   min-height: 82px;
 }
 
-.action:hover,
-.railAction:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .action:hover,
+  .railAction:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .action:focus-visible,
@@ -90,7 +92,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 2px;
-  color: #F26D5B;
+  color: var(--dsw-alias-state-business-primary);
   font-size: 12px;
   font-weight: 510;
   line-height: 18px;
@@ -99,10 +101,11 @@
 .planChip {
   flex: none;
   padding: 0 6px;
-  border: 0.5px solid rgb(242 109 91 / 45%);
+  border: 0.5px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);
   border-radius: 999px;
-  background: rgb(242 109 91 / 16%);
-  color: #F26D5B;
+  corner-shape: round;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent);
+  color: var(--dsw-alias-state-business-primary);
   font-size: 10px;
   font-weight: 600;
   line-height: 16px;
@@ -147,7 +150,7 @@
 }
 
 .metricValue {
-  color: #F26D5B;
+  color: var(--dsw-alias-state-business-primary);
   font-size: 15px;
 }
 
@@ -157,7 +160,7 @@
 }
 
 .balanceValue {
-  color: #F26D5B;
+  color: var(--dsw-alias-state-business-primary);
   font-size: 18px;
   line-height: 24px;
 }
