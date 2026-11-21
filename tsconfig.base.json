@@ -92,6 +92,9 @@
       "@deepseek-ai/dsh-experimental-claude-code-mods/examples/*": ["./packages/experimental/claude-code-mods/examples/*"],
       "@deepseek-ai/dsh/profile-boot": ["./apps/cli/src/profile-boot.ts"],
       "@deepseek-ai/dsh/lib/bin.js": ["./apps/cli/src/bin.ts"],
+      // Carried by opt-in Windows Desktop packaging; apps/* packages are outside the generated package aliases.
+      "@deepseek-ai/dsh-desktop-computer-use-win": ["./apps/desktop-computer-use-win/src"],
+      "@deepseek-ai/dsh-tako/*": ["./packages/tako/tako/src/*"],
       "@deepseek-ai/dsh-browser-use": ["./packages/browser-use/browser-use/src/index.ts"],
       "@deepseek-ai/dsh-browser-use/brand": ["./packages/browser-use/browser-use/src/brand.ts"],
       "@deepseek-ai/dsh-experimental-browser-use-runtime": ["./packages/experimental/browser-use-runtime/src/index.ts"],
@@ -581,7 +584,6 @@
       "@deepseek-ai/dsh-subprocess-ssh": ["./packages/ssh/subprocess-ssh/src"],
       "@deepseek-ai/dsh-system-prompt": ["./packages/core/system-prompt/src"],
       "@deepseek-ai/dsh-tako": ["./packages/tako/tako/src"],
-      "@deepseek-ai/dsh-tako/*": ["./packages/tako/tako/src/*"],
       "@deepseek-ai/dsh-terminal": ["./packages/terminal/terminal/src"],
       "@deepseek-ai/dsh-terminal-bash": ["./packages/terminal/terminal-bash/src"],
       "@deepseek-ai/dsh-terminal-panel": ["./packages/experimental/terminal-panel/src"],
