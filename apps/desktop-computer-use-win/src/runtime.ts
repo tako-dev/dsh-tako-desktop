@@ -53,23 +53,68 @@ export type RefusedTool = typeof REFUSED_TOOLS[number]
 /** Local namespace the adapter reserves for upstream tools (`mcp__wincu__*`). */
 export const SERVER_NAME = 'wincu'
 
+/**
+ * Prefix the pinned upstream server puts before every advertised tool name;
+ * `dsh-mcp-client` concatenates it verbatim, so a tool registers as
+ * `mcp__wincu__windows_computer_use_<tool>`.
+ */
+export const UPSTREAM_TOOL_PREFIX = 'windows_computer_use_'
+
 const OBSERVATION_SET: ReadonlySet<string> = new Set(OBSERVATION_TOOLS)
-const REFUSED_SET: ReadonlySet<string> = new Set(REFUSED_TOOLS)
 const TOOL_PREFIX = `mcp__${SERVER_NAME}__`
 
 /**
- * Model-facing public name one raw upstream tool takes under this adapter's
- * namespace; `wincu` is short enough that normalization never hashes.
- * @param rawName - Raw tool name the upstream server declares.
- * @returns The registered tool name.
+ * Raw tool name the pinned upstream server advertises for one tool.
+ * @param tool - Short tool name as spelled in `OBSERVATION_TOOLS`, `REFUSED_TOOLS`, and `WCU_ENABLED_TOOLS`.
+ * @returns The upstream `windows_computer_use_<tool>` name.
  */
-export function publicName(rawName: string): string {
-  return `${TOOL_PREFIX}${rawName}`
+export function upstreamName(tool: string): string {
+  return `${UPSTREAM_TOOL_PREFIX}${tool}`
 }
 
-/** The refusal every refused tool name produces, in config and at dispatch. */
-export function refusalReason(rawName: string): string {
-  return `windows computer-use tool ${JSON.stringify(rawName)} is refused: this package mounts the upstream server observation-only, and ${JSON.stringify(rawName)} changes desktop state`
+/**
+ * Registered name one tool takes under this adapter's namespace —
+ * `mcp__wincu__windows_computer_use_<tool>`, exactly what `dsh-mcp-client`
+ * registers from the upstream advertisement; `wincu` is short enough that
+ * normalization never hashes.
+ * @param tool - Short tool name as spelled in `OBSERVATION_TOOLS`, `REFUSED_TOOLS`, and `WCU_ENABLED_TOOLS`.
+ * @returns The registered tool name.
+ */
+export function publicName(tool: string): string {
+  return `${TOOL_PREFIX}${upstreamName(tool)}`
+}
+
+/**
+ * Short name of every refused tool under each spelling that can reach config
+ * or dispatch: short, upstream raw, and registered. Dispatch matches the
+ * registered spelling exactly, so no prefix rewriting can slip a refused tool
+ * past the refusal.
+ */
+const REFUSED_NAMES: ReadonlyMap<string, RefusedTool> = new Map(
+  REFUSED_TOOLS.flatMap((tool): Array<[string, RefusedTool]> => [
+    [tool, tool],
+    [upstreamName(tool), tool],
+    [publicName(tool), tool],
+  ]))
+
+/**
+ * The refusal every refused tool name produces, in config and at dispatch.
+ * @param tool - Short refused tool name.
+ * @returns The refusal reason.
+ */
+export function refusalReason(tool: string): string {
+  return `windows computer-use tool ${JSON.stringify(tool)} is refused: this package mounts the upstream server observation-only, and ${JSON.stringify(tool)} changes desktop state`
+}
+
+/**
+ * The refusal an unadmitted name under this adapter's namespace produces:
+ * everything the enabled observation list does not name is denied, so upstream
+ * drift or a hand-built call name cannot escape the observation-only list.
+ * @param registeredName - The registered tool name that is not admitted.
+ * @returns The denial reason.
+ */
+function notEnabledReason(registeredName: string): string {
+  return `windows computer-use tool ${JSON.stringify(registeredName)} is not admitted: this package mounts the upstream server observation-only`
 }
 
 /**
@@ -87,8 +132,9 @@ export function resolveUpstreamServer(from: string): string {
 /** Adapter configuration. */
 export interface Config {
   /**
-   * Observation tools the server may register; defaults to every observation
-   * tool. Naming a refused tool rejects the entry before any process starts.
+   * Short upstream tool names the server may register (the `WCU_ENABLED_TOOLS`
+   * vocabulary); defaults to every observation tool. A refused name, under any
+   * spelling, rejects the entry before any process starts.
    */
   enabledTools: string[]
   /** Per-call timeout in milliseconds; omission uses the MCP client's default. */
@@ -107,7 +153,8 @@ export interface Config {
 export const Config: z<Partial<Config>, Config> = z.object({
   enabledTools: z.transform(z.array(String), (value) => {
     for (const entry of value) {
-      if (REFUSED_SET.has(entry)) throw new Error(refusalReason(entry))
+      const refused = REFUSED_NAMES.get(entry)
+      if (refused !== undefined) throw new Error(refusalReason(refused))
       if (!OBSERVATION_SET.has(entry)) {
         throw new Error(`windows computer-use tool ${JSON.stringify(entry)} is unknown to the pinned upstream server`)
       }
@@ -167,29 +214,36 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
 
   // Per-action audit: every call that touches this server's namespace is
   // decided here, before any upstream dispatch, and the decision is logged.
+  // Refusals match the real registered names the upstream server advertises.
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next) => {
     if (!exec.name.startsWith(TOOL_PREFIX)) return next()
-    const rawName = exec.name.slice(TOOL_PREFIX.length)
-    if (REFUSED_SET.has(rawName)) {
-      const reason = refusalReason(rawName)
+    const refused = REFUSED_NAMES.get(exec.name)
+    if (refused !== undefined) {
+      const reason = refusalReason(refused)
       ctx.logger.warn(`${name}: refused ${exec.name}: ${reason}`)
       return { kind: 'deny', reason }
     }
-    if (!allowed.has(exec.name)) return next()
+    if (!allowed.has(exec.name)) {
+      const reason = notEnabledReason(exec.name)
+      ctx.logger.warn(`${name}: refused ${exec.name}: ${reason}`)
+      return { kind: 'deny', reason }
+    }
     if (config.requireApproval) {
-      return { kind: 'ask', reason: `observe the Windows desktop through ${rawName}` }
+      return { kind: 'ask', reason: `observe the Windows desktop through ${exec.name}` }
     }
     ctx.logger.info(`${name}: observation ${exec.name}`)
     return next()
   })
 
   // A monotonic guard repeats the refusal behind any listener that re-allows
-  // it: ordering can never turn a refused input tool back into permission.
+  // it: ordering can never turn a refused input tool back into permission, nor
+  // forward a namespace name the enabled observation list does not admit.
   ctx.effect(() => ctx.tools.guard((exec) => {
     if (!exec.name.startsWith(TOOL_PREFIX)) return undefined
-    const rawName = exec.name.slice(TOOL_PREFIX.length)
-    if (!REFUSED_SET.has(rawName)) return undefined
-    return refusalReason(rawName)
+    const refused = REFUSED_NAMES.get(exec.name)
+    if (refused !== undefined) return refusalReason(refused)
+    if (!allowed.has(exec.name)) return notEnabledReason(exec.name)
+    return undefined
   }), `${name}.observation-guard`)
 
   const connection = McpClient.Config({

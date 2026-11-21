@@ -26,6 +26,30 @@ import {
 
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
 
+/**
+ * The names the pinned upstream server really advertises for the refused
+ * tools (`windows_computer_use_<tool>` under the `wincu` namespace), spelled
+ * out here so a broken name mapping cannot pass by matching its own output.
+ */
+const REFUSED_REGISTERED = [
+  'mcp__wincu__windows_computer_use_click',
+  'mcp__wincu__windows_computer_use_double_click',
+  'mcp__wincu__windows_computer_use_move',
+  'mcp__wincu__windows_computer_use_drag',
+  'mcp__wincu__windows_computer_use_scroll',
+  'mcp__wincu__windows_computer_use_type_text',
+  'mcp__wincu__windows_computer_use_keypress',
+  'mcp__wincu__windows_computer_use_focus',
+  'mcp__wincu__windows_computer_use_invoke',
+  'mcp__wincu__windows_computer_use_set_value',
+  'mcp__wincu__windows_computer_use_activate_window',
+  'mcp__wincu__windows_computer_use_close_window',
+  'mcp__wincu__windows_computer_use_move_window',
+  'mcp__wincu__windows_computer_use_launch_app',
+  'mcp__wincu__windows_computer_use_batch',
+  'mcp__wincu__windows_computer_use_tools',
+] as const
+
 describe('tool inventory', () => {
   it('covers every upstream name with admission or refusal, disjointly', () => {
     const observation: ReadonlySet<string> = new Set(OBSERVATION_TOOLS)
@@ -35,9 +59,13 @@ describe('tool inventory', () => {
     expect(refused.size).toBe(REFUSED_TOOLS.length)
   })
 
-  it('names observation tools under the wincu namespace', () => {
-    expect(publicName('snapshot')).toBe('mcp__wincu__snapshot')
-    expect(publicName('screenshot')).toBe(`mcp__${SERVER_NAME}__screenshot`)
+  it('names observation tools by their real registered names', () => {
+    expect(publicName('snapshot')).toBe('mcp__wincu__windows_computer_use_snapshot')
+    expect(publicName('screenshot')).toBe(`mcp__${SERVER_NAME}__windows_computer_use_screenshot`)
+  })
+
+  it('maps every refused tool onto its real registered name', () => {
+    expect(REFUSED_TOOLS.map(tool => publicName(tool))).toEqual([...REFUSED_REGISTERED])
   })
 
   it('describes every refusal as a desktop-state change', () => {
@@ -60,9 +88,11 @@ describe('Config', () => {
     expect(config.enabledTools).toEqual(['snapshot', 'screenshot'])
   })
 
-  it.each(REFUSED_TOOLS)('rejects the refused tool %s at config validation', (rawName) => {
-    expect(() => Config({ enabledTools: [rawName] })).toThrow('refused')
-    expect(() => Config({ enabledTools: ['snapshot', rawName] })).toThrow(JSON.stringify(rawName))
+  it.each(REFUSED_TOOLS)('rejects the refused tool %s at config validation in every spelling', (tool) => {
+    for (const spelling of [tool, `windows_computer_use_${tool}`, `mcp__wincu__windows_computer_use_${tool}`]) {
+      expect(() => Config({ enabledTools: [spelling] })).toThrow('refused')
+      expect(() => Config({ enabledTools: ['snapshot', spelling] })).toThrow(JSON.stringify(tool))
+    }
   })
 
   it('rejects names the pinned upstream does not declare', () => {
@@ -148,17 +178,32 @@ describe('apply', () => {
     expect(child.await).toHaveBeenCalledOnce()
   })
 
-  it('denies refused names before dispatch and logs the refusal', async () => {
-    const { ctx, captured } = fakeContext()
+  it('denies every refused registered name at both pre-dispatch layers and logs the refusal', async () => {
+    const { ctx, captured, logger } = fakeContext()
     await apply(ctx, Config({}))
-    for (const rawName of REFUSED_TOOLS) {
-      const decision = await captured.preExecute!({ name: publicName(rawName) }, next)
+    for (const registered of REFUSED_REGISTERED) {
+      const decision = await captured.preExecute!({ name: registered }, next)
       expect(decision).toEqual(expect.objectContaining({ kind: 'deny' }))
-      expect((decision as { reason?: string }).reason).toContain('observation-only')
+      expect((decision as { reason?: string }).reason).toContain('refused')
+      expect(captured.guard!({ name: registered })).toContain('refused')
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(registered))
     }
-    const guard = captured.guard!
-    expect(guard({ name: publicName('click') })).toContain('refused')
-    expect(guard({ name: 'shell' })).toBeUndefined()
+    expect(captured.guard!({ name: 'shell' })).toBeUndefined()
+  })
+
+  it('denies unadmitted names inside the wincu namespace instead of forwarding them', async () => {
+    const { ctx, captured } = fakeContext()
+    await apply(ctx, Config({ enabledTools: ['snapshot'] }))
+    for (const registered of [
+      'mcp__wincu__windows_computer_use_screenshot',
+      'mcp__wincu__windows_computer_use_teleport',
+      'mcp__wincu__click',
+      'mcp__wincu__windows_computer_use_windows_computer_use_click',
+    ]) {
+      const decision = await captured.preExecute!({ name: registered }, next)
+      expect(decision).toEqual(expect.objectContaining({ kind: 'deny' }))
+      expect(captured.guard!({ name: registered })).toEqual(expect.any(String))
+    }
   })
 
   it('lets non-wincu tools pass through untouched', async () => {
@@ -172,15 +217,15 @@ describe('apply', () => {
   it('lets enabled observation calls through and logs each observation', async () => {
     const { ctx, captured, logger } = fakeContext()
     await apply(ctx, Config({ enabledTools: ['snapshot'] }))
-    const decision = await captured.preExecute!({ name: publicName('snapshot') }, next)
+    const decision = await captured.preExecute!({ name: 'mcp__wincu__windows_computer_use_snapshot' }, next)
     expect(decision).toEqual({ kind: 'allow' })
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining(publicName('snapshot')))
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('mcp__wincu__windows_computer_use_snapshot'))
   })
 
   it('asks for approval on observation calls when configured', async () => {
     const { ctx, captured } = fakeContext()
     await apply(ctx, Config({ enabledTools: ['snapshot'], requireApproval: true }))
-    const decision = await captured.preExecute!({ name: publicName('snapshot') }, next)
+    const decision = await captured.preExecute!({ name: 'mcp__wincu__windows_computer_use_snapshot' }, next)
     expect(decision).toEqual(expect.objectContaining({ kind: 'ask' }))
   })
 

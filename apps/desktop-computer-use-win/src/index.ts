@@ -16,6 +16,8 @@ export {
   resolveUpstreamServer,
   SERVER_NAME,
   sweepBackendProcesses,
+  upstreamName,
   UPSTREAM_PACKAGE,
+  UPSTREAM_TOOL_PREFIX,
 } from './runtime.ts'
 export type { Config as ConfigOptions, ObservationTool, RefusedTool } from './runtime.ts'

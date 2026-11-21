@@ -136,7 +136,10 @@ describe.skipIf(!built)('built lib entry', () => {
     const entry = await adapter()
     expect(entry.SERVER_NAME).toBe('wincu')
     for (const rawName of entry.OBSERVATION_TOOLS) {
-      expect(entry.publicName(rawName)).toBe(`mcp__wincu__${rawName}`)
+      expect(entry.publicName(rawName)).toBe(`mcp__wincu__windows_computer_use_${rawName}`)
+    }
+    for (const rawName of entry.REFUSED_TOOLS) {
+      expect(entry.publicName(rawName)).toBe(`mcp__wincu__windows_computer_use_${rawName}`)
     }
   })
 

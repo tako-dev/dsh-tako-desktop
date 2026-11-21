@@ -6,11 +6,11 @@ An optional DSH bundle that gives the agent **read-only** access to the Windows 
 
 ## What the agent can do
 
-Only observation tools are enabled: UIA accessibility tree, screen snapshots and screenshots, OCR, window listing, element lookup, and waits. They appear as `mcp__wincu__<tool>`.
+Only observation tools are enabled: UIA accessibility tree, screen snapshots and screenshots, OCR, window listing, element lookup, and waits. They are registered as `mcp__wincu__windows_computer_use_<tool>`.
 
 ## What is refused
 
-Every input, mutation, and management tool upstream offers — click, type, drag, scroll, keypress, invoke, set value, window activate/close/move, app launch, batch, and the tool-management tool — is refused twice: naming one in `enabledTools` fails config validation before any process starts, and a call that still reaches the pipeline is denied by a pre-dispatch guard without contacting the upstream server. No kill or cancellation is used to enforce this, so an upstream `finally` (drag release, dialog restore) is never truncated.
+Every input, mutation, and management tool upstream offers — click, type, drag, scroll, keypress, invoke, set value, window activate/close/move, app launch, batch, and the tool-management tool — is refused twice: naming one in `enabledTools` fails config validation before any process starts, and a call that still reaches the pipeline under its registered name `mcp__wincu__windows_computer_use_<tool>` is denied by the pre-dispatch guard and the `tools/pre-execute` decision, matched on that registered name, without contacting the upstream server. No kill or cancellation is used to enforce this, so an upstream `finally` (drag release, dialog restore) is never truncated.
 
 ## Shipping
 
