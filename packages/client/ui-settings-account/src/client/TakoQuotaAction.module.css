@@ -16,7 +16,7 @@
   padding: 8px 10px;
   border-radius: var(--dsw-radius-md);
   text-align: left;
-  box-shadow: inset 3px 0 0 #F26D5B;
+  box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary);
 }
 
 .action[data-tako-quota="plan"],
