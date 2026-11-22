@@ -415,7 +415,7 @@ jobs:
     needs: [publish]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -436,8 +436,11 @@ jobs:
 
       # The mainland host pulls the assets itself through its mesh squid proxy —
       # that leg is much faster than uploading from the runner across the GFW.
-      # Files land in data.tmp, are verified against the just-published
-      # SHA256SUMS, then moved into place so the mirror never serves a partial file.
+      # Four files are fetched at a time: the proxy's bandwidth is fixed, so more
+      # streams only add contention, while a single stalled transfer no longer
+      # serializes the ones behind it. Files land in data.tmp, are verified against
+      # the just-published SHA256SUMS, then moved into place so the mirror never
+      # serves a partial file.
       - name: Pull assets on the China mirror
         env:
           SSH_KEY: ${{ secrets.DSH_CN_SSH_KEY }}
@@ -449,23 +452,34 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/dsh_cn_key
           chmod 600 ~/.ssh/dsh_cn_key
           printf '%s\n' "$HOST_KEY" >> ~/.ssh/known_hosts
-          # The asset list travels on stdin: interpolating it into the remote command line
-          # puts every file name on one `for` word list, which breaks on names with spaces.
+          # The asset list travels on stdin, one name per line: interpolating it into the
+          # remote command line puts every file name on one `for` word list, which breaks on
+          # names with spaces. tr/xargs -0 hand the same list to the workers NUL-separated, so
+          # a space stays part of the name. A worker that exhausts its five attempts exits
+          # non-zero, which fails the step before anything is moved out of data.tmp.
           ssh -i ~/.ssh/dsh_cn_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
             "set -e
             export https_proxy=http://172.17.66.4:3128
             mkdir -p /srv/dsh-dl/data.tmp && rm -rf /srv/dsh-dl/data.tmp/*
             cd /srv/dsh-dl/data.tmp
-            while IFS= read -r f; do
-              [ -n \"\$f\" ] || continue
+            tr '\n' '\0' | xargs -0 -n 1 -P 4 sh -c '
+              f=\"\$1\"
+              [ -n \"\$f\" ] || exit 0
+              enc=\$(printf %s \"\$f\" | od -An -tx1 | tr -d \" \\n\" | sed \"s/../%&/g\")
               for try in 1 2 3 4 5; do
-                curl -sfL -C - --max-time 900 \
-                  -o \"\$f\" \"https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/\$f\" \
-                  && break
-                [ \"\$try\" = 5 ] && exit 1
+                if curl -sfL -C - --max-time 900 \
+                  -o \"\$f\" \"https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/\$enc\"; then
+                  echo \"fetched \$f\"
+                  exit 0
+                fi
+                if [ \"\$try\" = 5 ]; then
+                  echo \"giving up on \$f after \$try attempts\" >&2
+                  exit 1
+                fi
+                echo \"retrying \$f (attempt \$try failed)\" >&2
                 sleep 10
               done
-            done
+            ' _
             sha256sum -c SHA256SUMS.txt
             for f in *; do mv -f \"\$f\" /srv/dsh-dl/data/\"\$f\"; done
             cd /srv/dsh-dl && rmdir data.tmp" \
