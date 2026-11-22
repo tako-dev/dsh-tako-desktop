@@ -311,6 +311,7 @@ it('verifies archived bytes against the preparation descriptor', async () => {
   await expect(verifyRuntimeArchive(archive, expected)).resolves.toBeUndefined()
   await writeFile(join(input.resources, 'app.asar.unpacked/dsh/node_modules/foo/native.node'), 'tampered')
   await expect(verifyRuntimeArchive(archive, expected)).rejects.toThrow('ASAR integrity')
+  await expect(verifyRuntimeArchive(archive, expected)).rejects.toThrow(/changed node_modules\/foo\/native\.node: sealed 128 bytes/)
 })
 
 it.each(['sharedPackages', 'release', 'files'] as const)('rejects changed archived descriptor %s', async (field) => {
@@ -328,7 +329,9 @@ it.each(['missing', 'extra'] as const)('rejects %s archived files', async (state
   if (state === 'missing') await rm(join(input.source, 'node_modules/foo/companion.json'))
   else await writeFile(join(input.source, 'extra.json'), '{}')
   await packageFixture(input)
+  const difference = state === 'missing' ? 'missing node_modules/foo/companion.json (2 bytes)' : 'archived-only extra.json (2 bytes)'
   await expect(verifyRuntimeArchive(join(input.resources, 'app.asar'), expected)).rejects.toThrow('ASAR integrity')
+  await expect(verifyRuntimeArchive(join(input.resources, 'app.asar'), expected)).rejects.toThrow(difference)
 })
 
 it.each(['directory', 'extra'] as const)('rejects an unpacked %s without a matching file record', async (state) => {

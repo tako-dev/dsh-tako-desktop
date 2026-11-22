@@ -49,5 +49,32 @@ export async function verifyRuntimeArchive(archivePath: string, expected: Deskto
     if (!entry.isFile() || !unpacked.has(path)) throw new Error(`desktop runtime: unexpected unpacked entry ${path}`)
   }
   files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
-  if (JSON.stringify(files) !== JSON.stringify(expected.files)) throw new Error('desktop runtime: ASAR integrity verification failed')
+  if (JSON.stringify(files) !== JSON.stringify(expected.files)) {
+    const differences = inventoryDifferences(files, expected.files)
+    const listed = differences.slice(0, 10)
+    throw new Error(`desktop runtime: ASAR integrity verification failed (${differences.length} differing entries; first ${listed.length}: ${listed.join('; ')})`)
+  }
+}
+
+/**
+ * Describe every mismatch between the archived inventory and the sealed descriptor.
+ * @param actual - Files read back from the ASAR and its physical unpacked copies.
+ * @param expected - Sealed preparation inventory.
+ * @returns One line per missing, archived-only, or changed file, in walk order.
+ */
+function inventoryDifferences(actual: readonly DesktopRuntimeFile[], expected: readonly DesktopRuntimeFile[]): string[] {
+  const differences: string[] = []
+  const expectedByPath = new Map(expected.map(file => [file.path, file]))
+  const archivedPaths = new Set(actual.map(file => file.path))
+  for (const file of actual) {
+    const sealed = expectedByPath.get(file.path)
+    if (sealed === undefined) differences.push(`archived-only ${file.path} (${file.bytes} bytes)`)
+    else if (sealed.bytes !== file.bytes || sealed.sha256 !== file.sha256 || sealed.executable !== file.executable) {
+      differences.push(`changed ${file.path}: sealed ${sealed.bytes} bytes ${sealed.sha256.slice(0, 16)} executable ${Number(sealed.executable)}, archived ${file.bytes} bytes ${file.sha256.slice(0, 16)} executable ${Number(file.executable)}`)
+    }
+  }
+  for (const file of expected) {
+    if (!archivedPaths.has(file.path)) differences.push(`missing ${file.path} (${file.bytes} bytes)`)
+  }
+  return differences
 }
