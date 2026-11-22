@@ -414,6 +414,7 @@ async function main(): Promise<void> {
   environment[DESKTOP_BUILD_VERSION_ENV] = buildVersion
   if (invocation.check) {
     validateDesktopPackageEnvironment(environment, target, invocation)
+    assertDesktopImCandidateRequest(invocation)
     await requireDesktopToolchain(target.platform, environment)
     if (target.platform === 'darwin' && !invocation.unsigned && !invocation.skipNotarization) {
       const staple = resolveStapleRetryPolicy(environment)

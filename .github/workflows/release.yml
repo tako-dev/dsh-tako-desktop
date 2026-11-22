@@ -178,18 +178,20 @@ jobs:
           MAC_MODE: ${{ steps.signing.outputs.mode }}
         run: |
           if [ "$MAC_MODE" = signed ]; then
-            pnpm run package:desktop:mac:arm64 --check
+            pnpm run package:desktop:mac:arm64 --check --with-im-candidate
           else
-            pnpm run package:desktop:mac:arm64:unsigned --check
+            pnpm run package:desktop:mac:arm64:unsigned --check --with-im-candidate
           fi
 
+      # Every release installer carries the reviewed @xmanrui/dsh-im candidate; the check and
+      # build both fail when its descriptor is not release-eligible.
       - name: Build, sign, and notarize
         if: steps.signing.outputs.mode == 'signed'
-        run: pnpm run package:desktop:mac:arm64
+        run: pnpm run package:desktop:mac:arm64 --with-im-candidate
 
       - name: Build unsigned
         if: steps.signing.outputs.mode == 'unsigned'
-        run: pnpm run package:desktop:mac:arm64:unsigned
+        run: pnpm run package:desktop:mac:arm64:unsigned --with-im-candidate
 
       - name: Collect release files
         env:
@@ -282,12 +284,15 @@ jobs:
 
       - name: Check packaging configuration and toolchain
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release --check --computer-use-win
+          pnpm run package:desktop:win:x64:unsigned-release --check --with-im-candidate --computer-use-win
           exit $LASTEXITCODE
 
+      # Every release installer carries the reviewed @xmanrui/dsh-im candidate and the
+      # observation-only computer-use bundle; the check and build both fail when the candidate
+      # descriptor is not release-eligible.
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release --computer-use-win
+          pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate --computer-use-win
           exit $LASTEXITCODE
 
       - name: Install, launch, and uninstall the built installer

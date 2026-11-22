@@ -2,6 +2,8 @@
  * Keep experimental packages outside default installations, runtime imports, and shipped compositions.
  * The one declared exception is a bundle the launcher names in `OPTIONAL_BUNDLES`: shipped for the person to
  * switch on, selected by no shipped template, its own dependency graph outside the default product's.
+ * `DESKTOP_CARRIED_BUNDLES` narrows that carrier: opt-in Desktop packaging adds the bundle to its package set,
+ * so it is a runtime dependency of the Desktop installation rather than of `apps/cli`.
  */
 
 import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
@@ -83,11 +85,18 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   }
   // The bundles the launcher ships switched off: each a runtime dependency of the installation that is a bundle
   // with an icon and locale display metadata for the plugin manager's Official group, none a default.
+  // Desktop-carried bundles ship through opt-in Desktop packaging instead of the `dsh` app.
   const profilePath = resolve(root, PROFILE_SOURCE)
   const selection = existsSync(profilePath) ? profilePackages(readFileSync(profilePath, 'utf8')) : undefined
   const optionalBundles = new Set(selection?.optionalBundles ?? [])
+  const desktopCarried = new Set(selection?.desktopCarried ?? [])
+  for (const name of desktopCarried) {
+    if (!optionalBundles.has(name)) {
+      failures.push(`${PROFILE_SOURCE}: desktop-carried bundle ${name} must be an optional bundle`)
+    }
+  }
   for (const name of optionalBundles) {
-    if (cli?.manifest.dependencies?.[name] === undefined) {
+    if (!desktopCarried.has(name) && cli?.manifest.dependencies?.[name] === undefined) {
       failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must be a runtime dependency of apps/cli`)
     }
     const manifest = packages.get(name)?.manifest
@@ -355,17 +364,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** Read the literal package lists that define installation-owned profile defaults and the optional bundles it ships. */
-function profilePackages(source: string): { packages: string[]; webBundles: string[]; optionalBundles: string[] } {
+/** Read the literal package lists that define installation-owned profile defaults, optional bundles, and their carriers. */
+function profilePackages(source: string): {
+  packages: string[]
+  webBundles: string[]
+  optionalBundles: string[]
+  desktopCarried: string[]
+} {
   const file = ts.createSourceFile(PROFILE_SOURCE, source, ts.ScriptTarget.Latest, true)
   const required = new Set(['PROFILE_TEMPLATES', 'DEFAULT_PROFILE_BUNDLES'])
   const found = new Set<string>()
   const packages: string[] = []
   const webBundles: string[] = []
   const optionalBundles: string[] = []
+  const desktopCarried: string[] = []
   const literals = (node: ts.Node, path: string[]): void => {
     if (ts.isStringLiteralLike(node)) {
       if (path[0] === 'OPTIONAL_BUNDLES') optionalBundles.push(node.text)
+      else if (path[0] === 'DESKTOP_CARRIED_BUNDLES') desktopCarried.push(node.text)
       else if (node.text.startsWith('@')) packages.push(node.text)
       if (path.join('.') === 'PROFILE_TEMPLATES.web.bundles') webBundles.push(node.text)
     } else if (ts.isArrayLiteralExpression(node)) node.elements.forEach((child) => { literals(child, path) })
@@ -385,19 +401,20 @@ function profilePackages(source: string): { packages: string[]; webBundles: stri
     for (const declaration of statement.declarationList.declarations) {
       if (!ts.isIdentifier(declaration.name)
         || !required.has(declaration.name.text) && declaration.name.text !== 'INSTALLATION_OWNED_PROFILE_TUPLES'
-        && declaration.name.text !== 'OPTIONAL_BUNDLES') continue
+        && declaration.name.text !== 'OPTIONAL_BUNDLES' && declaration.name.text !== 'DESKTOP_CARRIED_BUNDLES') continue
       if (declaration.initializer === undefined) continue
       if (required.has(declaration.name.text)) found.add(declaration.name.text)
       const before = packages.length
       literals(declaration.initializer, [declaration.name.text])
-      if (declaration.name.text !== 'OPTIONAL_BUNDLES' && packages.length === before) {
+      if (declaration.name.text !== 'OPTIONAL_BUNDLES' && declaration.name.text !== 'DESKTOP_CARRIED_BUNDLES'
+        && packages.length === before) {
         throw new Error(`${PROFILE_SOURCE}: ${declaration.name.text} has no default bundles`)
       }
     }
   }
   if (found.size !== required.size) throw new Error(`${PROFILE_SOURCE}: missing default profile declarations`)
   if (webBundles.length === 0) throw new Error(`${PROFILE_SOURCE}: missing default Web bundle list`)
-  return { packages, webBundles, optionalBundles }
+  return { packages, webBundles, optionalBundles, desktopCarried }
 }
 
 if (import.meta.main) {
