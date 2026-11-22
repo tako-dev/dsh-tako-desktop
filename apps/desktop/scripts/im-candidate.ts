@@ -8,9 +8,11 @@
  * packed identity. Staging writes the same captured bytes; nothing is re-read from disk after
  * verification, so a filesystem swap between checking and staging cannot pass unnoticed.
  *
- * `releaseEligible` stays false in the descriptor: packaging refuses the candidate unless the
- * operator repeats the explicit `--allow-ineligible-im-candidate` opt-in on the release or
- * package-set command.
+ * The descriptor carries `releaseEligible: true`: maintainers exempted the candidate's four
+ * documented blockers on 2026-11-22 after evaluation and distribute the plugin with Desktop
+ * installers. The gate itself stays: a descriptor with `releaseEligible: false` refuses to
+ * package unless the operator repeats the explicit `--allow-ineligible-im-candidate` opt-in on
+ * the release or package-set command.
  */
 
 import { createHash } from 'node:crypto'

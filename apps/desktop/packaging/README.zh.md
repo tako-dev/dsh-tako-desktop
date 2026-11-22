@@ -231,7 +231,7 @@ pnpm run prepare:desktop
 
 ## 可选插件候选
 
-经审查的第三方插件可以作为可选候选随核心包集一起交付，存放在 `apps/desktop/optional-plugins/<name>/`。候选在 `candidate.json` 中以 SHA-512 integrity 锁定其 npm 归档，并以原始字节的 SHA-256 锁定冻结 lockfile 与 importer 文件；`scripts/im-candidate.ts` 在解析前先对 lockfile 原始字节做哈希，再核对 importer 与清单、已解析的快照闭包，并把捕获到的字节原样暂存，不再二次读盘。用 `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch` 获取锁定的归档，用 `verify` 校验，用 `stage <dir>` 写入私有暂存目录。`@xmanrui/dsh-im` 候选在其已记录的阻塞项未解除前保持 `releaseEligible: false`，因此带 `--with-im-candidate` 的打包请求会拒绝构建，除非操作者再加 `--allow-ineligible-im-candidate`；候选自身的 `stage` 命令用 `--allow-ineligible` 做同样的覆盖。被拒绝的请求不会构建任何内容。
+经审查的第三方插件可以作为可选候选随核心包集一起交付，存放在 `apps/desktop/optional-plugins/<name>/`。候选在 `candidate.json` 中以 SHA-512 integrity 锁定其 npm 归档，并以原始字节的 SHA-256 锁定冻结 lockfile 与 importer 文件；`scripts/im-candidate.ts` 在解析前先对 lockfile 原始字节做哈希，再核对 importer 与清单、已解析的快照闭包，并把捕获到的字节原样暂存，不再二次读盘。用 `pnpm --dir apps/desktop exec tsx scripts/im-candidate.ts fetch` 获取锁定的归档，用 `verify` 校验，用 `stage <dir>` 写入私有暂存目录。`@xmanrui/dsh-im` 候选处于 release-eligible 状态且阻塞清单为空：维护者于 2026-11-22 评估后豁免其已记录的阻塞项，决定随桌面安装包分发该插件。[Release 工作流](../../../.github/workflows/release.yml) 与 CI 的 Windows 安装包构建均传入 `--with-im-candidate`，因此每个打 tag 的桌面版本都会把校验过的候选归档带入其包集；描述符不符合发版资格时 `--check --with-im-candidate` 会提前失败。资格门禁保留给后续评审：`releaseEligible: false` 的描述符仍会拒绝构建，除非操作者再加 `--allow-ineligible-im-candidate`（不带 `--with-im-candidate` 单独使用会报错）；候选自身的 `stage` 命令用 `--allow-ineligible` 做同样的覆盖。被拒绝的请求不会构建任何内容。
 
 <a id="local-official-bundles-from-a-loopback-registry"></a>
 

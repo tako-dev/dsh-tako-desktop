@@ -1,7 +1,7 @@
 /** Desktop-only omissions from already installed production npm packages. */
 
 /**
- * Identify build, diagnostic and other-platform files omitted from the immutable Desktop runtime.
+ * Identify build, diagnostic, other-platform and packer-skipped files omitted from the immutable Desktop runtime.
  * Unrecognized assets and target runtime binaries are retained. Paths name the copied
  * node_modules tree, including nested package containers.
  * @param path - Path relative to the production node_modules directory.
@@ -20,6 +20,9 @@ export function desktopRuntimeFileExclusion(
   if (/\.(?:[cm]?[jt]s|css)\.map$/u.test(file)) return 'source map'
   if (/\.d\.[cm]?ts$/u.test(file)) return 'TypeScript declaration'
   if (/\.tsbuildinfo$/u.test(file)) return 'TypeScript build cache'
+  // The ASAR pack walk skips these names unconditionally, so the sealed inventory must not contain them.
+  if (file === '.gitkeep') return 'empty-directory placeholder'
+  if (file === '.DS_Store') return 'Finder metadata'
   const packageParts = parts.slice(parts.lastIndexOf('node_modules') + 1)
   const nameParts = packageParts[0]?.startsWith('@') ? 2 : 1
   const name = packageParts.slice(0, nameParts).join('/')

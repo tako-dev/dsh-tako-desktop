@@ -133,9 +133,10 @@ jobs:
           pnpm exec vitest run apps/desktop/tests/tako-release.spec.ts --testTimeout=30000 --hookTimeout=30000
           exit $LASTEXITCODE
 
+      # Match the Release workflow: the installer carries the reviewed @xmanrui/dsh-im candidate.
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release
+          pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate
           exit $LASTEXITCODE
 
       - name: Verify cleanup after an installed-version failure
