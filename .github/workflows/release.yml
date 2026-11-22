@@ -282,12 +282,12 @@ jobs:
 
       - name: Check packaging configuration and toolchain
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release --check
+          pnpm run package:desktop:win:x64:unsigned-release --check --computer-use-win
           exit $LASTEXITCODE
 
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release
+          pnpm run package:desktop:win:x64:unsigned-release --computer-use-win
           exit $LASTEXITCODE
 
       - name: Install, launch, and uninstall the built installer

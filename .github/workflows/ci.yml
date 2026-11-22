@@ -135,7 +135,7 @@ jobs:
 
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release
+          pnpm run package:desktop:win:x64:unsigned-release --computer-use-win
           exit $LASTEXITCODE
 
       - name: Verify cleanup after an installed-version failure
