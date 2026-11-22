@@ -14,4 +14,4 @@
 
 ## 发布
 
-仅限 Windows（`os`、`dsh.bundle.platforms`）。默认的 Desktop 产品不包含本插件包；仅当 `prepare-package-set.ts --with-computer-use-win` 显式启用时，Windows 打包才会带入其 tarball，且运行时 lockfile 会按固定的上游完整性哈希校验。带上后，在插件管理器中按配置文件启用，与其他可选插件包一致。
+仅限 Windows（`os`、`dsh.bundle.platforms`）。发布与 CI 的 Windows 安装包携带本插件包：`package:desktop:win:x64:unsigned-release --computer-use-win` 会设置 `DSH_DESKTOP_COMPUTER_USE_WIN`，使 `prepare-package-set.ts` 将其 tarball 加入打包集合，运行时 lockfile 按固定的上游完整性哈希校验。本地打包仍须 `--computer-use-win` 显式启用才会带入。带上后，在插件管理器中按配置文件启用，与其他可选插件包一致。

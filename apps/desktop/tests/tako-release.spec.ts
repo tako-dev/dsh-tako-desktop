@@ -61,9 +61,15 @@ describe('Windows release installation checks', () => {
   const release = load(readFileSync(join(REPOSITORY_ROOT, '.github/workflows/release.yml'), 'utf8')) as { jobs: Record<string, Job> }
   const ci = load(readFileSync(join(REPOSITORY_ROOT, '.github/workflows/ci.yml'), 'utf8')) as { jobs: Record<string, Job> }
 
+  it('packages the release installer with the observation-only computer-use bundle', () => {
+    const commands = release.jobs.windows!.steps.map(step => step.run ?? '').join('\n')
+    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release --check --with-im-candidate --computer-use-win\n')
+    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate --computer-use-win\n')
+  })
+
   it('blocks collection and upload until the actual release installer passes', () => {
     const steps = release.jobs.windows!.steps
-    const build = steps.findIndex(step => step.run?.includes('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate\n'))
+    const build = steps.findIndex(step => step.run?.includes('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate --computer-use-win\n'))
     const smoke = steps.findIndex(step => step.run?.includes('windows-release-install-smoke.ps1'))
     const collect = steps.findIndex(step => step.run?.includes('tako-release.mjs collect'))
     const upload = steps.findIndex(step => step.uses?.startsWith('actions/upload-artifact@'))
@@ -95,7 +101,7 @@ describe('Windows release installation checks', () => {
     expect(job!['runs-on']).toBe('windows-latest')
     expect(job!.permissions).toEqual({ contents: 'read' })
     const commands = job!.steps.map(step => step.run ?? '').join('\n')
-    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate')
+    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate --computer-use-win')
     expect(commands).toContain('-Version 0.0.0')
     expect(commands).toContain('Expected the mismatched version check to fail')
     expect(commands).toContain('$control.cleanup -ne \'passed\'')

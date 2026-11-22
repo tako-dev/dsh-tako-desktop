@@ -14,4 +14,4 @@ Every input, mutation, and management tool upstream offers — click, type, drag
 
 ## Shipping
 
-Windows only (`os`, `dsh.bundle.platforms`). The default Desktop product does not carry this bundle; the Windows packaging gate includes its tarball only when `prepare-package-set.ts --with-computer-use-win` opts in, and the runtime lockfile is verified against the pinned upstream integrity. When shipped, the bundle is enabled per profile from the plugin manager, like other optional bundles.
+Windows only (`os`, `dsh.bundle.platforms`). Release and CI Windows installers carry this bundle: `package:desktop:win:x64:unsigned-release --computer-use-win` sets `DSH_DESKTOP_COMPUTER_USE_WIN` so `prepare-package-set.ts` adds the tarball to the package set, and the runtime lockfile is verified against the pinned upstream integrity. Local packaging omits it unless `--computer-use-win` opts in. When shipped, the bundle is enabled per profile from the plugin manager, like other optional bundles.

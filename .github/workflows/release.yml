@@ -284,14 +284,15 @@ jobs:
 
       - name: Check packaging configuration and toolchain
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release --check --with-im-candidate
+          pnpm run package:desktop:win:x64:unsigned-release --check --with-im-candidate --computer-use-win
           exit $LASTEXITCODE
 
-      # Every release installer carries the reviewed @xmanrui/dsh-im candidate; the check and
-      # build both fail when its descriptor is not release-eligible.
+      # Every release installer carries the reviewed @xmanrui/dsh-im candidate and the
+      # observation-only computer-use bundle; the check and build both fail when the candidate
+      # descriptor is not release-eligible.
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate
+          pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate --computer-use-win
           exit $LASTEXITCODE
 
       - name: Install, launch, and uninstall the built installer
