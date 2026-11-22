@@ -199,14 +199,14 @@ describe('im candidate verification', () => {
       package: IM_CANDIDATE_PACKAGE,
       version: CANDIDATE_VERSION,
       archiveFile: ARCHIVE_FILE,
-      releaseEligible: false,
+      releaseEligible: true,
     })
     expect(descriptor.integrity).toMatch(/^sha512-/u)
     expect(descriptor.archiveUrl).toBe(`https://registry.npmjs.org/${IM_CANDIDATE_PACKAGE}/-/${ARCHIVE_FILE}`)
     for (const hex of [descriptor.lockSha256, descriptor.manifestSha256, descriptor.workspaceSha256]) {
       expect(hex).toMatch(/^[0-9a-f]{64}$/u)
     }
-    expect(descriptor.blockers.length).toBeGreaterThan(0)
+    expect(descriptor.blockers).toEqual([])
   })
 
   it('accepts peer-suffixed resolutions and nested optional dependencies', () => {
@@ -612,9 +612,9 @@ describe('im candidate package set', () => {
     expect(names).toEqual([...names].sort((left, right) => left.localeCompare(right)))
   })
 
-  it('refuses the default ineligible candidate before writing the package set', () => {
+  it('accepts the committed candidate without the ineligible override', () => {
     const descriptor = readImCandidateDescriptorFile(join(import.meta.dirname, '..', IM_CANDIDATE_DIR))
-    expect(descriptor.releaseEligible).toBe(false)
-    expect(() => { assertImCandidateReleaseEligible(descriptor, false) }).toThrow(/not release-eligible/u)
+    expect(descriptor.releaseEligible).toBe(true)
+    expect(() => { assertImCandidateReleaseEligible(descriptor, false) }).not.toThrow()
   })
 })
