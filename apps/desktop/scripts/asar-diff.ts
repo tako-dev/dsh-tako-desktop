@@ -1,6 +1,6 @@
 /** Diff the sealed desktop-runtime descriptor against the packaged ASAR (diagnostic). */
 import { createHash } from 'node:crypto'
-import { lstat, readdir } from 'node:fs/promises'
+import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readAsar, type Node } from 'app-builder-lib/out/asar/asar.js'
 import { readDesktopRuntime, type DesktopRuntimeDescriptor, type DesktopRuntimeFile } from '../src/runtime-tree.ts'
