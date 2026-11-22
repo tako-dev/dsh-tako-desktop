@@ -63,7 +63,7 @@ describe('Windows release installation checks', () => {
 
   it('blocks collection and upload until the actual release installer passes', () => {
     const steps = release.jobs.windows!.steps
-    const build = steps.findIndex(step => step.run?.includes('pnpm run package:desktop:win:x64:unsigned-release\n'))
+    const build = steps.findIndex(step => step.run?.includes('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate\n'))
     const smoke = steps.findIndex(step => step.run?.includes('windows-release-install-smoke.ps1'))
     const collect = steps.findIndex(step => step.run?.includes('tako-release.mjs collect'))
     const upload = steps.findIndex(step => step.uses?.startsWith('actions/upload-artifact@'))
@@ -95,7 +95,7 @@ describe('Windows release installation checks', () => {
     expect(job!['runs-on']).toBe('windows-latest')
     expect(job!.permissions).toEqual({ contents: 'read' })
     const commands = job!.steps.map(step => step.run ?? '').join('\n')
-    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release')
+    expect(commands).toContain('pnpm run package:desktop:win:x64:unsigned-release --with-im-candidate')
     expect(commands).toContain('-Version 0.0.0')
     expect(commands).toContain('Expected the mismatched version check to fail')
     expect(commands).toContain('$control.cleanup -ne \'passed\'')
