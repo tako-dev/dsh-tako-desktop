@@ -1,10 +1,23 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { expect, it } from 'vitest'
+import { getFileMatchers } from 'app-builder-lib/out/fileMatcher.js'
 import { desktopRuntimeFileExclusion } from '../scripts/runtime-file-policy.ts'
 import { verifyDesktopRuntime, writeDesktopRuntime } from '../src/runtime-tree.ts'
 import { runtimeFixture } from './runtime-fixture.ts'
+
+const require = createRequire(import.meta.url)
+// The locked builder omits declarations for its file-set collection implementation.
+const { computeFileSets } = require('app-builder-lib/out/util/appFileCopier.js') as {
+  computeFileSets: (
+    matchers: ReturnType<typeof getFileMatchers>,
+    transformer: null,
+    platformPackager: { info: Record<string, never> },
+    isElectronCompile: boolean,
+  ) => Promise<{ files: string[] }[]>
+}
 
 const windows = { platform: 'win32' as const, arch: 'x64' }
 
@@ -31,6 +44,7 @@ it('omits development artifacts while preserving executable modules, assets and 
     '@mixmark-io/domino/test/entities.html',
     '@mixmark-io/domino/.yarn/plugins/@yarnpkg/plugin-version.cjs',
     '@mixmark-io/domino/.yarn/versions/release.yml',
+    'undici/lib/llhttp/.gitkeep', 'example/.DS_Store',
     '@deepseek-ai/libreoffice-kit-wasm/assets/soffice.data',
     '@deepseek-ai/libreoffice-kit-darwin-arm64/bin/dsoffice',
     '.modules.yaml', '.pnpm-workspace-state-v1.json', '.bin/tool', '.pnpm/cache',
@@ -90,6 +104,37 @@ it('applies package-specific rules inside scoped and nested dependency container
   expect(desktopRuntimeFileExclusion('outer\\node_modules\\node-pty\\prebuilds\\win32-arm64\\conpty.node', windows, 'win32-x64')).toBeDefined()
   expect(desktopRuntimeFileExclusion('outer/node_modules/unrelated/test/data.html', windows, 'win32-x64')).toBeUndefined()
   expect(desktopRuntimeFileExclusion('outer/fs-ext/build/Release/fs_ext.lib', windows, 'win32-x64')).toBeUndefined()
+})
+
+it('omits placeholder names inside nested dependency containers', () => {
+  expect(desktopRuntimeFileExclusion('undici/lib/llhttp/.gitkeep', windows, 'win32-x64')).toBeDefined()
+  expect(desktopRuntimeFileExclusion('@xmanrui/dsh-im/node_modules/undici/lib/llhttp/.gitkeep', windows, 'win32-x64')).toBeDefined()
+  expect(desktopRuntimeFileExclusion('example/.DS_Store', windows, 'win32-x64')).toBeDefined()
+  expect(desktopRuntimeFileExclusion('example/lib/keep.js', windows, 'win32-x64')).toBeUndefined()
+})
+
+it('never collects placeholder names in the ASAR pack walk', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'desktop-pack-walk-'))
+  try {
+    const source = join(root, 'dsh')
+    const llhttp = join(source, 'node_modules', 'undici', 'lib', 'llhttp')
+    mkdirSync(llhttp, { recursive: true })
+    writeFileSync(join(llhttp, '.gitkeep'), '')
+    writeFileSync(join(llhttp, 'utils.js'), 'export {}\n')
+    writeFileSync(join(source, 'node_modules', 'undici', '.DS_Store'), '')
+    const matchers = getFileMatchers({ files: [
+      { from: source, to: 'dsh', filter: ['**/*'] },
+      { from: join(source, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] },
+    ] }, 'files', join(root, 'resources', 'app'), {
+      defaultSrc: join(root, 'app'), globalOutDir: root, customBuildOptions: {}, macroExpander: value => value,
+    })!
+    const fileSets = await computeFileSets(matchers, null, { info: {} }, false)
+    const collected = fileSets.flatMap(fileSet => fileSet.files)
+    expect(collected.filter(file => file.endsWith('.gitkeep') || file.endsWith('.DS_Store'))).toEqual([])
+    expect(collected.filter(file => file.endsWith('utils.js'))).toHaveLength(1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 it('retains native prebuilds for the selected macOS architecture', () => {
